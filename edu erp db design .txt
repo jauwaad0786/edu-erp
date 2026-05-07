@@ -1,0 +1,586 @@
+-- ============================================================
+--  EduERP — Complete MySQL Database Schema
+--  Version  : 1.0
+--  Engine   : InnoDB  |  Charset: utf8mb4
+--  Author   : Jauwaad Bin Irshad
+-- ============================================================
+
+-- Step 1: Create & use database
+CREATE DATABASE IF NOT EXISTS eduErp
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
+
+USE eduErp;
+
+-- ============================================================
+-- Disable FK checks during import
+-- ============================================================
+SET FOREIGN_KEY_CHECKS = 0;
+SET sql_mode = '';
+
+-- ============================================================
+-- TABLE 1: schools
+-- ============================================================
+CREATE TABLE IF NOT EXISTS schools (
+    id               INT             NOT NULL AUTO_INCREMENT,
+    name             VARCHAR(200)    NOT NULL,
+    code             VARCHAR(20)     NOT NULL,          -- e.g. DPS001
+    address          VARCHAR(500)    DEFAULT NULL,
+    city             VARCHAR(100)    DEFAULT NULL,
+    state            VARCHAR(100)    DEFAULT NULL,
+    pincode          VARCHAR(10)     DEFAULT NULL,
+    phone            VARCHAR(20)     DEFAULT NULL,
+    email            VARCHAR(120)    DEFAULT NULL,
+    logo_url         VARCHAR(255)    DEFAULT NULL,
+    is_active        TINYINT(1)      NOT NULL DEFAULT 1,
+    type             VARCHAR(30)     NOT NULL DEFAULT 'SCHOOL',  -- SCHOOL / COLLEGE / HOSPITAL / INDUSTRY
+    current_session  VARCHAR(20)     NOT NULL DEFAULT '2024-25',
+    created_by       INT             DEFAULT NULL,
+    created_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at       DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_school_code (code),
+    KEY idx_school_type (type),
+    KEY idx_school_active (is_active)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='All registered schools / colleges / hospitals';
+
+-- ============================================================
+-- TABLE 2: users   (login accounts for all roles)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS users (
+    id          INT             NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(120)    NOT NULL,
+    email       VARCHAR(120)    NOT NULL,
+    password    VARCHAR(256)    NOT NULL,               -- bcrypt hash
+    role        ENUM(
+                  'SUPER_ADMIN',
+                  'PRINCIPAL',
+                  'TEACHER',
+                  'STUDENT',
+                  'PARENT'
+                ) NOT NULL,
+    is_active   TINYINT(1)      NOT NULL DEFAULT 1,
+    phone       VARCHAR(20)     DEFAULT NULL,
+    avatar_url  VARCHAR(255)    DEFAULT NULL,
+    school_id   INT             DEFAULT NULL,           -- NULL for SUPER_ADMIN
+    created_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at  DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_user_email (email),
+    KEY idx_user_role (role),
+    KEY idx_user_school (school_id),
+    KEY idx_user_active (is_active),
+    CONSTRAINT fk_user_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Login accounts — all 5 roles';
+
+-- Add FK from schools.created_by → users.id (after users table exists)
+ALTER TABLE schools
+    ADD CONSTRAINT fk_school_created_by
+    FOREIGN KEY (created_by) REFERENCES users(id)
+    ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- ============================================================
+-- TABLE 3: teachers
+-- ============================================================
+CREATE TABLE IF NOT EXISTS teachers (
+    id            INT           NOT NULL AUTO_INCREMENT,
+    user_id       INT           NOT NULL,
+    school_id     INT           NOT NULL,
+    employee_id   VARCHAR(30)   DEFAULT NULL,
+    department    VARCHAR(100)  DEFAULT NULL,
+    designation   VARCHAR(100)  NOT NULL DEFAULT 'Teacher',
+    joining_date  DATE          DEFAULT NULL,
+    qualification VARCHAR(200)  DEFAULT NULL,
+    salary        DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_teacher_user (user_id),
+    UNIQUE KEY uq_employee_id (employee_id),
+    KEY idx_teacher_school (school_id),
+    KEY idx_teacher_dept (department),
+    CONSTRAINT fk_teacher_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_teacher_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Teacher profile linked to users';
+
+-- ============================================================
+-- TABLE 4: classes
+-- ============================================================
+CREATE TABLE IF NOT EXISTS classes (
+    id          INT          NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(50)  NOT NULL,       -- e.g. "Class 10", "Std 12"
+    section     VARCHAR(10)  NOT NULL DEFAULT 'A',
+    session     VARCHAR(20)  NOT NULL DEFAULT '2024-25',
+    school_id   INT          NOT NULL,
+    teacher_id  INT          DEFAULT NULL,   -- class teacher
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_class_school (school_id),
+    KEY idx_class_session (session),
+    KEY idx_class_teacher (teacher_id),
+    CONSTRAINT fk_class_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_class_teacher
+        FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Classes / sections per school per session';
+
+-- ============================================================
+-- TABLE 5: subjects
+-- ============================================================
+CREATE TABLE IF NOT EXISTS subjects (
+    id          INT          NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(100) NOT NULL,       -- e.g. "Mathematics"
+    code        VARCHAR(20)  DEFAULT NULL,   -- e.g. "MATH10"
+    class_id    INT          NOT NULL,
+    teacher_id  INT          DEFAULT NULL,   -- subject teacher
+    max_marks   INT          NOT NULL DEFAULT 100,
+    pass_marks  INT          NOT NULL DEFAULT 33,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_subject_class (class_id),
+    KEY idx_subject_teacher (teacher_id),
+    CONSTRAINT fk_subject_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_subject_teacher
+        FOREIGN KEY (teacher_id) REFERENCES teachers(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Subjects per class, assigned to teachers';
+
+-- ============================================================
+-- TABLE 6: students
+-- ============================================================
+CREATE TABLE IF NOT EXISTS students (
+    id            INT          NOT NULL AUTO_INCREMENT,
+    user_id       INT          NOT NULL,
+    school_id     INT          NOT NULL,
+    class_id      INT          DEFAULT NULL,
+    roll_number   VARCHAR(20)  DEFAULT NULL,
+    admission_no  VARCHAR(30)  NOT NULL,
+    dob           DATE         DEFAULT NULL,
+    gender        ENUM('Male','Female','Other') DEFAULT NULL,
+    address       VARCHAR(500) DEFAULT NULL,
+    parent_name   VARCHAR(120) DEFAULT NULL,
+    parent_phone  VARCHAR(20)  DEFAULT NULL,
+    parent_email  VARCHAR(120) DEFAULT NULL,
+    blood_group   VARCHAR(5)   DEFAULT NULL,   -- A+, B-, O+ etc.
+    session       VARCHAR(20)  NOT NULL DEFAULT '2024-25',
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_student_user (user_id),
+    UNIQUE KEY uq_admission_no (admission_no),
+    KEY idx_student_school (school_id),
+    KEY idx_student_class (class_id),
+    KEY idx_student_roll (roll_number),
+    KEY idx_student_session (session),
+    CONSTRAINT fk_student_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_student_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_student_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Student profiles with parent info';
+
+-- ============================================================
+-- TABLE 7: attendance
+-- ============================================================
+CREATE TABLE IF NOT EXISTS attendance (
+    id          INT         NOT NULL AUTO_INCREMENT,
+    student_id  INT         NOT NULL,
+    class_id    INT         NOT NULL,
+    date        DATE        NOT NULL,
+    status      ENUM('PRESENT','ABSENT','LATE','HOLIDAY') NOT NULL DEFAULT 'PRESENT',
+    marked_by   INT         DEFAULT NULL,    -- FK → users.id (teacher)
+    remarks     VARCHAR(200) DEFAULT NULL,
+    created_at  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_attendance (student_id, date),    -- one record per student per day
+    KEY idx_att_class_date (class_id, date),
+    KEY idx_att_student (student_id),
+    KEY idx_att_date (date),
+    KEY idx_att_status (status),
+    CONSTRAINT fk_att_student
+        FOREIGN KEY (student_id) REFERENCES students(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_att_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_att_marked_by
+        FOREIGN KEY (marked_by) REFERENCES users(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Daily student attendance';
+
+-- ============================================================
+-- TABLE 8: marks
+-- ============================================================
+CREATE TABLE IF NOT EXISTS marks (
+    id              INT           NOT NULL AUTO_INCREMENT,
+    student_id      INT           NOT NULL,
+    subject_id      INT           NOT NULL,
+    exam_type       VARCHAR(50)   NOT NULL,    -- Mid Term / Final / Unit Test
+    marks_obtained  DECIMAL(5,2)  NOT NULL DEFAULT 0,
+    max_marks       DECIMAL(5,2)  NOT NULL DEFAULT 100,
+    grade           VARCHAR(5)    DEFAULT NULL,  -- A+, A, B+, etc.
+    remarks         VARCHAR(200)  DEFAULT NULL,
+    entered_by      INT           DEFAULT NULL,
+    entered_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_marks (student_id, subject_id, exam_type),  -- one entry per exam per subject per student
+    KEY idx_marks_student (student_id),
+    KEY idx_marks_subject (subject_id),
+    KEY idx_marks_exam (exam_type),
+    CONSTRAINT fk_marks_student
+        FOREIGN KEY (student_id) REFERENCES students(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_marks_subject
+        FOREIGN KEY (subject_id) REFERENCES subjects(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_marks_entered_by
+        FOREIGN KEY (entered_by) REFERENCES users(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Student marks per subject per exam';
+
+-- ============================================================
+-- TABLE 9: notes  (teacher uploads)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS notes (
+    id           INT          NOT NULL AUTO_INCREMENT,
+    title        VARCHAR(200) NOT NULL,
+    description  TEXT         DEFAULT NULL,
+    file_url     VARCHAR(500) DEFAULT NULL,
+    file_name    VARCHAR(200) DEFAULT NULL,
+    subject_id   INT          DEFAULT NULL,
+    class_id     INT          DEFAULT NULL,
+    school_id    INT          NOT NULL,
+    uploaded_by  INT          DEFAULT NULL,
+    uploaded_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_notes_class (class_id),
+    KEY idx_notes_subject (subject_id),
+    KEY idx_notes_school (school_id),
+    CONSTRAINT fk_notes_subject
+        FOREIGN KEY (subject_id) REFERENCES subjects(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_notes_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_notes_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_notes_uploaded_by
+        FOREIGN KEY (uploaded_by) REFERENCES users(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Study notes / materials uploaded by teachers';
+
+-- ============================================================
+-- TABLE 10: fee_structures  (per class per school)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS fee_structures (
+    id            INT           NOT NULL AUTO_INCREMENT,
+    school_id     INT           NOT NULL,
+    class_id      INT           DEFAULT NULL,     -- NULL = applies to all classes
+    session       VARCHAR(20)   NOT NULL DEFAULT '2024-25',
+    fee_type      VARCHAR(50)   NOT NULL,         -- TUITION / EXAM / SPORTS / TRANSPORT / LIBRARY
+    amount        DECIMAL(10,2) NOT NULL,
+    frequency     ENUM('MONTHLY','QUARTERLY','ANNUAL','ONE_TIME') NOT NULL DEFAULT 'MONTHLY',
+    due_date_day  TINYINT       NOT NULL DEFAULT 10,   -- day of month (1-28)
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_feestr_school (school_id),
+    KEY idx_feestr_class (class_id),
+    KEY idx_feestr_session (session),
+    CONSTRAINT fk_feestr_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_feestr_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Fee structure templates per class';
+
+-- ============================================================
+-- TABLE 11: fee_records  (actual student payments)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS fee_records (
+    id            INT           NOT NULL AUTO_INCREMENT,
+    student_id    INT           NOT NULL,
+    school_id     INT           NOT NULL,
+    fee_type      VARCHAR(50)   NOT NULL,
+    amount_due    DECIMAL(10,2) NOT NULL,
+    amount_paid   DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    discount      DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    fine          DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    status        ENUM('PENDING','PAID','PARTIAL','OVERDUE','WAIVED') NOT NULL DEFAULT 'PENDING',
+    month         VARCHAR(20)   DEFAULT NULL,      -- e.g. "April 2024"
+    due_date      DATE          DEFAULT NULL,
+    paid_date     DATE          DEFAULT NULL,
+    receipt_no    VARCHAR(50)   DEFAULT NULL,
+    payment_mode  ENUM('CASH','ONLINE','CHEQUE','UPI','DD') DEFAULT NULL,
+    collected_by  INT           DEFAULT NULL,
+    session       VARCHAR(20)   NOT NULL DEFAULT '2024-25',
+    remarks       VARCHAR(300)  DEFAULT NULL,
+    created_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    UNIQUE KEY uq_receipt_no (receipt_no),
+    KEY idx_fee_student (student_id),
+    KEY idx_fee_school (school_id),
+    KEY idx_fee_status (status),
+    KEY idx_fee_session (session),
+    KEY idx_fee_month (month),
+    CONSTRAINT fk_fee_student
+        FOREIGN KEY (student_id) REFERENCES students(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_fee_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_fee_collected_by
+        FOREIGN KEY (collected_by) REFERENCES users(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Individual student fee payment records';
+
+-- ============================================================
+-- TABLE 12: exam_schedules
+-- ============================================================
+CREATE TABLE IF NOT EXISTS exam_schedules (
+    id            INT          NOT NULL AUTO_INCREMENT,
+    school_id     INT          NOT NULL,
+    exam_name     VARCHAR(100) NOT NULL,    -- e.g. "Half Yearly 2024"
+    exam_type     ENUM('UNIT_TEST','MID_TERM','FINAL','PRE_BOARD','PRACTICALS') NOT NULL DEFAULT 'MID_TERM',
+    session       VARCHAR(20)  NOT NULL DEFAULT '2024-25',
+    start_date    DATE         DEFAULT NULL,
+    end_date      DATE         DEFAULT NULL,
+    is_published  TINYINT(1)   NOT NULL DEFAULT 0,
+    created_by    INT          DEFAULT NULL,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_exam_school (school_id),
+    KEY idx_exam_session (session),
+    KEY idx_exam_published (is_published),
+    CONSTRAINT fk_exam_school
+        FOREIGN KEY (school_id) REFERENCES schools(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_exam_created_by
+        FOREIGN KEY (created_by) REFERENCES users(id)
+        ON DELETE SET NULL ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Exam schedules — triggers admit card generation';
+
+-- ============================================================
+-- TABLE 13: exam_timetable
+-- ============================================================
+CREATE TABLE IF NOT EXISTS exam_timetable (
+    id          INT          NOT NULL AUTO_INCREMENT,
+    exam_id     INT          NOT NULL,
+    class_id    INT          NOT NULL,
+    subject_id  INT          NOT NULL,
+    exam_date   DATE         NOT NULL,
+    start_time  VARCHAR(10)  DEFAULT NULL,   -- e.g. "10:00 AM"
+    end_time    VARCHAR(10)  DEFAULT NULL,   -- e.g. "01:00 PM"
+    venue       VARCHAR(100) DEFAULT NULL,
+    max_marks   INT          NOT NULL DEFAULT 100,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (id),
+    KEY idx_tt_exam (exam_id),
+    KEY idx_tt_class (class_id),
+    KEY idx_tt_subject (subject_id),
+    KEY idx_tt_date (exam_date),
+    CONSTRAINT fk_tt_exam
+        FOREIGN KEY (exam_id) REFERENCES exam_schedules(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_tt_class
+        FOREIGN KEY (class_id) REFERENCES classes(id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_tt_subject
+        FOREIGN KEY (subject_id) REFERENCES subjects(id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+  COMMENT='Subject-wise exam date/time/venue per class';
+
+-- ============================================================
+-- Re-enable FK checks
+-- ============================================================
+SET FOREIGN_KEY_CHECKS = 1;
+
+-- ============================================================
+-- SEED DATA — Super Admin (password: Admin@1234)
+-- bcrypt hash of "Admin@1234"
+-- ============================================================
+INSERT INTO users (name, email, password, role, is_active, school_id)
+VALUES (
+    'Super Admin',
+    'admin@eduErp.com',
+    '$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMqJqhCGqOzFLwrpPbqUX0Nlb2',
+    'SUPER_ADMIN',
+    1,
+    NULL
+) ON DUPLICATE KEY UPDATE id = id;
+
+-- ============================================================
+-- USEFUL VIEWS
+-- ============================================================
+
+-- View: student full details with class & school name
+CREATE OR REPLACE VIEW v_student_details AS
+SELECT
+    s.id              AS student_id,
+    u.name            AS student_name,
+    u.email,
+    s.roll_number,
+    s.admission_no,
+    s.gender,
+    s.dob,
+    s.parent_name,
+    s.parent_phone,
+    s.parent_email,
+    s.session,
+    c.name            AS class_name,
+    c.section,
+    sc.name           AS school_name,
+    sc.code           AS school_code
+FROM students s
+JOIN users    u  ON u.id  = s.user_id
+LEFT JOIN classes  c  ON c.id  = s.class_id
+LEFT JOIN schools  sc ON sc.id = s.school_id;
+
+-- View: fee collection summary per school
+CREATE OR REPLACE VIEW v_fee_summary AS
+SELECT
+    school_id,
+    session,
+    COUNT(*)                          AS total_records,
+    SUM(amount_due)                   AS total_billed,
+    SUM(amount_paid)                  AS total_collected,
+    SUM(amount_due - amount_paid)     AS total_pending,
+    SUM(IF(status='PAID',    1, 0))   AS paid_count,
+    SUM(IF(status='PENDING', 1, 0))   AS pending_count,
+    SUM(IF(status='OVERDUE', 1, 0))   AS overdue_count,
+    ROUND(SUM(amount_paid) / NULLIF(SUM(amount_due), 0) * 100, 2) AS collection_pct
+FROM fee_records
+GROUP BY school_id, session;
+
+-- View: attendance summary per student per month
+CREATE OR REPLACE VIEW v_attendance_summary AS
+SELECT
+    a.student_id,
+    u.name            AS student_name,
+    s.roll_number,
+    c.name            AS class_name,
+    DATE_FORMAT(a.date, '%Y-%m') AS month,
+    COUNT(*)                     AS total_days,
+    SUM(a.status = 'PRESENT')    AS present_days,
+    SUM(a.status = 'ABSENT')     AS absent_days,
+    SUM(a.status = 'LATE')       AS late_days,
+    ROUND(SUM(a.status = 'PRESENT') / COUNT(*) * 100, 2) AS attendance_pct
+FROM attendance a
+JOIN students s ON s.id = a.student_id
+JOIN users    u ON u.id = s.user_id
+JOIN classes  c ON c.id = a.class_id
+GROUP BY a.student_id, month;
+
+-- View: marks report per student per exam
+CREATE OR REPLACE VIEW v_marks_report AS
+SELECT
+    m.student_id,
+    u.name            AS student_name,
+    st.roll_number,
+    sub.name          AS subject_name,
+    sub.code          AS subject_code,
+    m.exam_type,
+    m.marks_obtained,
+    m.max_marks,
+    ROUND(m.marks_obtained / m.max_marks * 100, 2) AS percentage,
+    m.grade,
+    IF(m.marks_obtained >= sub.pass_marks, 'PASS', 'FAIL') AS result,
+    c.name            AS class_name,
+    sc.name           AS school_name
+FROM marks     m
+JOIN students  st  ON st.id  = m.student_id
+JOIN users     u   ON u.id   = st.user_id
+JOIN subjects  sub ON sub.id = m.subject_id
+JOIN classes   c   ON c.id   = sub.class_id
+JOIN schools   sc  ON sc.id  = st.school_id;
+
+-- ============================================================
+-- STORED PROCEDURE: auto generate fee records for a class
+-- Usage: CALL sp_generate_fee_records(class_id, 'April 2025', '2024-25', '2025-04-10');
+-- ============================================================
+DELIMITER $$
+
+CREATE PROCEDURE IF NOT EXISTS sp_generate_fee_records(
+    IN  p_class_id   INT,
+    IN  p_month      VARCHAR(20),
+    IN  p_session    VARCHAR(20),
+    IN  p_due_date   DATE
+)
+BEGIN
+    DECLARE v_school_id INT;
+
+    SELECT school_id INTO v_school_id FROM classes WHERE id = p_class_id LIMIT 1;
+
+    -- Insert fee record for each student in the class for each fee_structure
+    INSERT INTO fee_records (student_id, school_id, fee_type, amount_due, status, month, due_date, session)
+    SELECT
+        s.id,
+        v_school_id,
+        fs.fee_type,
+        fs.amount,
+        'PENDING',
+        p_month,
+        p_due_date,
+        p_session
+    FROM students s
+    CROSS JOIN fee_structures fs
+    WHERE s.class_id  = p_class_id
+      AND fs.school_id = v_school_id
+      AND (fs.class_id = p_class_id OR fs.class_id IS NULL)
+      AND fs.session  = p_session
+      AND fs.frequency = 'MONTHLY'
+    ON DUPLICATE KEY UPDATE id = id;  -- skip if already exists
+
+    SELECT ROW_COUNT() AS records_created;
+END$$
+
+DELIMITER ;
+
+-- ============================================================
+-- SHOW CREATED TABLES
+-- ============================================================
+SHOW TABLES;
