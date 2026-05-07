@@ -24,7 +24,14 @@ def create_app(config_name='default'):
     jwt.init_app(app)
     bcrypt.init_app(app)
     migrate.init_app(app, db)
-    CORS(app, resources={r"/api/*": {"origins": "http://localhost:3000"}})
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                "http://localhost:3000",
+                "https://edu-erp-frontend.onrender.com"
+            ]
+        }
+    })
 
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
