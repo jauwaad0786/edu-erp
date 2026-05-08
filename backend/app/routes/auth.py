@@ -32,7 +32,7 @@ def login():
         with db.engine.connect() as conn:
 
             # CURRENT DATABASE
-            result = conn.execute(text("SELECT DATABASE()"))
+            result = conn.execute(text("SELECT current_database()"))
             print("CURRENT DATABASE:", result.fetchone())
 
             # SHOW TABLES
@@ -75,7 +75,7 @@ def login():
     print("USER:", user)
     
     if user:
-        print("HASH:", user.password_hash)
+        #print("HASH:", user.password_hash)
         print("PASSWORD CHECK:", user.check_password(password))
     print("\nUSER FOUND:", user)
 
