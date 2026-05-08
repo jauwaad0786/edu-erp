@@ -3,6 +3,7 @@ from flask_jwt_extended import jwt_required
 from app import db
 from app.models.user import User, UserRole
 from app.models.school import School
+from app.models.academic import Class
 from app.utils.decorators import role_required
 
 admin_bp = Blueprint('admin', __name__)
@@ -20,7 +21,9 @@ def list_schools():
 @admin_bp.route('/schools', methods=['POST'])
 @role_required('SUPER_ADMIN')
 def create_school():
+
     data = request.get_json()
+
     school = School(
         name=data['name'],
         code=data['code'].upper(),
@@ -33,9 +36,46 @@ def create_school():
         type=data.get('type', 'SCHOOL'),
         current_session=data.get('current_session', '2024-25')
     )
+
     db.session.add(school)
+    db.session.flush()
+
+    # DEFAULT CLASSES
+    default_classes = [
+        'Nursery',
+        'LKG',
+        'UKG',
+        'Class 1',
+        'Class 2',
+        'Class 3',
+        'Class 4',
+        'Class 5',
+        'Class 6',
+        'Class 7',
+        'Class 8',
+        'Class 9',
+        'Class 10',
+        'Class 11',
+        'Class 12'
+    ]
+
+    for class_name in default_classes:
+
+        cls = Class(
+            name=class_name,
+            section='A',
+            session=school.current_session,
+            school_id=school.id
+        )
+
+        db.session.add(cls)
+
     db.session.commit()
-    return jsonify(school.to_dict()), 201
+
+    return jsonify({
+        'message': 'School created with default classes',
+        'school': school.to_dict()
+    }), 201
 
 
 @admin_bp.route('/schools/<int:school_id>', methods=['PUT'])
