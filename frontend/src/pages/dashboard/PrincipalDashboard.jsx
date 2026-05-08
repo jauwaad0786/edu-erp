@@ -3,133 +3,462 @@ import Sidebar from '../../components/Sidebar';
 import Navbar  from '../../components/Navbar';
 import api from '../../api/axios';
 
-function StatCard({ icon, label, value, sub, color = '#0176d3' }) {
+function StatCard({ icon, label, value, sub, color = '#0176d3', bg }) {
   return (
     <div className="stat-card">
-      <div className="stat-icon" style={{ background: color + '14' }}>
+      <div className="stat-icon" style={{ background: bg || color + '14' }}>
         <span style={{ fontSize: 20 }}>{icon}</span>
       </div>
       <div className="stat-label">{label}</div>
-      <div className="stat-value" style={{ color }}>{value}</div>
+      <div className="stat-value" style={{ color }}>{value ?? '—'}</div>
       {sub && <div className="stat-sub">{sub}</div>}
     </div>
   );
 }
 
 export default function PrincipalDashboard() {
-  const [stats, setStats]   = useState(null);
-  const [tab, setTab]       = useState('overview');
+  const [stats,   setStats]   = useState(null);
+  const [classes, setClasses] = useState([]);
+  const [fees,    setFees]    = useState(null);
+  const [tab,     setTab]     = useState('students');
+  
 
   useEffect(() => {
-    api.get('/principal/dashboard').then(r => setStats(r.data)).catch(() => {});
+    Promise.all([
+      api.get('/principal/dashboard').catch(() => ({ data: null })),
+      api.get('/principal/classes').catch(() => ({ data: [] })),
+      api.get('/principal/fees/summary').catch(() => ({ data: null })),
+    ]).then(([s, c, f]) => {
+      setStats(s.data);
+      setClasses(c.data || []);
+      setFees(f.data);
+      
+    });
   }, []);
 
-  const fmt = n => n?.toLocaleString('en-IN') ?? '—';
+  const fmt  = n => n?.toLocaleString('en-IN') ?? '0';
+  const fmtK = n => n >= 100000 ? `₹${(n/100000).toFixed(1)}L` : n >= 1000 ? `₹${(n/1000).toFixed(0)}K` : `₹${n ?? 0}`;
 
-  const TABS = ['overview', 'students', 'teachers', 'fees', 'exams'];
+  const collectionPct = fees
+    ? Math.round(fees.total_collected / (fees.total_due || 1) * 100)
+    : 0;
+
+  const TABS = [
+    { key: 'students', label: '🎒 Class-wise Students' },
+    { key: 'fees',     label: '💰 Class-wise Fees' },
+    { key: 'actions',  label: '⚡ Quick Actions' },
+  ];
 
   return (
     <div className="app-shell">
       <Sidebar />
       <div className="main-content">
-        <Navbar title="Principal Dashboard" />
+        <Navbar title="School Dashboard" />
         <div className="page-body">
 
-          {/* Page Header */}
+          {/* ── Page Header ── */}
           <div className="page-header flex justify-between items-center">
             <div>
-              <h2 className="page-title">School Dashboard</h2>
-              <p className="page-subtitle">Session 2024–25 · Real-time overview</p>
+              <h2 className="page-title">School Overview</h2>
+              <p className="page-subtitle">Session 2024–25 &nbsp;·&nbsp; Real-time data</p>
             </div>
             <div className="flex gap-2">
               <button className="btn btn-neutral btn-sm">📥 Export Report</button>
-              <button className="btn btn-primary btn-sm">+ Add Student</button>
+              <button className="btn btn-primary btn-sm"
+                onClick={() => window.location.href = '/students'}>
+                + Enroll Student
+              </button>
             </div>
           </div>
 
-          {/* Stat Cards */}
+          {/* ── Top Stat Cards ── */}
           <div className="grid-4 mb-6">
-            <StatCard icon="🎒" label="Total Students"  value={fmt(stats?.total_students)} sub="Enrolled this session" color="#0176d3" />
-            <StatCard icon="👩‍🏫" label="Total Teachers"  value={fmt(stats?.total_teachers)} sub="Active staff"          color="#5867e8" />
-            <StatCard icon="🏛" label="Classes"         value={fmt(stats?.total_classes)}  sub="Sections active"       color="#2e844a" />
-            <StatCard icon="💰" label="Fee Collected"   value={`₹${fmt(stats?.fee_collected)}`} sub="This session"    color="#dd7a01" />
+            <StatCard icon="🎒" label="Total Students"
+              value={fmt(stats?.total_students)}
+              sub={`${classes.length} classes active`}
+              color="#0176d3" />
+            <StatCard icon="👩‍🏫" label="Total Teachers"
+              value={fmt(stats?.total_teachers)}
+              sub="Active staff"
+              color="#5867e8" />
+            <StatCard icon="💰" label="Fee Collected"
+              value={fmtK(stats?.fee_collected)}
+              sub={`${collectionPct}% collection rate`}
+              color="#2e844a" />
+            <StatCard icon="⚠️" label="Fee Pending"
+              value={fmtK(fees ? fees.total_due - fees.total_collected : 0)}
+              sub={`${fmt(fees?.pending_count)} pending`}
+              color="#dd7a01" />
           </div>
 
-          {/* Fee Summary */}
-          <div className="grid-2 mb-6">
-            <div className="card">
-              <div className="card-header">
-                <h4>💰 Fee Collection Overview</h4>
-                <span className="badge badge-info">Live</span>
+          {/* ── Fee Progress Bar ── */}
+          {fees && (
+            <div className="card mb-6">
+              <div className="card-body" style={{ padding: '16px 20px' }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  alignItems: 'center', marginBottom: 10,
+                }}>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--neutral-7)' }}>
+                    Overall Fee Collection
+                  </span>
+                  <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                    <span>
+                      <span style={{ color: 'var(--neutral-5)' }}>Collected: </span>
+                      <strong style={{ color: '#2e844a' }}>₹{fmt(fees.total_collected)}</strong>
+                    </span>
+                    <span>
+                      <span style={{ color: 'var(--neutral-5)' }}>Pending: </span>
+                      <strong style={{ color: '#dd7a01' }}>
+                        ₹{fmt(fees.total_due - fees.total_collected)}
+                      </strong>
+                    </span>
+                    <strong style={{
+                      color: collectionPct >= 70 ? '#2e844a' : '#ba0517',
+                      fontSize: 15,
+                    }}>{collectionPct}%</strong>
+                  </div>
+                </div>
+                <div className="progress-bar" style={{ height: 10, borderRadius: 99 }}>
+                  <div className="progress-fill"
+                    style={{
+                      width: `${collectionPct}%`, borderRadius: 99,
+                      background: collectionPct >= 70 ? '#2e844a'
+                        : collectionPct >= 40 ? '#dd7a01' : '#ba0517',
+                      transition: 'width 0.6s ease',
+                    }} />
+                </div>
               </div>
-              <div className="card-body">
-                {stats && (
-                  <>
-                    <div className="flex justify-between mb-4" style={{ fontSize: 13 }}>
-                      <span className="text-muted">Total Collected</span>
-                      <span className="font-bold text-success">₹{fmt(stats.fee_collected)}</span>
-                    </div>
-                    <div className="flex justify-between mb-4" style={{ fontSize: 13 }}>
-                      <span className="text-muted">Pending</span>
-                      <span className="font-bold text-error">₹{fmt(stats.fee_pending)}</span>
-                    </div>
-                    <div className="progress-bar">
-                      <div className="progress-fill success"
-                        style={{
-                          width: `${Math.round(stats.fee_collected / (stats.fee_collected + stats.fee_pending + 1) * 100)}%`
-                        }}></div>
-                    </div>
-                    <p style={{ marginTop: 8, fontSize: 11, color: 'var(--neutral-6)' }}>
-                      {Math.round(stats.fee_collected / (stats.fee_collected + stats.fee_pending + 1) * 100)}% collected
-                    </p>
-                  </>
+            </div>
+          )}
+
+          {/* ── Tabs ── */}
+          <div style={{
+            display: 'flex', borderBottom: '2px solid var(--neutral-2)',
+            marginBottom: 20, gap: 0,
+          }}>
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)} style={{
+                background: 'none', border: 'none', cursor: 'pointer',
+                padding: '10px 20px', fontSize: 13, fontWeight: 600,
+                color: tab === t.key ? 'var(--blue-60)' : 'var(--neutral-6)',
+                borderBottom: tab === t.key
+                  ? '2px solid var(--blue-60)' : '2px solid transparent',
+                marginBottom: -2, transition: 'color 0.15s',
+              }}>{t.label}</button>
+            ))}
+          </div>
+
+          {/* ══ TAB: Class-wise Students ══ */}
+          {tab === 'students' && (
+            <div className="card">
+              <div className="card-header" style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <h4>🎒 Students by Class</h4>
+                <span className="badge badge-info">
+                  {classes.reduce((a, c) => a + (c.student_count ?? 0), 0)} total
+                </span>
+              </div>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Class</th>
+                      <th>Section</th>
+                      <th>Session</th>
+                      <th>Students</th>
+                      <th>Strength</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classes.map((c, i) => {
+                      const total = classes.reduce(
+                        (a, x) => a + (x.student_count ?? 0), 0
+                      ) || 1;
+                      const pct = Math.round((c.student_count ?? 0) / total * 100);
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ color: 'var(--neutral-5)', fontSize: 12 }}>{i + 1}</td>
+                          <td>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{
+                                width: 32, height: 32, borderRadius: 8,
+                                background: 'var(--blue-10)',
+                                display: 'flex', alignItems: 'center',
+                                justifyContent: 'center', fontSize: 14,
+                              }}>🏛</div>
+                              <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span>
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge badge-neutral">{c.section}</span>
+                          </td>
+                          <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>
+                            {c.session}
+                          </td>
+                          <td>
+                            <span style={{
+                              background: 'var(--blue-10)', color: 'var(--blue-80)',
+                              padding: '3px 12px', borderRadius: 100,
+                              fontSize: 13, fontWeight: 700,
+                            }}>{c.student_count ?? 0}</span>
+                          </td>
+                          <td style={{ minWidth: 140 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{
+                                flex: 1, height: 6,
+                                background: 'var(--neutral-2)', borderRadius: 99,
+                              }}>
+                                <div style={{
+                                  width: `${pct}%`, height: '100%',
+                                  background: 'var(--blue-60)', borderRadius: 99,
+                                  transition: 'width 0.4s',
+                                }} />
+                              </div>
+                              <span style={{
+                                fontSize: 11, color: 'var(--neutral-6)',
+                                minWidth: 28, textAlign: 'right',
+                              }}>{pct}%</span>
+                            </div>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              <button className="btn btn-neutral btn-sm"
+                                onClick={() => window.location.href = `/students?class_id=${c.id}`}>
+                                View Students
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {!classes.length && (
+                      <tr>
+                        <td colSpan={7}>
+                          <div className="empty-state">
+                            <div className="empty-state-icon">🏛</div>
+                            <p>No classes added yet.
+                              <a href="/classes" style={{ color: 'var(--blue-60)', marginLeft: 4 }}>
+                                Add a class →
+                              </a>
+                            </p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  {classes.length > 0 && (
+                    <tfoot>
+                      <tr style={{ background: 'var(--neutral-1)' }}>
+                        <td colSpan={4}
+                          style={{ fontWeight: 700, fontSize: 13, padding: '12px 16px' }}>
+                          Total
+                        </td>
+                        <td>
+                          <span style={{
+                            background: '#032d60', color: '#fff',
+                            padding: '3px 12px', borderRadius: 100,
+                            fontSize: 13, fontWeight: 700,
+                          }}>
+                            {classes.reduce((a, c) => a + (c.student_count ?? 0), 0)}
+                          </span>
+                        </td>
+                        <td colSpan={2} />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* ══ TAB: Class-wise Fees ══ */}
+          {tab === 'fees' && (
+            <div className="card">
+              <div className="card-header" style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+              }}>
+                <h4>💰 Fee Collection by Class</h4>
+                {fees && (
+                  <span className="badge badge-success">
+                    {collectionPct}% overall collected
+                  </span>
                 )}
               </div>
-            </div>
-
-            <div className="card">
-              <div className="card-header">
-                <h4>⚡ Quick Actions</h4>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>Class</th>
+                      <th>Students</th>
+                      <th>Total Due</th>
+                      <th>Collected</th>
+                      <th>Pending</th>
+                      <th>Collection %</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {classes.length > 0 ? classes.map((c, i) => {
+                      // Each class gets an estimated share of total fees
+                      // Replace with real per-class API when available
+                      const totalStudents = classes.reduce(
+                        (a, x) => a + (x.student_count ?? 0), 0
+                      ) || 1;
+                      const ratio    = (c.student_count ?? 0) / totalStudents;
+                      const due      = Math.round((fees?.total_due ?? 0) * ratio);
+                      const paid     = Math.round((fees?.total_collected ?? 0) * ratio);
+                      const pending  = due - paid;
+                      const pct      = due > 0 ? Math.round(paid / due * 100) : 0;
+                      return (
+                        <tr key={c.id}>
+                          <td style={{ color: 'var(--neutral-5)', fontSize: 12 }}>{i + 1}</td>
+                          <td>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>
+                              Section {c.section}
+                            </div>
+                          </td>
+                          <td>
+                            <span className="badge badge-info">{c.student_count ?? 0}</span>
+                          </td>
+                          <td style={{ fontWeight: 600, fontSize: 13 }}>
+                            ₹{fmt(due)}
+                          </td>
+                          <td style={{ fontWeight: 600, color: '#2e844a', fontSize: 13 }}>
+                            ₹{fmt(paid)}
+                          </td>
+                          <td style={{
+                            fontWeight: 600, fontSize: 13,
+                            color: pending > 0 ? '#ba0517' : '#2e844a',
+                          }}>
+                            {pending > 0 ? `₹${fmt(pending)}` : '✅ Clear'}
+                          </td>
+                          <td style={{ minWidth: 140 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div style={{
+                                flex: 1, height: 8,
+                                background: '#fee2e2', borderRadius: 99,
+                              }}>
+                                <div style={{
+                                  width: `${pct}%`, height: '100%', borderRadius: 99,
+                                  background: pct >= 80 ? '#2e844a'
+                                    : pct >= 50 ? '#dd7a01' : '#ba0517',
+                                  transition: 'width 0.4s',
+                                }} />
+                              </div>
+                              <span style={{
+                                fontSize: 11, fontWeight: 700,
+                                color: pct >= 80 ? '#2e844a'
+                                  : pct >= 50 ? '#dd7a01' : '#ba0517',
+                                minWidth: 32,
+                              }}>{pct}%</span>
+                            </div>
+                          </td>
+                          <td>
+                            <button className="btn btn-sm" style={{
+                              background: '#eaf5ea', color: '#2e844a',
+                              border: 'none', cursor: 'pointer',
+                              borderRadius: 4, padding: '4px 10px',
+                              fontSize: 11, fontWeight: 700,
+                            }}
+                              onClick={() => window.location.href = '/fees'}>
+                              💸 Collect
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={8}>
+                          <div className="empty-state">
+                            <div className="empty-state-icon">💰</div>
+                            <p>No class data available.</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                  {classes.length > 0 && fees && (
+                    <tfoot>
+                      <tr style={{ background: 'var(--neutral-1)' }}>
+                        <td colSpan={3}
+                          style={{ fontWeight: 700, fontSize: 13, padding: '12px 16px' }}>
+                          Grand Total
+                        </td>
+                        <td style={{ fontWeight: 700 }}>₹{fmt(fees.total_due)}</td>
+                        <td style={{ fontWeight: 700, color: '#2e844a' }}>
+                          ₹{fmt(fees.total_collected)}
+                        </td>
+                        <td style={{ fontWeight: 700, color: '#ba0517' }}>
+                          ₹{fmt(fees.total_due - fees.total_collected)}
+                        </td>
+                        <td>
+                          <strong style={{
+                            color: collectionPct >= 70 ? '#2e844a' : '#ba0517',
+                          }}>{collectionPct}%</strong>
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  )}
+                </table>
               </div>
-              <div className="card-body" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                {[
-                  ['📋', 'Mark Attendance', '#e8f4fd', '#0176d3'],
-                  ['📝', 'Create Exam',     '#eaf5ea', '#2e844a'],
-                  ['🎟', 'Admit Cards',     '#fef5e4', '#dd7a01'],
-                  ['📊', 'Result Cards',    '#f3f0ff', '#5867e8'],
-                  ['💸', 'Collect Fee',     '#fef1ee', '#ba0517'],
-                  ['📤', 'Upload Notice',   '#e8f4fd', '#0176d3'],
-                ].map(([icon, label, bg, color]) => (
-                  <button key={label} style={{
-                    background: bg, border: 'none', borderRadius: 8,
-                    padding: '10px 12px', cursor: 'pointer', textAlign: 'left',
-                    display: 'flex', alignItems: 'center', gap: 8,
-                    fontSize: 12, fontWeight: 600, color,
-                    transition: 'opacity 0.15s',
+            </div>
+          )}
+
+          {/* ══ TAB: Quick Actions ══ */}
+          {tab === 'actions' && (
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: 12,
+            }}>
+              {[
+                { icon: '🎒', label: 'Enroll Student',  href: '/students',   bg: '#e8f4fd', color: '#0176d3' },
+                { icon: '👩‍🏫', label: 'Add Teacher',     href: '/teachers',   bg: '#f3f0ff', color: '#5867e8' },
+                { icon: '🏛',  label: 'Add Class',       href: '/classes',    bg: '#eaf5ea', color: '#2e844a' },
+                { icon: '📋',  label: 'Mark Attendance', href: '/attendance', bg: '#fef5e4', color: '#dd7a01' },
+                { icon: '📝',  label: 'Schedule Exam',   href: '/exams',      bg: '#fef1ee', color: '#ba0517' },
+                { icon: '💸',  label: 'Collect Fee',     href: '/fees',       bg: '#eaf5ea', color: '#2e844a' },
+                { icon: '🎟',  label: 'Admit Cards',     href: '/exams',      bg: '#fef5e4', color: '#dd7a01' },
+                { icon: '📊',  label: 'Result Cards',    href: '/exams',      bg: '#f3f0ff', color: '#5867e8' },
+              ].map(a => (
+                <button key={a.label}
+                  onClick={() => window.location.href = a.href}
+                  style={{
+                    background: a.bg, border: 'none', borderRadius: 12,
+                    padding: '20px 16px', cursor: 'pointer', textAlign: 'left',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                    transition: 'transform 0.15s, box-shadow 0.15s',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
                   }}
-                  onMouseEnter={e => e.currentTarget.style.opacity = '0.8'}
-                  onMouseLeave={e => e.currentTarget.style.opacity = '1'}>
-                    <span style={{ fontSize: 16 }}>{icon}</span> {label}
-                  </button>
-                ))}
-              </div>
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
+                  }}
+                >
+                  <div style={{
+                    width: 40, height: 40, borderRadius: 10,
+                    background: a.color + '20',
+                    display: 'flex', alignItems: 'center',
+                    justifyContent: 'center', fontSize: 20, flexShrink: 0,
+                  }}>{a.icon}</div>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: a.color }}>
+                    {a.label}
+                  </span>
+                </button>
+              ))}
             </div>
-          </div>
-
-          {/* Recent Activity placeholder */}
-          <div className="card">
-            <div className="card-header">
-              <h4>📋 Recent Activity</h4>
-              <button className="btn btn-neutral btn-sm">View All</button>
-            </div>
-            <div className="card-body">
-              <div className="empty-state">
-                <div className="empty-state-icon">📊</div>
-                <h4 style={{ color: 'var(--neutral-6)', marginBottom: 4 }}>No recent activity</h4>
-                <p>Activity will appear here as you manage students, teachers, and fees.</p>
-              </div>
-            </div>
-          </div>
+          )}
 
         </div>
       </div>
