@@ -4,12 +4,14 @@ import Navbar  from '../components/Navbar';
 import api from '../api/axios';
 
 export default function StudentsPage() {
-  const [students, setStudents] = useState([]);
-  const [classes,  setClasses]  = useState([]);
-  const [filter,   setFilter]   = useState('');
-  const [classFilter, setClassFilter] = useState('');
-  const [showModal, setShowModal]     = useState(false);
-  const [form, setForm]   = useState({});
+  const [students,     setStudents]     = useState([]);
+  const [classes,      setClasses]      = useState([]);
+  const [filter,       setFilter]       = useState('');
+  const [classFilter,  setClassFilter]  = useState('');
+  const [showModal,    setShowModal]    = useState(false);
+  const [createdCreds, setCreatedCreds] = useState(null);
+  const [copied,       setCopied]       = useState(false);
+  const [form,   setForm]   = useState({});
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState('');
 
@@ -18,15 +20,26 @@ export default function StudentsPage() {
     api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
     api.get('/principal/classes').then(r => setClasses(r.data)).catch(() => {});
   };
-
   useEffect(() => { load(); }, [classFilter]);
 
   const createStudent = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
       await api.post('/principal/students', form);
-      setMsg('✅ Student added!'); setShowModal(false); setForm({}); load();
-    } catch (err) { setMsg('❌ ' + (err.response?.data?.error || 'Error')); }
+      setShowModal(false);
+      setCreatedCreds({
+        name:        form.name,
+        email:       form.email,
+        password:    form.password || 'Student@123',
+        rollNo:      form.roll_number  || '—',
+        admissionNo: form.admission_no || '—',
+        className:   classes.find(c => String(c.id) === String(form.class_id))?.name || '—',
+        parentName:  form.parent_name  || '—',
+      });
+      setForm({}); load();
+    } catch (err) {
+      setMsg('❌ ' + (err.response?.data?.error || 'Error'));
+    }
     setSaving(false);
   };
 
@@ -48,14 +61,18 @@ export default function StudentsPage() {
               <h2 className="page-title">Students</h2>
               <p className="page-subtitle">{students.length} enrolled this session</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={() => { setForm({}); setShowModal(true); }}>
+            <button className="btn btn-primary btn-sm"
+              onClick={() => { setForm({}); setShowModal(true); }}>
               + Enroll Student
             </button>
           </div>
 
-          {msg && <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>{msg}</div>}
+          {msg && (
+            <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
+              {msg}
+            </div>
+          )}
 
-          {/* Filters */}
           <div className="card mb-6">
             <div className="card-body" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               <input className="form-input" placeholder="🔍 Search by name, roll no..."
@@ -64,9 +81,14 @@ export default function StudentsPage() {
               <select className="form-select" style={{ maxWidth: 200 }}
                 value={classFilter} onChange={e => setClassFilter(e.target.value)}>
                 <option value="">All Classes</option>
-                {classes.map(c => <option key={c.id} value={c.id}>{c.name} {c.section}</option>)}
+                {classes.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} {c.section}</option>
+                ))}
               </select>
-              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', fontSize: 13, color: 'var(--neutral-6)' }}>
+              <div style={{
+                marginLeft: 'auto', display: 'flex',
+                alignItems: 'center', fontSize: 13, color: 'var(--neutral-6)',
+              }}>
                 Showing {filtered.length} of {students.length}
               </div>
             </div>
@@ -78,20 +100,22 @@ export default function StudentsPage() {
                 <thead>
                   <tr>
                     <th>Roll No</th><th>Name</th><th>Admission No</th>
-                    <th>Parent</th><th>Contact</th><th>Status</th>
+                    <th>Class</th><th>Parent</th><th>Contact</th><th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map(s => (
                     <tr key={s.id}>
-                      <td><span className="badge badge-info">{s.roll_number || '—'}</span></td>
+                      <td>
+                        <span className="badge badge-info">{s.roll_number || '—'}</span>
+                      </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{
                             width: 30, height: 30, borderRadius: '50%',
                             background: 'var(--blue-10)', color: 'var(--blue-80)',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 12, fontWeight: 700,
+                            display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontSize: 12, fontWeight: 700,
                           }}>{s.name?.charAt(0).toUpperCase()}</div>
                           <div>
                             <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
@@ -99,15 +123,22 @@ export default function StudentsPage() {
                           </div>
                         </div>
                       </td>
-                      <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>{s.admission_no || '—'}</td>
+                      <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>
+                        {s.admission_no || '—'}
+                      </td>
+                      <td style={{ fontSize: 12 }}>
+                        {classes.find(c => c.id === s.class_id)?.name || '—'}
+                      </td>
                       <td style={{ fontSize: 12 }}>{s.parent_name || '—'}</td>
-                      <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>{s.parent_phone || '—'}</td>
+                      <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>
+                        {s.parent_phone || '—'}
+                      </td>
                       <td><span className="badge badge-success">Active</span></td>
                     </tr>
                   ))}
                   {!filtered.length && (
                     <tr>
-                      <td colSpan={6}>
+                      <td colSpan={7}>
                         <div className="empty-state">
                           <div className="empty-state-icon">🎒</div>
                           <p>No students found</p>
@@ -119,13 +150,13 @@ export default function StudentsPage() {
               </table>
             </div>
           </div>
-
         </div>
       </div>
 
-      {/* Enroll Student Modal */}
+      {/* ── Enroll Student Modal ── */}
       {showModal && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-backdrop"
+          onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal" style={{ maxWidth: 600 }}>
             <div className="modal-header">
               <h3>🎒 Enroll New Student</h3>
@@ -141,7 +172,8 @@ export default function StudentsPage() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Email *</label>
-                    <input className="form-input" type="email" required placeholder="student@school.edu"
+                    <input className="form-input" type="email" required
+                      placeholder="student@school.edu"
                       onChange={e => setForm(f => ({...f, email: e.target.value}))} />
                   </div>
                   <div className="form-group">
@@ -159,7 +191,9 @@ export default function StudentsPage() {
                     <select className="form-select"
                       onChange={e => setForm(f => ({...f, class_id: e.target.value || null}))}>
                       <option value="">Select class</option>
-                      {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {c.section}</option>)}
+                      {classes.map(c => (
+                        <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
+                      ))}
                     </select>
                   </div>
                   <div className="form-group">
@@ -192,15 +226,103 @@ export default function StudentsPage() {
                     <input className="form-input" defaultValue="2024-25"
                       onChange={e => setForm(f => ({...f, session: e.target.value}))} />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Custom Password</label>
+                    <input className="form-input" type="password"
+                      placeholder="Leave blank → Student@123"
+                      onChange={e => setForm(f => ({...f, password: e.target.value}))} />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-neutral" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-neutral"
+                  onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {saving ? 'Saving...' : '🎒 Enroll Student'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Credentials Modal ── */}
+      {createdCreds && (
+        <div className="modal-backdrop">
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>✅ Student Enrolled!</h3>
+              <button className="modal-close"
+                onClick={() => { setCreatedCreds(null); setCopied(false); }}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{
+                background: '#f0fdf4', border: '1px solid #bbf7d0',
+                borderRadius: 10, padding: '16px 20px', marginBottom: 14,
+              }}>
+                <p style={{ fontSize: 12, color: '#166534', fontWeight: 600, marginBottom: 12 }}>
+                  📋 Student / Parent ko ye credentials share karein:
+                </p>
+                {[
+                  ['👤 Name',         createdCreds.name],
+                  ['🎒 Roll No',       createdCreds.rollNo],
+                  ['📋 Admission No',  createdCreds.admissionNo],
+                  ['🏛 Class',         createdCreds.className],
+                  ['👨‍👩‍👦 Parent',       createdCreds.parentName],
+                  ['📧 Email',         createdCreds.email],
+                  ['🔑 Password',      createdCreds.password],
+                ].map(([label, value]) => (
+                  <div key={label} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'center', padding: '7px 0',
+                    borderBottom: '1px solid #dcfce7', fontSize: 13,
+                  }}>
+                    <span style={{ color: '#64748b' }}>{label}</span>
+                    <strong style={{
+                      color: '#0f172a',
+                      fontFamily: label.includes('Password') ? 'monospace' : 'inherit',
+                      background: label.includes('Password') ? '#e0f2fe' : 'transparent',
+                      padding: label.includes('Password') ? '2px 8px' : 0,
+                      borderRadius: 4,
+                    }}>{value}</strong>
+                  </div>
+                ))}
+              </div>
+              <div style={{
+                background: '#fffbeb', border: '1px solid #fde68a',
+                borderRadius: 8, padding: '10px 14px',
+                fontSize: 12, color: '#92400e', marginBottom: 14,
+              }}>
+                ⚠️ Pehli login ke baad password change karne ko bolein.
+              </div>
+              <button onClick={() => {
+                const text =
+                  `EduERP Student Login\n` +
+                  `Name:         ${createdCreds.name}\n` +
+                  `Roll No:      ${createdCreds.rollNo}\n` +
+                  `Admission No: ${createdCreds.admissionNo}\n` +
+                  `Class:        ${createdCreds.className}\n` +
+                  `Email:        ${createdCreds.email}\n` +
+                  `Password:     ${createdCreds.password}\n` +
+                  `Login URL:    ${window.location.origin}/login`;
+                navigator.clipboard.writeText(text);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }} style={{
+                width: '100%', padding: 11, borderRadius: 8, border: 'none',
+                background: copied ? '#2e844a' : 'var(--blue-60)',
+                color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                transition: 'background 0.2s',
+              }}>
+                {copied ? '✅ Copied!' : '📋 Copy Credentials'}
+              </button>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary"
+                onClick={() => { setCreatedCreds(null); setCopied(false); }}>
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
