@@ -18,7 +18,7 @@ def _school_id():
 # ─── Classes ─────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/classes', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def list_classes():
     classes = Class.query.filter_by(school_id=_school_id()).all()
     result = []
@@ -30,7 +30,7 @@ def list_classes():
 
 
 @principal_bp.route('/classes', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def create_class():
     data = request.get_json()
     cls = Class(name=data['name'], section=data.get('section', 'A'),
@@ -43,14 +43,14 @@ def create_class():
 # ─── Teachers ────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/teachers', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def list_teachers():
     teachers = Teacher.query.filter_by(school_id=_school_id()).all()
     return jsonify([t.to_dict() for t in teachers]), 200
 
 
 @principal_bp.route('/teachers', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def create_teacher():
     data = request.get_json()
     if User.query.filter_by(email=data['email']).first():
@@ -70,7 +70,7 @@ def create_teacher():
 
 
 @principal_bp.route('/teachers/<int:t_id>/assign', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def assign_teacher(t_id):
     """Assign teacher to a subject/class."""
     data = request.get_json()
@@ -83,7 +83,7 @@ def assign_teacher(t_id):
 # ─── Students ────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/students', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def list_students():
     class_id = request.args.get('class_id')
     q = Student.query.filter_by(school_id=_school_id())
@@ -93,7 +93,7 @@ def list_students():
 
 
 @principal_bp.route('/students', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def create_student():
     data = request.get_json()
     if User.query.filter_by(email=data['email']).first():
@@ -120,7 +120,7 @@ def create_student():
 # ─── Fees ─────────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/fees/summary', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def fees_summary():
     sid = _school_id()
     total_due  = db.session.query(func.sum(FeeRecord.amount_due)).filter_by(school_id=sid).scalar() or 0
@@ -135,7 +135,7 @@ def fees_summary():
 
 
 @principal_bp.route('/fees/records', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def fee_records():
     class_id = request.args.get('class_id')
     status   = request.args.get('status')
@@ -147,7 +147,7 @@ def fee_records():
 
 
 @principal_bp.route('/fees/collect', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def collect_fee():
     data = request.get_json()
     record = FeeRecord.query.get_or_404(data['record_id'])
@@ -163,14 +163,14 @@ def collect_fee():
 # ─── Exams & PDF Generation ───────────────────────────────────────────────────
 
 @principal_bp.route('/exams', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def list_exams():
     exams = ExamSchedule.query.filter_by(school_id=_school_id()).all()
     return jsonify([e.to_dict() for e in exams]), 200
 
 
 @principal_bp.route('/exams', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def create_exam():
     data = request.get_json()
     from datetime import date
@@ -189,7 +189,7 @@ def create_exam():
 
 
 @principal_bp.route('/exams/<int:exam_id>/publish', methods=['POST'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def publish_exam(exam_id):
     exam = ExamSchedule.query.get_or_404(exam_id)
     exam.is_published = True
@@ -198,7 +198,7 @@ def publish_exam(exam_id):
 
 
 @principal_bp.route('/admit-card/<int:student_id>/<int:exam_id>', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def admit_card_pdf(student_id, exam_id):
     student = Student.query.get_or_404(student_id)
     exam    = ExamSchedule.query.get_or_404(exam_id)
@@ -212,7 +212,7 @@ def admit_card_pdf(student_id, exam_id):
 
 
 @principal_bp.route('/result-card/<int:student_id>/<int:exam_id>', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def result_card_pdf(student_id, exam_id):
     student = Student.query.get_or_404(student_id)
     exam    = ExamSchedule.query.get_or_404(exam_id)
@@ -234,7 +234,7 @@ def result_card_pdf(student_id, exam_id):
 # ─── Dashboard stats ─────────────────────────────────────────────────────────
 
 @principal_bp.route('/dashboard', methods=['GET'])
-@role_required('PRINCIPAL')
+@role_required('PRINCIPAL', 'TEACHER')
 def dashboard():
     sid = _school_id()
     return jsonify({
