@@ -71,7 +71,12 @@ def login():
     user = User.query.filter(
         func.lower(User.email) == email.lower()
     ).first()
-
+    print("EMAIL:", email)
+    print("USER:", user)
+    
+    if user:
+        print("HASH:", user.password_hash)
+        print("PASSWORD CHECK:", user.check_password(password))
     print("\nUSER FOUND:", user)
 
     if user:
