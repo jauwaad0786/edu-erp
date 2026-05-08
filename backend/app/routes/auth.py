@@ -1,6 +1,22 @@
+
+from flask import Blueprint, request, jsonify
+from flask_jwt_extended import (
+    create_access_token,
+    create_refresh_token,
+    jwt_required,
+    get_jwt_identity
+)
+
+from sqlalchemy import text
+from app import db
+from app.models.user import User, UserRole
 from app.models.academic import Student
 from sqlalchemy import func as sqlfunc
-import random, time
+
+import random
+import time
+
+auth_bp = Blueprint('auth', __name__)
 
 # In-memory OTP store (replace with Redis/DB in production)
 _otp_store = {}  # key: email_or_phone, value: {otp, expires}
