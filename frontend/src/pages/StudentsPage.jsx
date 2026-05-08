@@ -25,16 +25,19 @@ export default function StudentsPage() {
   const createStudent = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
-      await api.post('/principal/students', form);
+      // Auto-generate internal email — student ko email ki zaroorat nahi
+      const autoEmail = `stu_${form.roll_number || Date.now()}_${Math.random().toString(36).slice(2,6)}@internal.school`;
+      const payload = { ...form, email: autoEmail };
+      await api.post('/principal/students', payload);
       setShowModal(false);
       setCreatedCreds({
         name:        form.name,
-        email:       form.email,
-        password:    form.password || 'Student@123',
         rollNo:      form.roll_number  || '—',
         admissionNo: form.admission_no || '—',
         className:   classes.find(c => String(c.id) === String(form.class_id))?.name || '—',
         parentName:  form.parent_name  || '—',
+        parentPhone: form.parent_phone || '—',
+        password:    form.password     || 'Student@123',
       });
       setForm({}); load();
     } catch (err) {
@@ -170,12 +173,7 @@ export default function StudentsPage() {
                     <input className="form-input" required placeholder="Student name"
                       onChange={e => setForm(f => ({...f, name: e.target.value}))} />
                   </div>
-                  <div className="form-group">
-                    <label className="form-label">Email *</label>
-                    <input className="form-input" type="email" required
-                      placeholder="student@school.edu"
-                      onChange={e => setForm(f => ({...f, email: e.target.value}))} />
-                  </div>
+                  
                   <div className="form-group">
                     <label className="form-label">Roll Number</label>
                     <input className="form-input" placeholder="e.g. 101"
@@ -269,7 +267,7 @@ export default function StudentsPage() {
                   ['📋 Admission No',  createdCreds.admissionNo],
                   ['🏛 Class',         createdCreds.className],
                   ['👨‍👩‍👦 Parent',       createdCreds.parentName],
-                  ['📧 Email',         createdCreds.email],
+                  ['📱 Mobile', createdCreds.parentPhone],
                   ['🔑 Password',      createdCreds.password],
                 ].map(([label, value]) => (
                   <div key={label} style={{
