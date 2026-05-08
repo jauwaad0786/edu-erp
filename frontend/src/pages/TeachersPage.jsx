@@ -4,22 +4,35 @@ import Navbar  from '../components/Navbar';
 import api from '../api/axios';
 
 export default function TeachersPage() {
-  const [teachers,  setTeachers]  = useState([]);
-  const [filter,    setFilter]    = useState('');
-  const [showModal, setShowModal] = useState(false);
+  const [teachers,     setTeachers]     = useState([]);
+  const [filter,       setFilter]       = useState('');
+  const [showModal,    setShowModal]    = useState(false);
+  const [createdCreds, setCreatedCreds] = useState(null);
+  const [copied,       setCopied]       = useState(false);
   const [form,   setForm]   = useState({});
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState('');
 
-  const load = () => api.get('/principal/teachers').then(r => setTeachers(r.data)).catch(() => {});
+  const load = () =>
+    api.get('/principal/teachers').then(r => setTeachers(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
 
   const createTeacher = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
       await api.post('/principal/teachers', form);
-      setMsg('✅ Teacher added!'); setShowModal(false); setForm({}); load();
-    } catch (err) { setMsg('❌ ' + (err.response?.data?.error || 'Error')); }
+      setShowModal(false);
+      setCreatedCreds({
+        name:  form.name,
+        email: form.email,
+        password: form.password || 'Teacher@123',
+        empId: form.employee_id || '—',
+        dept:  form.department  || '—',
+      });
+      setForm({}); load();
+    } catch (err) {
+      setMsg('❌ ' + (err.response?.data?.error || 'Error'));
+    }
     setSaving(false);
   };
 
@@ -41,17 +54,24 @@ export default function TeachersPage() {
               <h2 className="page-title">Teaching Staff</h2>
               <p className="page-subtitle">{teachers.length} staff members</p>
             </div>
-            <button className="btn btn-primary btn-sm" onClick={() => { setForm({}); setShowModal(true); }}>
+            <button className="btn btn-primary btn-sm"
+              onClick={() => { setForm({}); setShowModal(true); }}>
               + Add Teacher
             </button>
           </div>
 
-          {msg && <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>{msg}</div>}
+          {msg && (
+            <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
+              {msg}
+            </div>
+          )}
 
           <div className="card mb-4">
             <div className="card-body">
-              <input className="form-input" placeholder="🔍 Search by name, employee ID, department..."
-                style={{ maxWidth: 360 }} value={filter} onChange={e => setFilter(e.target.value)} />
+              <input className="form-input"
+                placeholder="🔍 Search by name, employee ID, department..."
+                style={{ maxWidth: 360 }} value={filter}
+                onChange={e => setFilter(e.target.value)} />
             </div>
           </div>
 
@@ -59,19 +79,24 @@ export default function TeachersPage() {
             <div className="table-container">
               <table>
                 <thead>
-                  <tr><th>Employee ID</th><th>Name</th><th>Department</th><th>Designation</th><th>Email</th><th>Actions</th></tr>
+                  <tr>
+                    <th>Employee ID</th><th>Name</th><th>Department</th>
+                    <th>Designation</th><th>Email</th><th>Actions</th>
+                  </tr>
                 </thead>
                 <tbody>
                   {filtered.map(t => (
                     <tr key={t.id}>
-                      <td><span className="badge badge-info">{t.employee_id || '—'}</span></td>
+                      <td>
+                        <span className="badge badge-info">{t.employee_id || '—'}</span>
+                      </td>
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{
                             width: 32, height: 32, borderRadius: '50%',
                             background: '#f3f0ff', color: '#5867e8',
-                            display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: 13, fontWeight: 700,
+                            display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontSize: 13, fontWeight: 700,
                           }}>{t.name?.charAt(0).toUpperCase()}</div>
                           <span style={{ fontWeight: 600 }}>{t.name}</span>
                         </div>
@@ -107,12 +132,13 @@ export default function TeachersPage() {
               </table>
             </div>
           </div>
-
         </div>
       </div>
 
+      {/* ── Add Teacher Modal ── */}
       {showModal && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
+        <div className="modal-backdrop"
+          onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
             <div className="modal-header">
               <h3>👩‍🏫 Add New Teacher</h3>
@@ -128,7 +154,8 @@ export default function TeachersPage() {
                   </div>
                   <div className="form-group">
                     <label className="form-label">Email *</label>
-                    <input className="form-input" type="email" required placeholder="teacher@school.edu"
+                    <input className="form-input" type="email" required
+                      placeholder="teacher@school.edu"
                       onChange={e => setForm(f => ({...f, email: e.target.value}))} />
                   </div>
                   <div className="form-group">
@@ -156,18 +183,98 @@ export default function TeachersPage() {
                       <option value="Vice Principal">Vice Principal</option>
                     </select>
                   </div>
-                </div>
-                <div className="alert alert-info" style={{ marginTop: 0 }}>
-                  ℹ️ Default password: <strong>Teacher@123</strong>. Ask teacher to change after first login.
+                  <div className="form-group">
+                    <label className="form-label">Custom Password</label>
+                    <input className="form-input" type="password"
+                      placeholder="Leave blank → Teacher@123"
+                      onChange={e => setForm(f => ({...f, password: e.target.value}))} />
+                  </div>
                 </div>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-neutral" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="button" className="btn btn-neutral"
+                  onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {saving ? 'Adding...' : '👩‍🏫 Add Teacher'}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Credentials Modal ── */}
+      {createdCreds && (
+        <div className="modal-backdrop">
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>✅ Teacher Added!</h3>
+              <button className="modal-close"
+                onClick={() => { setCreatedCreds(null); setCopied(false); }}>✕</button>
+            </div>
+            <div className="modal-body">
+              <div style={{
+                background: '#f0fdf4', border: '1px solid #bbf7d0',
+                borderRadius: 10, padding: '16px 20px', marginBottom: 14,
+              }}>
+                <p style={{ fontSize: 12, color: '#166534', fontWeight: 600, marginBottom: 12 }}>
+                  📋 Teacher ko ye credentials share karein:
+                </p>
+                {[
+                  ['👤 Name',        createdCreds.name],
+                  ['🪪 Employee ID',  createdCreds.empId],
+                  ['🏢 Department',   createdCreds.dept],
+                  ['📧 Email',        createdCreds.email],
+                  ['🔑 Password',     createdCreds.password],
+                ].map(([label, value]) => (
+                  <div key={label} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'center', padding: '8px 0',
+                    borderBottom: '1px solid #dcfce7', fontSize: 13,
+                  }}>
+                    <span style={{ color: '#64748b' }}>{label}</span>
+                    <strong style={{
+                      color: '#0f172a',
+                      fontFamily: label.includes('Password') ? 'monospace' : 'inherit',
+                      background: label.includes('Password') ? '#e0f2fe' : 'transparent',
+                      padding: label.includes('Password') ? '2px 8px' : 0,
+                      borderRadius: 4,
+                    }}>{value}</strong>
+                  </div>
+                ))}
+              </div>
+              <div style={{
+                background: '#fffbeb', border: '1px solid #fde68a',
+                borderRadius: 8, padding: '10px 14px',
+                fontSize: 12, color: '#92400e', marginBottom: 14,
+              }}>
+                ⚠️ Pehli login ke baad teacher ko password change karne ko bolein.
+              </div>
+              <button onClick={() => {
+                const text =
+                  `EduERP Teacher Login Credentials\n` +
+                  `Name:      ${createdCreds.name}\n` +
+                  `Email:     ${createdCreds.email}\n` +
+                  `Password:  ${createdCreds.password}\n` +
+                  `Login URL: ${window.location.origin}/login`;
+                navigator.clipboard.writeText(text);
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+              }} style={{
+                width: '100%', padding: 11, borderRadius: 8, border: 'none',
+                background: copied ? '#2e844a' : 'var(--blue-60)',
+                color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600,
+                transition: 'background 0.2s',
+              }}>
+                {copied ? '✅ Copied!' : '📋 Copy Credentials'}
+              </button>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-primary"
+                onClick={() => { setCreatedCreds(null); setCopied(false); }}>
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
