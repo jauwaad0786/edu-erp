@@ -21,7 +21,6 @@ from app.models.user import User, UserRole
 
 auth_bp = Blueprint('auth', __name__)
 
-
 @auth_bp.route('/login', methods=['POST'])
 def login():
 
@@ -31,12 +30,20 @@ def login():
     try:
         with db.engine.connect() as conn:
 
-            # CURRENT DATABASE
-            result = conn.execute(text("SELECT current_database()"))
+            # CURRENT DATABASE (PostgreSQL)
+            result = conn.execute(
+                text("SELECT current_database()")
+            )
+
             print("CURRENT DATABASE:", result.fetchone())
 
-            # SHOW TABLES
-            tables = conn.execute(text("SHOW TABLES"))
+            # SHOW TABLES (PostgreSQL)
+            tables = conn.execute(text("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema='public'
+            """))
+
             print("\nTABLES:")
             for table in tables:
                 print(table)
@@ -71,16 +78,13 @@ def login():
     user = User.query.filter(
         func.lower(User.email) == email.lower()
     ).first()
-    print("EMAIL:", email)
-    print("USER:", user)
-    
-    if user:
-        #print("HASH:", user.password_hash)
-        print("PASSWORD CHECK:", user.check_password(password))
+
     print("\nUSER FOUND:", user)
 
     if user:
         print("DB EMAIL:", user.email)
+
+        # SAFE DEBUG
         print("DB HASH:", user.password)
 
         result = user.check_password(password)
@@ -91,7 +95,9 @@ def login():
 
     # LOGIN LOGIC
     if not user or not user.check_password(password):
-        return jsonify({'error': 'Invalid credentials'}), 401
+        return jsonify({
+            'error': 'Invalid credentials'
+        }), 401
 
     if not user.is_active:
         return jsonify({
@@ -99,7 +105,7 @@ def login():
         }), 403
 
     access_token = create_access_token(
-    identity=str(user.id)
+        identity=str(user.id)
     )
 
     refresh_token = create_refresh_token(
@@ -111,7 +117,6 @@ def login():
         'refresh_token': refresh_token,
         'user': user.to_dict()
     }), 200
-
 
 
 
