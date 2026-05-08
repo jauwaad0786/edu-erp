@@ -2,6 +2,8 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import SchoolDetailPage from './pages/SchoolDetailPage';
+
 
 // Pages
 import Landing        from './pages/Landing';
@@ -62,6 +64,15 @@ export default function App() {
               <DashboardRouter />
             </ProtectedRoute>
           } />
+          <Route path="/schools/:id" element={
+            <ProtectedRoute roles={['SUPER_ADMIN']}>
+              <SchoolDetailPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/schools/:id" element={<SchoolDetailPage />} />
+
+
+
           <Route path="/users" element={
             <ProtectedRoute roles={['SUPER_ADMIN']}>
               <DashboardRouter />
