@@ -13,16 +13,16 @@ export default function Navbar({ title }) {
       <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--neutral-9)' }}>
         {title}
       </div>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div style={{
-          background: 'var(--blue-10)', color: 'var(--blue-80)',
-          padding: '3px 10px', borderRadius: 100,
-          fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-        }}>
-          {user?.role?.replace('_', ' ')}
-        </div>
-        <div style={{ fontSize: 13, color: 'var(--neutral-6)' }}>{user?.name}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div style={{ textAlign: 'right' }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--neutral-9)', lineHeight: 1.3 }}>
+        {user?.name}
       </div>
+      <div style={{ fontSize: 10, color: 'var(--neutral-5)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+        {user?.role?.replace('_', ' ')}
+      </div>
+    </div>
+</div>
     </header>
   );
 }
