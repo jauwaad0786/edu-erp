@@ -68,9 +68,9 @@ def login():
     # QUERY USER
     from sqlalchemy import func
 
-  user = User.query.filter(
-      func.lower(User.email) == email.lower()
-  ).first()
+    user = User.query.filter(
+        func.lower(User.email) == email.lower()
+    ).first()
 
     print("\nUSER FOUND:", user)
 
