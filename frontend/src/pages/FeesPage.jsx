@@ -33,6 +33,8 @@ export default function FeesPage() {
   const [search,   setSearch]   = useState('');
   const [filterStatus,  setFilterStatus]  = useState('');
   const [filterClass,   setFilterClass]   = useState('');
+  const [filterMonth, setFilterMonth] = useState('');
+  const [filterFeeType, setFilterFeeType] = useState('');
   const [loading,  setLoading]  = useState(false);
   const [msg,      setMsg]      = useState({ text: '', type: '' });
 
@@ -59,6 +61,8 @@ export default function FeesPage() {
     const params = new URLSearchParams();
     if (filterStatus) params.append('status',   filterStatus);
     if (filterClass)  params.append('class_id', filterClass);
+    if (filterMonth) params.append('month', filterMonth);
+    if (filterFeeType) params.append('fee_type', filterFeeType);
 
     Promise.all([
       api.get('/principal/fees/summary'),
@@ -72,7 +76,7 @@ export default function FeesPage() {
       })
       .catch(() => flash('❌ Data load karne mein error aaya', 'error'))
       .finally(() => setLoading(false));
-  }, [filterStatus, filterClass]);
+}, [filterStatus, filterClass, filterMonth, filterFeeType]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -257,7 +261,7 @@ async function generateFees() {
                   value={search}
                   onChange={e => setSearch(e.target.value)}
                 />
-                {/* class filter */}
+               {/* class filter */}
                 <select className="form-select" style={{ width: 150 }}
                   value={filterClass} onChange={e => setFilterClass(e.target.value)}>
                   <option value="">All Classes</option>
@@ -267,6 +271,7 @@ async function generateFees() {
                     </option>
                   ))}
                 </select>
+                
                 {/* status filter */}
                 <select className="form-select" style={{ width: 140 }}
                   value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
@@ -274,8 +279,29 @@ async function generateFees() {
                     <option key={s} value={s}>{s || 'All Status'}</option>
                   ))}
                 </select>
-              </div>
-            </div>
+                
+                {/* fee type filter */}
+                <select
+                  className="form-select"
+                  style={{ width: 150 }}
+                  value={filterFeeType}
+                  onChange={e => setFilterFeeType(e.target.value)}
+                >
+                  <option value="">All Types</option>
+                  <option value="TUITION">Tuition</option>
+                  <option value="EXAM">Exam</option>
+                  <option value="TRANSPORT">Transport</option>
+                  <option value="HOSTEL">Hostel</option>
+                </select>
+                
+                {/* month filter */}
+                <input
+                  type="month"
+                  className="form-input"
+                  style={{ width: 170 }}
+                  value={filterMonth}
+                  onChange={e => setFilterMonth(e.target.value)}
+                />
 
             <div className="table-container">
               {loading ? (
