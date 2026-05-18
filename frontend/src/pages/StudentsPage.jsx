@@ -220,6 +220,8 @@ export default function StudentsPage() {
                   )}
                 </tbody>
               </table>
+               </div>
+              </div>
             </div>
           </div>
 
