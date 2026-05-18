@@ -2,7 +2,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
-
+const [genModal, setGenModal] = useState(false);
+const [genClass, setGenClass] = useState('');
+const [genMonth, setGenMonth] = useState('');
+const [genAmount, setGenAmount] = useState('');
+const [genFeeType, setGenFeeType] = useState('TUITION');
+const [genDueDate, setGenDueDate] = useState('');
 /* ── small helpers ──────────────────────────────────────────────────────── */
 const fmt  = n => Number(n ?? 0).toLocaleString('en-IN');
 const MODES = ['CASH', 'UPI', 'ONLINE', 'CHEQUE'];
@@ -107,7 +112,42 @@ export default function FeesPage() {
     }
     setSaving(false);
   }
+async function generateFees() {
+  if (!genClass || !genMonth || !genAmount) {
+    flash('❌ Sab fields bharo', 'error');
+    return;
+  }
 
+  try {
+    const res = await api.post('/principal/fees/generate', {
+      class_id: genClass,
+      month: genMonth,
+      fee_type: genFeeType,
+      amount: parseFloat(genAmount),
+      due_date: genDueDate,
+    });
+
+    flash(`✅ ${res.data.created} fee records generate hue`);
+    setGenModal(false);
+
+    setGenClass('');
+    setGenMonth('');
+    setGenAmount('');
+    setGenFeeType('TUITION');
+    setGenDueDate('');
+
+    load();
+
+  } catch (e) {
+    flash(
+      e.response?.data?.error || '❌ Fee generate nahi hua',
+      'error'
+    );
+  }
+}  
+  
+  
+  
   /* ── filtered records ── */
   const filtered = records.filter(r => {
     const q = search.toLowerCase();
@@ -131,13 +171,21 @@ export default function FeesPage() {
         <Navbar title="Fee Management" />
         <div className="page-body">
 
-          {/* page header */}
           <div className="page-header">
-            <div>
-              <h2 className="page-title">Fee Management</h2>
-              <p className="page-subtitle">Student-wise fees collect, track aur report karo</p>
-            </div>
+          <div>
+            <h2 className="page-title">Fee Management</h2>
+            <p className="page-subtitle">
+              Student-wise fees collect, track aur report karo
+            </p>
           </div>
+        
+          <button
+            className="btn btn-primary"
+            onClick={() => setGenModal(true)}
+          >
+            ➕ Generate Fees
+          </button>
+        </div>
 
           {/* alert */}
           {msg.text && (
@@ -478,7 +526,111 @@ export default function FeesPage() {
           </div>
         </div>
       )}
+{genModal && (
+  <div
+    className="modal-backdrop"
+    onClick={e => e.target === e.currentTarget && setGenModal(false)}
+  >
+    <div className="modal" style={{ width: 420 }}>
+      <div className="modal-header">
+        <h3>➕ Generate Monthly Fees</h3>
+        <button
+          className="modal-close"
+          onClick={() => setGenModal(false)}
+        >
+          ✕
+        </button>
+      </div>
 
+      <div className="modal-body">
+
+        <div className="form-group">
+          <label className="form-label">Class *</label>
+
+          <select
+            className="form-select"
+            value={genClass}
+            onChange={e => setGenClass(e.target.value)}
+          >
+            <option value="">Select Class</option>
+
+            {classes.map(c => (
+              <option key={c.id} value={c.id}>
+                {c.name} - {c.section}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Month *</label>
+
+          <input
+            type="month"
+            className="form-input"
+            value={genMonth}
+            onChange={e => setGenMonth(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Fee Type *</label>
+
+          <select
+            className="form-select"
+            value={genFeeType}
+            onChange={e => setGenFeeType(e.target.value)}
+          >
+            <option value="TUITION">Tuition</option>
+            <option value="EXAM">Exam</option>
+            <option value="TRANSPORT">Transport</option>
+            <option value="HOSTEL">Hostel</option>
+          </select>
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Amount *</label>
+
+          <input
+            type="number"
+            className="form-input"
+            placeholder="500"
+            value={genAmount}
+            onChange={e => setGenAmount(e.target.value)}
+          />
+        </div>
+
+        <div className="form-group">
+          <label className="form-label">Due Date</label>
+
+          <input
+            type="date"
+            className="form-input"
+            value={genDueDate}
+            onChange={e => setGenDueDate(e.target.value)}
+          />
+        </div>
+
+      </div>
+
+      <div className="modal-footer">
+        <button
+          className="btn btn-neutral"
+          onClick={() => setGenModal(false)}
+        >
+          Cancel
+        </button>
+
+        <button
+          className="btn btn-primary"
+          onClick={generateFees}
+        >
+          ✅ Generate
+        </button>
+      </div>
+    </div>
+  </div>
+)}
       {/* ══ RECEIPT MODAL ══════════════════════════════════════════════════ */}
       {receiptRec && (
         <div className="modal-backdrop"
