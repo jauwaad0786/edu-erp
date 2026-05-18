@@ -15,6 +15,7 @@ import ClassesPage         from './pages/ClassesPage';
 import FeesPage            from './pages/FeesPage';
 import ExamsPage           from './pages/ExamsPage';
 import SchoolDetailPage    from './pages/SchoolDetailPage';
+import AttendancePage      from './pages/AttendancePage';
 
 export default function App() {
   return (
@@ -52,6 +53,11 @@ export default function App() {
           <Route path="/fees" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'STUDENT', 'PARENT']}>
               <FeesPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/attendance" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+              <AttendancePage />
             </ProtectedRoute>
           } />
           <Route path="/exams" element={
