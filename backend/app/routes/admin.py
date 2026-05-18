@@ -136,3 +136,109 @@ def admin_stats():
         'total_students': User.query.filter_by(role=UserRole.STUDENT).count(),
         'total_teachers': User.query.filter_by(role=UserRole.TEACHER).count(),
     }), 200
+# ── admin.py ke END mein add karo (existing code mat chhedo) ──
+
+from app.models.financial import FeeRecord   # already hoga
+from sqlalchemy import func as sqlfunc
+from datetime import datetime
+
+
+# ─── School Detail with Stats ─────────────────────────────────────────────────
+
+@admin_bp.route('/schools/<int:school_id>', methods=['GET'])
+@role_required('SUPER_ADMIN')
+def get_school_detail(school_id):
+    school = School.query.get_or_404(school_id)
+
+    total_students = User.query.filter_by(
+        school_id=school_id, role=UserRole.STUDENT
+    ).count()
+
+    total_teachers = User.query.filter_by(
+        school_id=school_id, role=UserRole.TEACHER
+    ).count()
+
+    total_classes = Class.query.filter_by(school_id=school_id).count()
+
+    # Fee stats
+    fee_records = FeeRecord.query.join(
+        User, FeeRecord.student_id == User.id
+    ).filter(User.school_id == school_id).all()
+
+    total_due  = sum(r.amount_due  for r in fee_records)
+    total_paid = sum(r.amount_paid for r in fee_records)
+
+    # Service charges
+    charges = ServiceCharge.query.filter_by(school_id=school_id)\
+                .order_by(ServiceCharge.charge_date.desc()).all()
+
+    this_month = datetime.utcnow().replace(day=1)
+    paid_this_month = any(
+        c for c in charges
+        if c.charge_date >= this_month and c.is_paid
+    )
+
+    return jsonify({
+        **school.to_dict(),
+        'total_students':    total_students,
+        'total_teachers':    total_teachers,
+        'total_classes':     total_classes,
+        'fees_collected':    total_paid,
+        'fees_pending':      total_due - total_paid,
+        'service_charges':   [c.to_dict() for c in charges],
+        'paid_this_month':   paid_this_month,
+    }), 200
+
+
+# ─── Activate / Deactivate School ────────────────────────────────────────────
+
+@admin_bp.route('/schools/<int:school_id>/toggle', methods=['PUT'])
+@role_required('SUPER_ADMIN')
+def toggle_school(school_id):
+    school = School.query.get_or_404(school_id)
+    school.is_active = not school.is_active
+    db.session.commit()
+    return jsonify({
+        'is_active': school.is_active,
+        'message':   f"School {'activated' if school.is_active else 'deactivated'}"
+    }), 200
+
+
+# ─── Service Charges ─────────────────────────────────────────────────────────
+
+@admin_bp.route('/schools/<int:school_id>/service-charges', methods=['GET'])
+@role_required('SUPER_ADMIN')
+def get_service_charges(school_id):
+    School.query.get_or_404(school_id)
+    charges = ServiceCharge.query.filter_by(school_id=school_id)\
+                .order_by(ServiceCharge.charge_date.desc()).all()
+    return jsonify([c.to_dict() for c in charges]), 200
+
+
+@admin_bp.route('/schools/<int:school_id>/service-charges', methods=['POST'])
+@role_required('SUPER_ADMIN')
+def add_service_charge(school_id):
+    School.query.get_or_404(school_id)
+    data = request.get_json()
+
+    charge = ServiceCharge(
+        school_id=school_id,
+        amount=data['amount'],
+        label=data.get('label', 'Monthly Service Charge'),
+        charge_date=datetime.strptime(data['charge_date'], '%Y-%m-%d')
+                    if data.get('charge_date') else datetime.utcnow(),
+        is_paid=data.get('is_paid', False),
+        note=data.get('note', '')
+    )
+    db.session.add(charge)
+    db.session.commit()
+    return jsonify(charge.to_dict()), 201
+
+
+@admin_bp.route('/service-charges/<int:charge_id>/toggle-paid', methods=['PUT'])
+@role_required('SUPER_ADMIN')
+def toggle_charge_paid(charge_id):
+    charge = ServiceCharge.query.get_or_404(charge_id)
+    charge.is_paid = not charge.is_paid
+    db.session.commit()
+    return jsonify(charge.to_dict()), 200
