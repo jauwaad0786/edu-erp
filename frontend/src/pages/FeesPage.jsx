@@ -1,46 +1,129 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
-import api from '../api/axios';
+import api     from '../api/axios';
 
-export default function FeesPage() {
-  const [summary, setSummary] = useState(null);
-  const [records, setRecords] = useState([]);
-  const [filter,  setFilter]  = useState('');
-  const [status,  setStatus]  = useState('');
-  const [showCollectModal, setShowCollectModal] = useState(false);
-  const [selectedRecord,   setSelectedRecord]   = useState(null);
-  const [payAmount,  setPayAmount]  = useState('');
-  const [payMode,    setPayMode]    = useState('CASH');
-  const [saving,     setSaving]     = useState(false);
-  const [msg,        setMsg]        = useState('');
+/* ── small helpers ──────────────────────────────────────────────────────── */
+const fmt  = n => Number(n ?? 0).toLocaleString('en-IN');
+const MODES = ['CASH', 'UPI', 'ONLINE', 'CHEQUE'];
+const STATUS_OPTS = ['', 'PENDING', 'PAID', 'PARTIAL', 'OVERDUE'];
 
-  const load = () => {
-    api.get('/principal/fees/summary').then(r => setSummary(r.data)).catch(() => {});
-    const q = status ? `?status=${status}` : '';
-    api.get(`/principal/fees/records${q}`).then(r => setRecords(r.data)).catch(() => {});
+function Badge({ status }) {
+  const map = {
+    PAID:    { bg: '#eaf5ea', color: '#2e844a' },
+    PARTIAL: { bg: '#fef5e4', color: '#dd7a01' },
+    OVERDUE: { bg: '#fef1ee', color: '#ba0517' },
+    PENDING: { bg: '#f3f0ff', color: '#5867e8' },
   };
-  useEffect(() => { load(); }, [status]);
-
-  const collectFee = async () => {
-    setSaving(true); setMsg('');
-    try {
-      await api.post('/principal/fees/collect', {
-        record_id: selectedRecord.id,
-        amount_paid: parseFloat(payAmount),
-        payment_mode: payMode,
-      });
-      setMsg('✅ Fee collected!'); setShowCollectModal(false); load();
-    } catch { setMsg('❌ Error collecting fee'); }
-    setSaving(false);
-  };
-
-  const fmt = n => n?.toLocaleString('en-IN') ?? '0';
-  const filtered = records.filter(r =>
-    r.fee_type?.toLowerCase().includes(filter.toLowerCase()) ||
-    r.month?.toLowerCase().includes(filter.toLowerCase())
+  const s = map[status] || { bg: '#f1f1f1', color: '#666' };
+  return (
+    <span style={{
+      background: s.bg, color: s.color,
+      padding: '3px 10px', borderRadius: 100,
+      fontSize: 11, fontWeight: 700,
+    }}>{status}</span>
   );
+}
 
+/* ── main component ─────────────────────────────────────────────────────── */
+export default function FeesPage() {
+  const [summary,  setSummary]  = useState(null);
+  const [records,  setRecords]  = useState([]);
+  const [classes,  setClasses]  = useState([]);
+  const [search,   setSearch]   = useState('');
+  const [filterStatus,  setFilterStatus]  = useState('');
+  const [filterClass,   setFilterClass]   = useState('');
+  const [loading,  setLoading]  = useState(false);
+  const [msg,      setMsg]      = useState({ text: '', type: '' });
+
+  /* collect modal */
+  const [modal,    setModal]    = useState(false);
+  const [selRec,   setSelRec]   = useState(null);
+  const [payAmt,   setPayAmt]   = useState('');
+  const [payMode,  setPayMode]  = useState('CASH');
+  const [remarks,  setRemarks]  = useState('');
+  const [saving,   setSaving]   = useState(false);
+
+  /* receipt modal */
+  const [receiptRec, setReceiptRec] = useState(null);
+
+  /* ── load data ── */
+  const load = useCallback(() => {
+    setLoading(true);
+    const params = new URLSearchParams();
+    if (filterStatus) params.append('status',   filterStatus);
+    if (filterClass)  params.append('class_id', filterClass);
+
+    Promise.all([
+      api.get('/principal/fees/summary'),
+      api.get(`/principal/fees/records?${params}`),
+      api.get('/principal/classes'),
+    ])
+      .then(([s, r, c]) => {
+        setSummary(s.data);
+        setRecords(r.data || []);
+        setClasses(c.data || []);
+      })
+      .catch(() => flash('❌ Data load karne mein error aaya', 'error'))
+      .finally(() => setLoading(false));
+  }, [filterStatus, filterClass]);
+
+  useEffect(() => { load(); }, [load]);
+
+  function flash(text, type = 'success') {
+    setMsg({ text, type });
+    setTimeout(() => setMsg({ text: '', type: '' }), 3500);
+  }
+
+  /* ── open collect modal ── */
+  function openCollect(rec) {
+    setSelRec(rec);
+    setPayAmt(String(rec.amount_due - rec.amount_paid));
+    setPayMode('CASH');
+    setRemarks('');
+    setModal(true);
+  }
+
+  /* ── submit payment ── */
+  async function submitPayment() {
+    if (!payAmt || isNaN(payAmt) || Number(payAmt) <= 0) {
+      flash('❌ Sahi amount daalo', 'error'); return;
+    }
+    setSaving(true);
+    try {
+      const res = await api.post('/principal/fees/collect', {
+        record_id:    selRec.id,
+        amount_paid:  parseFloat(payAmt),
+        payment_mode: payMode,
+        remarks,
+      });
+      setModal(false);
+      flash(`✅ Receipt ${res.data.receipt_no} — ₹${fmt(payAmt)} collect hua`);
+      load();
+      // Show receipt immediately
+      setReceiptRec(res.data);
+    } catch (e) {
+      flash(e.response?.data?.error || '❌ Payment mein error', 'error');
+    }
+    setSaving(false);
+  }
+
+  /* ── filtered records ── */
+  const filtered = records.filter(r => {
+    const q = search.toLowerCase();
+    return !q
+      || r.student_name?.toLowerCase().includes(q)
+      || r.father_name?.toLowerCase().includes(q)
+      || r.receipt_no?.toLowerCase().includes(q)
+      || r.fee_type?.toLowerCase().includes(q)
+      || r.class_name?.toLowerCase().includes(q);
+  });
+
+  const collectionPct = summary
+    ? Math.round((summary.total_collected / (summary.total_due || 1)) * 100)
+    : 0;
+
+  /* ════════════════════════════════════════════════════════════════════════ */
   return (
     <div className="app-shell">
       <Sidebar />
@@ -48,20 +131,31 @@ export default function FeesPage() {
         <Navbar title="Fee Management" />
         <div className="page-body">
 
+          {/* page header */}
           <div className="page-header">
-            <h2 className="page-title">Fee Management</h2>
-            <p className="page-subtitle">Collect, track and report school fees</p>
+            <div>
+              <h2 className="page-title">Fee Management</h2>
+              <p className="page-subtitle">Student-wise fees collect, track aur report karo</p>
+            </div>
           </div>
 
-          {msg && <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>{msg}</div>}
+          {/* alert */}
+          {msg.text && (
+            <div style={{
+              padding: '10px 16px', borderRadius: 8, marginBottom: 16, fontSize: 13,
+              background: msg.type === 'error' ? '#fef1ee' : '#eaf5ea',
+              color:      msg.type === 'error' ? '#ba0517' : '#2e844a',
+              border: `1px solid ${msg.type === 'error' ? '#f9c9c0' : '#a3d9a5'}`,
+            }}>{msg.text}</div>
+          )}
 
-          {/* Revenue Cards */}
+          {/* ── summary cards ── */}
           <div className="grid-4 mb-6">
             {[
-              { icon: '💰', label: 'Total Revenue',    value: `₹${fmt(summary?.total_collected)}`, color: '#2e844a', bg: '#eaf5ea' },
-              { icon: '📋', label: 'Total Billed',     value: `₹${fmt(summary?.total_due)}`,       color: '#0176d3', bg: '#e8f4fd' },
-              { icon: '⏳', label: 'Pending Count',    value: fmt(summary?.pending_count),          color: '#dd7a01', bg: '#fef5e4' },
-              { icon: '⚠️', label: 'Overdue',          value: fmt(summary?.overdue_count),          color: '#ba0517', bg: '#fef1ee' },
+              { icon: '💰', label: 'Total Revenue',  value: `₹${fmt(summary?.total_collected)}`, color: '#2e844a', bg: '#eaf5ea' },
+              { icon: '📋', label: 'Total Billed',   value: `₹${fmt(summary?.total_due)}`,       color: '#0176d3', bg: '#e8f4fd' },
+              { icon: '⏳', label: 'Pending Count',  value: fmt(summary?.pending_count),          color: '#dd7a01', bg: '#fef5e4' },
+              { icon: '⚠️', label: 'Overdue',        value: fmt(summary?.overdue_count),          color: '#ba0517', bg: '#fef1ee' },
             ].map(s => (
               <div className="stat-card" key={s.label}>
                 <div className="stat-icon" style={{ background: s.bg }}>
@@ -73,158 +167,391 @@ export default function FeesPage() {
             ))}
           </div>
 
-          {/* Collection Rate */}
+          {/* ── collection rate bar ── */}
           {summary && (
             <div className="card mb-6">
-              <div className="card-body">
+              <div className="card-body" style={{ padding: '16px 20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                  <h4>Collection Rate</h4>
-                  <span style={{ fontSize: 18, fontWeight: 800, color: summary.collection_rate >= 70 ? 'var(--success)' : 'var(--error)' }}>
-                    {summary.collection_rate}%
-                  </span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>Collection Rate</span>
+                  <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
+                    <span>Collected: <strong style={{ color: '#2e844a' }}>₹{fmt(summary.total_collected)}</strong></span>
+                    <span>Remaining: <strong style={{ color: '#dd7a01' }}>₹{fmt(summary.total_due - summary.total_collected)}</strong></span>
+                    <strong style={{ fontSize: 16, color: collectionPct >= 70 ? '#2e844a' : '#ba0517' }}>
+                      {collectionPct}%
+                    </strong>
+                  </div>
                 </div>
-                <div className="progress-bar" style={{ height: 10 }}>
-                  <div className="progress-fill"
-                    style={{
-                      width: `${summary.collection_rate}%`,
-                      background: summary.collection_rate >= 70 ? 'var(--success)' : summary.collection_rate >= 40 ? 'var(--warning)' : 'var(--error)',
-                    }}></div>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 8, fontSize: 12, color: 'var(--neutral-6)' }}>
-                  <span>₹{fmt(summary.total_collected)} collected</span>
-                  <span>₹{fmt(summary.total_due - summary.total_collected)} remaining</span>
+                <div style={{ height: 10, background: '#f1f1f1', borderRadius: 99, overflow: 'hidden' }}>
+                  <div style={{
+                    width: `${collectionPct}%`, height: '100%', borderRadius: 99,
+                    background: collectionPct >= 70 ? '#2e844a' : collectionPct >= 40 ? '#dd7a01' : '#ba0517',
+                    transition: 'width 0.6s ease',
+                  }} />
                 </div>
               </div>
             </div>
           )}
 
-          {/* Filters + Table */}
+          {/* ── filters + table ── */}
           <div className="card">
-            <div className="card-header flex justify-between items-center">
+            <div className="card-header" style={{
+              display: 'flex', justifyContent: 'space-between',
+              alignItems: 'center', flexWrap: 'wrap', gap: 10,
+            }}>
               <h4>Fee Records ({filtered.length})</h4>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <input className="form-input" placeholder="Search..."
-                  style={{ width: 200 }} value={filter} onChange={e => setFilter(e.target.value)} />
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {/* search */}
+                <input
+                  className="form-input"
+                  placeholder="🔍 Student / Father / Receipt..."
+                  style={{ width: 240 }}
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                />
+                {/* class filter */}
+                <select className="form-select" style={{ width: 150 }}
+                  value={filterClass} onChange={e => setFilterClass(e.target.value)}>
+                  <option value="">All Classes</option>
+                  {classes.map(c => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} - {c.section}
+                    </option>
+                  ))}
+                </select>
+                {/* status filter */}
                 <select className="form-select" style={{ width: 140 }}
-                  value={status} onChange={e => setStatus(e.target.value)}>
-                  <option value="">All Status</option>
-                  <option value="PENDING">Pending</option>
-                  <option value="PAID">Paid</option>
-                  <option value="PARTIAL">Partial</option>
-                  <option value="OVERDUE">Overdue</option>
+                  value={filterStatus} onChange={e => setFilterStatus(e.target.value)}>
+                  {STATUS_OPTS.map(s => (
+                    <option key={s} value={s}>{s || 'All Status'}</option>
+                  ))}
                 </select>
               </div>
             </div>
+
             <div className="table-container">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Receipt No</th><th>Fee Type</th><th>Month</th>
-                    <th>Due</th><th>Paid</th><th>Balance</th>
-                    <th>Due Date</th><th>Status</th><th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(r => (
-                    <tr key={r.id}>
-                      <td style={{ fontSize: 11, color: 'var(--neutral-6)' }}>{r.receipt_no || '—'}</td>
-                      <td style={{ fontWeight: 500 }}>{r.fee_type}</td>
-                      <td>{r.month}</td>
-                      <td style={{ fontWeight: 600 }}>₹{r.amount_due?.toLocaleString('en-IN')}</td>
-                      <td style={{ color: 'var(--success)', fontWeight: 600 }}>₹{r.amount_paid?.toLocaleString('en-IN')}</td>
-                      <td style={{ color: r.amount_due > r.amount_paid ? 'var(--error)' : 'var(--success)', fontWeight: 600 }}>
-                        ₹{(r.amount_due - r.amount_paid)?.toLocaleString('en-IN')}
-                      </td>
-                      <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>{r.due_date || '—'}</td>
-                      <td>
-                        <span className={`badge ${
-                          r.status === 'PAID'    ? 'badge-success' :
-                          r.status === 'PARTIAL' ? 'badge-warning' :
-                          r.status === 'OVERDUE' ? 'badge-error'   : 'badge-neutral'
-                        }`}>{r.status}</span>
-                      </td>
-                      <td>
-                        {r.status !== 'PAID' && (
-                          <button className="btn btn-sm" onClick={() => { setSelectedRecord(r); setPayAmount(r.amount_due - r.amount_paid); setShowCollectModal(true); }}
-                            style={{
-                              background: '#eaf5ea', color: 'var(--success)',
-                              border: 'none', cursor: 'pointer', borderRadius: 4,
-                              padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                            }}>💸 Collect</button>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                  {!filtered.length && (
+              {loading ? (
+                <div style={{ padding: 40, textAlign: 'center', color: 'var(--neutral-5)' }}>
+                  Loading...
+                </div>
+              ) : (
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan={9}>
-                        <div className="empty-state">
-                          <div className="empty-state-icon">💰</div>
-                          <p>No fee records found</p>
-                        </div>
-                      </td>
+                      <th>Receipt No</th>
+                      <th>Student</th>
+                      <th>Father</th>
+                      <th>Class</th>
+                      <th>Fee Type</th>
+                      <th>Month</th>
+                      <th>Due (₹)</th>
+                      <th>Paid (₹)</th>
+                      <th>Balance (₹)</th>
+                      <th>Mode</th>
+                      <th>Due Date</th>
+                      <th>Status</th>
+                      <th>Actions</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map(r => {
+                      const balance = (r.amount_due || 0) - (r.amount_paid || 0);
+                      return (
+                        <tr key={r.id}>
+                          {/* receipt */}
+                          <td style={{ fontSize: 11, color: 'var(--neutral-6)', fontFamily: 'monospace' }}>
+                            {r.receipt_no || <span style={{ color: '#ccc' }}>—</span>}
+                          </td>
+
+                          {/* student */}
+                          <td>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>
+                              {r.student_name || '—'}
+                            </div>
+                            <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>
+                              Roll: {r.roll_number || '—'}
+                            </div>
+                          </td>
+
+                          {/* father */}
+                          <td style={{ fontSize: 13 }}>{r.father_name || '—'}</td>
+
+                          {/* class */}
+                          <td>
+                            <span style={{
+                              background: 'var(--blue-10)', color: 'var(--blue-80)',
+                              padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 600,
+                            }}>{r.class_name || '—'}</span>
+                          </td>
+
+                          {/* fee type */}
+                          <td style={{ fontWeight: 500, fontSize: 13 }}>{r.fee_type || '—'}</td>
+
+                          {/* month */}
+                          <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>{r.month || '—'}</td>
+
+                          {/* due */}
+                          <td style={{ fontWeight: 600 }}>₹{fmt(r.amount_due)}</td>
+
+                          {/* paid */}
+                          <td style={{ fontWeight: 600, color: '#2e844a' }}>₹{fmt(r.amount_paid)}</td>
+
+                          {/* balance */}
+                          <td style={{
+                            fontWeight: 700,
+                            color: balance > 0 ? '#ba0517' : '#2e844a',
+                          }}>
+                            {balance > 0 ? `₹${fmt(balance)}` : '✅ Clear'}
+                          </td>
+
+                          {/* payment mode */}
+                          <td>
+                            {r.payment_mode ? (
+                              <span style={{
+                                background: '#f3f0ff', color: '#5867e8',
+                                padding: '2px 8px', borderRadius: 4,
+                                fontSize: 11, fontWeight: 600,
+                              }}>{r.payment_mode}</span>
+                            ) : <span style={{ color: '#ccc' }}>—</span>}
+                          </td>
+
+                          {/* due date */}
+                          <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>
+                            {r.due_date || '—'}
+                          </td>
+
+                          {/* status */}
+                          <td><Badge status={r.status} /></td>
+
+                          {/* actions */}
+                          <td>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                              {r.status !== 'PAID' && (
+                                <button
+                                  onClick={() => openCollect(r)}
+                                  style={{
+                                    background: '#eaf5ea', color: '#2e844a',
+                                    border: 'none', borderRadius: 4,
+                                    padding: '4px 10px', fontSize: 11,
+                                    fontWeight: 700, cursor: 'pointer',
+                                  }}>
+                                  💸 Collect
+                                </button>
+                              )}
+                              {r.receipt_no && (
+                                <button
+                                  onClick={() => setReceiptRec(r)}
+                                  style={{
+                                    background: '#e8f4fd', color: '#0176d3',
+                                    border: 'none', borderRadius: 4,
+                                    padding: '4px 10px', fontSize: 11,
+                                    fontWeight: 700, cursor: 'pointer',
+                                  }}>
+                                  🧾 Receipt
+                                </button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {!filtered.length && !loading && (
+                      <tr>
+                        <td colSpan={13}>
+                          <div className="empty-state">
+                            <div className="empty-state-icon">💰</div>
+                            <p>Koi fee record nahi mila</p>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              )}
             </div>
           </div>
 
         </div>
       </div>
 
-      {/* Collect Fee Modal */}
-      {showCollectModal && selectedRecord && (
-        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowCollectModal(false)}>
-          <div className="modal">
+      {/* ══ COLLECT FEE MODAL ══════════════════════════════════════════════ */}
+      {modal && selRec && (
+        <div className="modal-backdrop"
+          onClick={e => e.target === e.currentTarget && setModal(false)}>
+          <div className="modal" style={{ width: 460 }}>
             <div className="modal-header">
-              <h3>💸 Collect Fee</h3>
-              <button className="modal-close" onClick={() => setShowCollectModal(false)}>✕</button>
+              <h3>💸 Fee Collect Karo</h3>
+              <button className="modal-close" onClick={() => setModal(false)}>✕</button>
             </div>
+
             <div className="modal-body">
+              {/* student info box */}
               <div style={{
-                background: 'var(--blue-10)', borderRadius: 8, padding: '12px 16px', marginBottom: 20,
+                background: '#f8faff', border: '1px solid #dde8f5',
+                borderRadius: 10, padding: '14px 16px', marginBottom: 20,
               }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13 }}>
-                  <span style={{ color: 'var(--neutral-6)' }}>Fee Type</span>
-                  <span style={{ fontWeight: 700 }}>{selectedRecord.fee_type}</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px', fontSize: 13 }}>
+                  {[
+                    ['👤 Student',   selRec.student_name],
+                    ['👨 Father',    selRec.father_name],
+                    ['🏛 Class',     selRec.class_name],
+                    ['🔢 Roll No.',  selRec.roll_number],
+                    ['📋 Fee Type',  selRec.fee_type],
+                    ['📅 Month',     selRec.month],
+                  ].map(([label, val]) => (
+                    <div key={label}>
+                      <div style={{ color: 'var(--neutral-5)', fontSize: 11 }}>{label}</div>
+                      <div style={{ fontWeight: 600 }}>{val || '—'}</div>
+                    </div>
+                  ))}
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 6 }}>
-                  <span style={{ color: 'var(--neutral-6)' }}>Total Due</span>
-                  <span style={{ fontWeight: 700 }}>₹{selectedRecord.amount_due?.toLocaleString('en-IN')}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginTop: 6 }}>
-                  <span style={{ color: 'var(--neutral-6)' }}>Balance</span>
-                  <span style={{ fontWeight: 700, color: 'var(--error)' }}>
-                    ₹{(selectedRecord.amount_due - selectedRecord.amount_paid)?.toLocaleString('en-IN')}
-                  </span>
+
+                {/* amount summary */}
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  marginTop: 14, paddingTop: 12,
+                  borderTop: '1px solid #dde8f5', fontSize: 13,
+                }}>
+                  <span>Total Due: <strong>₹{fmt(selRec.amount_due)}</strong></span>
+                  <span>Already Paid: <strong style={{ color: '#2e844a' }}>₹{fmt(selRec.amount_paid)}</strong></span>
+                  <span>Balance: <strong style={{ color: '#ba0517' }}>
+                    ₹{fmt(selRec.amount_due - selRec.amount_paid)}
+                  </strong></span>
                 </div>
               </div>
 
+              {/* amount input */}
               <div className="form-group">
-                <label className="form-label">Amount to Collect (₹)</label>
-                <input className="form-input" type="number" value={payAmount}
-                  onChange={e => setPayAmount(e.target.value)} />
+                <label className="form-label">Amount to Collect (₹) *</label>
+                <input
+                  className="form-input"
+                  type="number"
+                  min="1"
+                  max={selRec.amount_due - selRec.amount_paid}
+                  value={payAmt}
+                  onChange={e => setPayAmt(e.target.value)}
+                  placeholder="Amount daalo"
+                />
               </div>
+
+              {/* payment mode */}
               <div className="form-group">
-                <label className="form-label">Payment Mode</label>
-                <select className="form-select" value={payMode} onChange={e => setPayMode(e.target.value)}>
-                  <option value="CASH">Cash</option>
-                  <option value="ONLINE">Online Transfer</option>
-                  <option value="CHEQUE">Cheque</option>
-                  <option value="UPI">UPI</option>
-                </select>
+                <label className="form-label">Payment Mode *</label>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  {MODES.map(m => (
+                    <button key={m}
+                      onClick={() => setPayMode(m)}
+                      style={{
+                        padding: '7px 16px', borderRadius: 6, fontSize: 12,
+                        fontWeight: 600, cursor: 'pointer', border: '2px solid',
+                        borderColor: payMode === m ? '#0176d3' : '#e2e8f0',
+                        background:  payMode === m ? '#e8f4fd' : '#fff',
+                        color:       payMode === m ? '#0176d3' : '#64748b',
+                        transition:  'all 0.15s',
+                      }}>
+                      {m === 'CASH' ? '💵' : m === 'UPI' ? '📱' : m === 'ONLINE' ? '🌐' : '📝'} {m}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* remarks */}
+              <div className="form-group">
+                <label className="form-label">Remarks (optional)</label>
+                <input
+                  className="form-input"
+                  value={remarks}
+                  onChange={e => setRemarks(e.target.value)}
+                  placeholder="Koi note..."
+                />
               </div>
             </div>
+
             <div className="modal-footer">
-              <button className="btn btn-neutral" onClick={() => setShowCollectModal(false)}>Cancel</button>
-              <button className="btn btn-primary" onClick={collectFee} disabled={saving}>
-                {saving ? 'Processing...' : '✅ Confirm Collection'}
+              <button className="btn btn-neutral" onClick={() => setModal(false)}>
+                Cancel
+              </button>
+              <button className="btn btn-primary" onClick={submitPayment} disabled={saving}>
+                {saving ? 'Processing...' : '✅ Confirm & Generate Receipt'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* ══ RECEIPT MODAL ══════════════════════════════════════════════════ */}
+      {receiptRec && (
+        <div className="modal-backdrop"
+          onClick={e => e.target === e.currentTarget && setReceiptRec(null)}>
+          <div className="modal" style={{ width: 420 }}>
+            <div className="modal-header">
+              <h3>🧾 Fee Receipt</h3>
+              <button className="modal-close" onClick={() => setReceiptRec(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              {/* receipt design */}
+              <div id="receipt-print" style={{
+                border: '2px solid #0176d3', borderRadius: 12,
+                padding: 20, fontFamily: 'monospace',
+              }}>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 18, fontWeight: 800, color: '#0176d3' }}>
+                    🏫 EduERP School
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b' }}>Fee Receipt</div>
+                  <div style={{
+                    fontSize: 11, background: '#e8f4fd', color: '#0176d3',
+                    padding: '4px 12px', borderRadius: 100, display: 'inline-block',
+                    marginTop: 6, fontWeight: 700,
+                  }}>
+                    {receiptRec.receipt_no}
+                  </div>
+                </div>
+
+                <div style={{ borderTop: '1px dashed #cbd5e1', margin: '12px 0' }} />
+
+                {[
+                  ['Student',      receiptRec.student_name],
+                  ['Father',       receiptRec.father_name],
+                  ['Class',        receiptRec.class_name],
+                  ['Roll No.',     receiptRec.roll_number],
+                  ['Fee Type',     receiptRec.fee_type],
+                  ['Month',        receiptRec.month],
+                  ['Amount Paid',  `₹${fmt(receiptRec.amount_paid)}`],
+                  ['Payment Mode', receiptRec.payment_mode],
+                  ['Paid Date',    receiptRec.paid_date || new Date().toLocaleDateString('en-IN')],
+                  ['Status',       receiptRec.status],
+                ].map(([label, val]) => (
+                  <div key={label} style={{
+                    display: 'flex', justifyContent: 'space-between',
+                    fontSize: 12, marginBottom: 8,
+                  }}>
+                    <span style={{ color: '#64748b' }}>{label}</span>
+                    <strong style={{
+                      color: label === 'Amount Paid' ? '#2e844a'
+                           : label === 'Status'      ? '#0176d3' : '#0f172a',
+                    }}>{val || '—'}</strong>
+                  </div>
+                ))}
+
+                <div style={{ borderTop: '1px dashed #cbd5e1', margin: '12px 0' }} />
+                <div style={{ textAlign: 'center', fontSize: 11, color: '#94a3b8' }}>
+                  Dhanyawaad! 🙏 EduERP School Management
+                </div>
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-neutral" onClick={() => setReceiptRec(null)}>
+                Close
+              </button>
+              <button className="btn btn-primary" onClick={() => window.print()}>
+                🖨️ Print Receipt
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
