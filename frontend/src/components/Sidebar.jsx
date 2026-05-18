@@ -61,7 +61,7 @@ export default function Sidebar() {
     setResetSuccess(false);
   }
 
-  function handleResetSubmit() {
+  async function handleResetSubmit() {
     setResetError('');
     if (!passwords.current || !passwords.newP || !passwords.confirm) {
       setResetError('All fields are required.'); return;
@@ -72,10 +72,18 @@ export default function Sidebar() {
     if (passwords.newP !== passwords.confirm) {
       setResetError('New passwords do not match.'); return;
     }
-    // TODO: replace with your actual API call
-    // await axios.post('/auth/reset-password', { currentPassword: passwords.current, newPassword: passwords.newP });
-    setResetSuccess(true);
-    setTimeout(() => handleResetClose(), 1500);
+    try {
+      await api.put('/auth/change-password', {
+        old_password: passwords.current,
+        new_password: passwords.newP,
+      });
+      setResetSuccess(true);
+      setTimeout(() => handleResetClose(), 1500);
+    } catch (err) {
+      setResetError(
+        err.response?.data?.error || 'Failed to update password.'
+      );
+    }
   }
 
   return (
