@@ -16,7 +16,7 @@ import FeesPage            from './pages/FeesPage';
 import ExamsPage           from './pages/ExamsPage';
 import SchoolDetailPage    from './pages/SchoolDetailPage';
 import AttendancePage      from './pages/AttendancePage';
-
+import NewAdmissionPage    from './pages/NewAdmissionPage';
 export default function App() {
   return (
     <AuthProvider>
@@ -55,6 +55,11 @@ export default function App() {
               <FeesPage />
             </ProtectedRoute>
           } />
+          <Route path="/admission" element={
+          <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
+            <NewAdmissionPage />
+          </ProtectedRoute>
+        } />
           <Route path="/attendance" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
               <AttendancePage />
