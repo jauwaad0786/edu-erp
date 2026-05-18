@@ -366,7 +366,7 @@ export default function PrincipalDashboard() {
                               borderRadius: 4, padding: '4px 10px',
                               fontSize: 11, fontWeight: 700,
                             }}
-                              onClick={() => window.location.href = `/fees?class_id=${c.id}`}
+                              onClick={() => window.location.href = `/fees?class_id=${c.id}`}>
                               💸 Collect
                             </button>
                           </td>
