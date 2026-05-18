@@ -174,7 +174,143 @@ def generate_result_card(student, school, exam, marks_data):
     doc.build(elements)
     buffer.seek(0)
     return buffer
+def generate_admission_card(student, school):
+    """
+    Generate admission registration card for a newly admitted student.
+    Real school-style — border, school header, student info, photo box.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=A4,
+                            rightMargin=1.5*cm, leftMargin=1.5*cm,
+                            topMargin=1.5*cm, bottomMargin=1.5*cm)
 
+    title_style = ParagraphStyle('t', fontSize=18, textColor=DARK_BLUE,
+                                  alignment=TA_CENTER, fontName='Helvetica-Bold',
+                                  spaceAfter=4)
+    sub_style   = ParagraphStyle('s', fontSize=11, textColor=SCHOOL_BLUE,
+                                  alignment=TA_CENTER, fontName='Helvetica-Bold',
+                                  spaceAfter=2)
+    label_style = ParagraphStyle('l', fontSize=9,  fontName='Helvetica-Bold',
+                                  textColor=DARK_BLUE)
+    value_style = ParagraphStyle('v', fontSize=10, fontName='Helvetica')
+    center_bold = ParagraphStyle('cb', fontSize=13, fontName='Helvetica-Bold',
+                                  textColor=DARK_BLUE, alignment=TA_CENTER)
+
+    elements = []
+
+    # ── School Header ──
+    elements.append(Paragraph(school.name.upper(), title_style))
+    elements.append(Paragraph(
+        f"{school.address or ''} | {school.city or ''} | Ph: {school.phone or ''}",
+        sub_style
+    ))
+    elements.append(HRFlowable(width='100%', color=SCHOOL_BLUE, thickness=3))
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Paragraph('ADMISSION REGISTRATION CARD', center_bold))
+    elements.append(Spacer(1, 0.4*cm))
+    elements.append(HRFlowable(width='100%', color=colors.lightgrey, thickness=1))
+    elements.append(Spacer(1, 0.4*cm))
+
+    # ── Student info + Photo box side by side ──
+    cls  = student.class_ref
+    info = [
+        ['Admission No.',  student.admission_no  or 'N/A'],
+        ['Student Name',   student.user.name     if student.user else ''],
+        ['Father / Guardian', student.parent_name or ''],
+        ['Mobile No.',     student.parent_phone  or ''],
+        ['Class / Section', f"{cls.name} — {cls.section}" if cls else ''],
+        ['Roll Number',    student.roll_number   or ''],
+        ['Gender',         student.gender        or ''],
+        ['Session',        student.session       or ''],
+        ['Date of Admission', student.created_at.strftime('%d-%m-%Y')
+                              if hasattr(student, 'created_at') and student.created_at
+                              else ''],
+    ]
+
+    # left: info table | right: photo box
+    info_rows = []
+    for label, value in info:
+        info_rows.append([
+            Paragraph(label, label_style),
+            Paragraph(value,  value_style),
+        ])
+
+    info_table = Table(info_rows, colWidths=[4.5*cm, 9*cm])
+    info_table.setStyle(TableStyle([
+        ('FONTSIZE',      (0,0), (-1,-1), 9),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('LINEBELOW',     (0,0), (-1,-1), 0.4, colors.HexColor('#e2e8f0')),
+        ('BACKGROUND',    (0,0), (0,-1), colors.HexColor('#f8faff')),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
+    ]))
+
+    # Photo placeholder box
+    photo_box = Table(
+        [[Paragraph('Photo', ParagraphStyle('ph', fontSize=9,
+                    alignment=TA_CENTER, textColor=colors.grey))]],
+        colWidths=[3*cm], rowHeights=[3.5*cm]
+    )
+    photo_box.setStyle(TableStyle([
+        ('BOX',        (0,0), (-1,-1), 1, colors.grey),
+        ('ALIGN',      (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
+        ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8faff')),
+    ]))
+
+    # Combine side by side
+    combined = Table(
+        [[info_table, photo_box]],
+        colWidths=[13.5*cm, 3.5*cm]
+    )
+    combined.setStyle(TableStyle([
+        ('VALIGN', (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING',  (1,0), (1,0), 8),
+    ]))
+    elements.append(combined)
+    elements.append(Spacer(1, 0.8*cm))
+
+    # ── Rules / Instructions ──
+    elements.append(HRFlowable(width='100%', color=colors.lightgrey, thickness=1))
+    elements.append(Spacer(1, 0.3*cm))
+    elements.append(Paragraph('IMPORTANT INSTRUCTIONS', ParagraphStyle(
+        'inst', fontSize=9, fontName='Helvetica-Bold', textColor=DARK_BLUE, spaceAfter=4
+    )))
+    for line in [
+        '1. Ye card school premises mein hamesha saath rakhein.',
+        '2. Fee har mahine 10 tarikh tak jama karein.',
+        '3. Koi bhi changes ke liye school office se sampark karein.',
+        '4. Is card ko kho jane par turant principal ko soochit karein.',
+    ]:
+        elements.append(Paragraph(line, ParagraphStyle(
+            'il', fontSize=8, fontName='Helvetica',
+            textColor=colors.grey, spaceAfter=3
+        )))
+
+    elements.append(Spacer(1, 1*cm))
+
+    # ── Signatures ──
+    sig_data = [[
+        Paragraph("_____________________\nParent's Signature",
+                  ParagraphStyle('sig', fontSize=8, fontName='Helvetica',
+                                  textColor=colors.grey, alignment=TA_CENTER)),
+        Paragraph("_____________________\nClass Teacher's Signature",
+                  ParagraphStyle('sig2', fontSize=8, fontName='Helvetica',
+                                  textColor=colors.grey, alignment=TA_CENTER)),
+        Paragraph("_____________________\nPrincipal's Signature",
+                  ParagraphStyle('sig3', fontSize=8, fontName='Helvetica',
+                                  textColor=colors.grey, alignment=TA_CENTER)),
+    ]]
+    sig_table = Table(sig_data, colWidths=[5.5*cm, 5.5*cm, 5.5*cm])
+    sig_table.setStyle(TableStyle([
+        ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+        ('VALIGN', (0,0), (-1,-1), 'BOTTOM'),
+    ]))
+    elements.append(sig_table)
+
+    doc.build(elements)
+    buffer.seek(0)
+    return buffer
 
 def _get_grade(pct):
     if pct >= 90: return 'A+'
