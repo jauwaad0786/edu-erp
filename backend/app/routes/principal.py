@@ -534,3 +534,18 @@ def dashboard():
                             func.sum(FeeRecord.amount_due - FeeRecord.amount_paid)
                           ).filter_by(school_id=sid).scalar() or 0,
     }), 200
+
+
+@principal_bp.route('/admission-card/<int:student_id>', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def admission_card_pdf(student_id):
+    student = Student.query.get_or_404(student_id)
+    from app.models.school import School
+    school  = School.query.get(student.school_id)
+    from app.utils.pdf_generator import generate_admission_card
+    buf = generate_admission_card(student, school)
+    return send_file(
+        buf,
+        mimetype='application/pdf',
+        download_name=f'AdmissionCard_{student.admission_no or student_id}.pdf'
+    )
