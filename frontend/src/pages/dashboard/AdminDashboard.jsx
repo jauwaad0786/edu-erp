@@ -1,33 +1,49 @@
+// frontend/src/pages/SuperAdmin/AdminDashboard.jsx — FULL REPLACE
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Navbar  from '../../components/Navbar';
-import api from '../../api/axios';
+import api     from '../../api/axios';
 
-const ROLES = ['PRINCIPAL', 'TEACHER', 'STUDENT', 'PARENT'];
+const ROLES   = ['PRINCIPAL', 'TEACHER', 'STUDENT', 'PARENT'];
+const MONTHS  = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const CUR_YR  = new Date().getFullYear();
+const YEARS   = [CUR_YR, CUR_YR - 1, CUR_YR - 2];
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+
   const [stats,        setStats]        = useState(null);
   const [schools,      setSchools]      = useState([]);
   const [users,        setUsers]        = useState([]);
   const [tab,          setTab]          = useState('schools');
+
+  // Filters
+  const [filterMonth, setFilterMonth]   = useState(new Date().getMonth());
+  const [filterYear,  setFilterYear]    = useState(CUR_YR);
+
+  // Modals
   const [showSchoolModal, setShowSchoolModal] = useState(false);
   const [showUserModal,   setShowUserModal]   = useState(false);
+  const [showEditModal,   setShowEditModal]   = useState(false);
+  const [editSchool,      setEditSchool]      = useState(null);
+
   const [createdCreds, setCreatedCreds] = useState(null);
   const [copied,       setCopied]       = useState(false);
   const [form,   setForm]   = useState({});
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState('');
 
+  // ── Load all data
   const load = () => {
     api.get('/admin/stats').then(r => setStats(r.data)).catch(() => {});
     api.get('/admin/schools').then(r => setSchools(r.data)).catch(() => {});
     api.get('/admin/users').then(r => setUsers(r.data)).catch(() => {});
   };
-
   useEffect(() => { load(); }, []);
 
+  // ── Create school
   const createSchool = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
@@ -40,17 +56,38 @@ export default function AdminDashboard() {
     setSaving(false);
   };
 
+  // ── Edit school
+  const openEdit = s => { setEditSchool(s); setForm({ ...s }); setShowEditModal(true); };
+  const saveEdit = async e => {
+    e.preventDefault(); setSaving(true); setMsg('');
+    try {
+      await api.put(`/admin/schools/${editSchool.id}`, form);
+      setMsg('✅ School updated!');
+      setShowEditModal(false); setForm({}); load();
+    } catch (err) {
+      setMsg('❌ ' + (err.response?.data?.error || 'Error'));
+    }
+    setSaving(false);
+  };
+
+  // ── Toggle school active/inactive
+  const toggleSchool = async id => {
+    await api.put(`/admin/schools/${id}/toggle`);
+    load();
+  };
+
+  // ── Create user
   const createUser = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
       await api.post('/admin/users', form);
       setShowUserModal(false);
       setCreatedCreds({
-        name:    form.name,
-        email:   form.email,
+        name:     form.name,
+        email:    form.email,
         password: form.password || 'EduErp@123',
-        role:    form.role,
-        school:  schools.find(s => String(s.id) === String(form.school_id))?.name || '—',
+        role:     form.role,
+        school:   schools.find(s => String(s.id) === String(form.school_id))?.name || '—',
       });
       setForm({}); load();
     } catch (err) {
@@ -59,27 +96,33 @@ export default function AdminDashboard() {
     setSaving(false);
   };
 
+  // ── Toggle user
   const toggleUser = async id => {
     await api.put(`/admin/users/${id}/toggle`);
     load();
   };
 
+  // ── Copy credentials
   const handleCopy = () => {
     if (!createdCreds) return;
-    const text =
+    navigator.clipboard.writeText(
       `EduERP Login Credentials\n` +
       `Name:     ${createdCreds.name}\n` +
       `Email:    ${createdCreds.email}\n` +
       `Password: ${createdCreds.password}\n` +
       `Role:     ${createdCreds.role}\n` +
       `School:   ${createdCreds.school}\n` +
-      `Login at: ${window.location.origin}/login`;
-    navigator.clipboard.writeText(text);
+      `Login at: ${window.location.origin}/login`
+    );
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const fmt = n => n?.toLocaleString('en-IN') ?? '—';
+  const fmt  = n => n?.toLocaleString('en-IN') ?? '—';
+  const fmtL = n => `₹${(Number(n || 0) / 100000).toFixed(1)}L`;
+
+  // ── Chart: total fees per school (mock bars from schools list)
+  const chartMax = Math.max(...schools.map(s => s.total_students || 1), 1);
 
   return (
     <div className="app-shell">
@@ -88,13 +131,36 @@ export default function AdminDashboard() {
         <Navbar title="Super Admin — Control Center" />
         <div className="page-body">
 
-          {/* Header */}
+          {/* ── Page Header ── */}
           <div className="page-header flex justify-between items-center">
             <div>
               <h2 className="page-title">Control Center</h2>
               <p className="page-subtitle">Manage all schools, access & users across EduERP</p>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2" style={{ alignItems: 'center' }}>
+
+              {/* Month Filter */}
+              <select
+                value={filterMonth}
+                onChange={e => setFilterMonth(Number(e.target.value))}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, border: '1px solid #e2e8f0',
+                  fontSize: 12, color: '#475569', cursor: 'pointer', background: '#fff',
+                }}>
+                {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
+              </select>
+
+              {/* Year Filter */}
+              <select
+                value={filterYear}
+                onChange={e => setFilterYear(Number(e.target.value))}
+                style={{
+                  padding: '6px 12px', borderRadius: 6, border: '1px solid #e2e8f0',
+                  fontSize: 12, color: '#475569', cursor: 'pointer', background: '#fff',
+                }}>
+                {YEARS.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+
               <button className="btn btn-neutral btn-sm"
                 onClick={() => { setForm({}); setShowUserModal(true); }}>
                 + Create User
@@ -107,12 +173,13 @@ export default function AdminDashboard() {
           </div>
 
           {msg && (
-            <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}>
+            <div className={`alert ${msg.startsWith('✅') ? 'alert-success' : 'alert-error'}`}
+              style={{ marginBottom: 16 }}>
               {msg}
             </div>
           )}
 
-          {/* Stats */}
+          {/* ── Stat Cards ── */}
           <div className="grid-4 mb-6">
             {[
               { icon: '🏫', label: 'Active Schools',  value: fmt(stats?.total_schools),  color: '#0176d3' },
@@ -130,7 +197,90 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          {/* Tabs */}
+          {/* ── Charts Row ── */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+
+            {/* Chart 1: School-wise Students */}
+            <div style={{ background: '#fff', borderRadius: 12, padding: 24,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <h4 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                🎒 Students per School
+              </h4>
+              <p style={{ margin: '0 0 20px', fontSize: 12, color: '#94a3b8' }}>
+                {MONTHS[filterMonth]} {filterYear}
+              </p>
+              {schools.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center', padding: '20px 0' }}>
+                  No schools yet
+                </div>
+              ) : schools.map(s => (
+                <div key={s.id} style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between',
+                    fontSize: 12, marginBottom: 5 }}>
+                    <span style={{ fontWeight: 600, color: '#0f172a' }}>{s.name}</span>
+                    <span style={{ color: '#64748b' }}>{fmt(s.total_students || 0)}</span>
+                  </div>
+                  <div style={{ height: 8, background: '#f1f5f9', borderRadius: 99 }}>
+                    <div style={{
+                      height: '100%', borderRadius: 99,
+                      width: `${Math.round(((s.total_students || 0) / chartMax) * 100)}%`,
+                      background: 'linear-gradient(90deg, #0176d3, #38bdf8)',
+                      transition: 'width 0.5s ease',
+                      minWidth: s.total_students ? 6 : 0,
+                    }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Chart 2: Service Charge Collection */}
+            <div style={{ background: '#fff', borderRadius: 12, padding: 24,
+              boxShadow: '0 1px 4px rgba(0,0,0,0.07)' }}>
+              <h4 style={{ margin: '0 0 4px', fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+                💳 Service Charge Status
+              </h4>
+              <p style={{ margin: '0 0 20px', fontSize: 12, color: '#94a3b8' }}>
+                {MONTHS[filterMonth]} {filterYear} — All Schools
+              </p>
+
+              {/* Summary */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12, marginBottom: 20 }}>
+                {[
+                  { label: 'Total Schools', value: schools.length,                                   color: '#0176d3', bg: '#e0f0ff' },
+                  { label: 'Paid',          value: schools.filter(s => s.paid_this_month).length,    color: '#059669', bg: '#d1fae5' },
+                  { label: 'Due',           value: schools.filter(s => !s.paid_this_month).length,   color: '#dc2626', bg: '#fee2e2' },
+                ].map(c => (
+                  <div key={c.label} style={{
+                    background: c.bg, borderRadius: 10, padding: '14px 12px', textAlign: 'center',
+                  }}>
+                    <div style={{ fontSize: 22, fontWeight: 800, color: c.color }}>{c.value}</div>
+                    <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>{c.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Per school badge */}
+              {schools.length === 0 ? (
+                <div style={{ color: '#94a3b8', fontSize: 13, textAlign: 'center' }}>No schools yet</div>
+              ) : schools.map(s => (
+                <div key={s.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '8px 0', borderBottom: '1px solid #f1f5f9', fontSize: 13,
+                }}>
+                  <span style={{ fontWeight: 500, color: '#0f172a' }}>{s.name}</span>
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                    background: s.paid_this_month ? '#dcfce7' : '#fee2e2',
+                    color:      s.paid_this_month ? '#16a34a' : '#dc2626',
+                  }}>
+                    {s.paid_this_month ? '✅ Paid' : '⏳ Due'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ── Tabs ── */}
           <div style={{ display: 'flex', borderBottom: '2px solid var(--neutral-2)', marginBottom: 20 }}>
             {[['schools', '🏫 Schools'], ['users', '👥 Users']].map(([k, l]) => (
               <button key={k} onClick={() => setTab(k)} style={{
@@ -143,7 +293,7 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          {/* Schools Table */}
+          {/* ── Schools Table ── */}
           {tab === 'schools' && (
             <div className="card">
               <div className="card-header">
@@ -154,7 +304,9 @@ export default function AdminDashboard() {
                   <thead>
                     <tr>
                       <th>Code</th><th>Name</th><th>Type</th>
-                      <th>City</th><th>Session</th><th>Status</th><th>Actions</th>
+                      <th>City</th><th>Session</th>
+                      <th>Service</th>
+                      <th>Status</th><th>Actions</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -179,6 +331,15 @@ export default function AdminDashboard() {
                         <td style={{ color: 'var(--neutral-6)' }}>{s.city || '—'}</td>
                         <td>{s.current_session}</td>
                         <td>
+                          <span style={{
+                            fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
+                            background: s.paid_this_month ? '#dcfce7' : '#fee2e2',
+                            color:      s.paid_this_month ? '#16a34a' : '#dc2626',
+                          }}>
+                            {s.paid_this_month ? '✅ Paid' : '⏳ Due'}
+                          </span>
+                        </td>
+                        <td>
                           <span className={`badge ${s.is_active ? 'badge-success' : 'badge-error'}`}>
                             {s.is_active ? 'Active' : 'Inactive'}
                           </span>
@@ -190,14 +351,29 @@ export default function AdminDashboard() {
                               onClick={() => navigate(`/schools/${s.id}`)}>
                               View
                             </button>
-                            <button className="btn btn-neutral btn-sm">Edit</button>
+                            <button
+                              className="btn btn-neutral btn-sm"
+                              onClick={() => openEdit(s)}>
+                              Edit
+                            </button>
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => toggleSchool(s.id)}
+                              style={{
+                                background: s.is_active ? '#fef1ee' : '#eaf5ea',
+                                color:      s.is_active ? 'var(--error)' : 'var(--success)',
+                                border: 'none', cursor: 'pointer', borderRadius: 4,
+                                padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                              }}>
+                              {s.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
                           </div>
                         </td>
                       </tr>
                     ))}
                     {!schools.length && (
                       <tr>
-                        <td colSpan={7} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 32 }}>
+                        <td colSpan={8} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 32 }}>
                           No schools yet. Add one!
                         </td>
                       </tr>
@@ -208,7 +384,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          {/* Users Table */}
+          {/* ── Users Table ── */}
           {tab === 'users' && (
             <div className="card">
               <div className="card-header">
@@ -281,6 +457,8 @@ export default function AdminDashboard() {
         </div>
       </div>
 
+      {/* ══════════ MODALS ══════════ */}
+
       {/* ── Add School Modal ── */}
       {showSchoolModal && (
         <div className="modal-backdrop"
@@ -293,54 +471,34 @@ export default function AdminDashboard() {
             <form onSubmit={createSchool}>
               <div className="modal-body">
                 <div className="grid-2">
-                  <div className="form-group">
-                    <label className="form-label">School Name *</label>
-                    <input className="form-input" placeholder="Delhi Public School" required
-                      onChange={e => setForm(f => ({...f, name: e.target.value}))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">School Code *</label>
-                    <input className="form-input" placeholder="DPS001" required
-                      onChange={e => setForm(f => ({...f, code: e.target.value}))} />
-                  </div>
+                  {[
+                    ['name',            'School Name *',  'text',  true,  'Delhi Public School'],
+                    ['code',            'School Code *',  'text',  true,  'DPS001'],
+                    ['city',            'City',           'text',  false, 'New Delhi'],
+                    ['state',           'State',          'text',  false, 'Delhi'],
+                    ['phone',           'Phone',          'text',  false, '+91-XXXXX-XXXXX'],
+                    ['email',           'Email',          'email', false, 'info@school.edu'],
+                    ['current_session', 'Session',        'text',  false, '2024-25'],
+                  ].map(([field, label, type, req, ph]) => (
+                    <div className="form-group" key={field}>
+                      <label className="form-label">{label}</label>
+                      <input className="form-input" type={type} placeholder={ph} required={req}
+                        onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} />
+                    </div>
+                  ))}
                   <div className="form-group">
                     <label className="form-label">Type</label>
                     <select className="form-select"
-                      onChange={e => setForm(f => ({...f, type: e.target.value}))}>
+                      onChange={e => setForm(f => ({ ...f, type: e.target.value }))}>
                       <option value="SCHOOL">School</option>
                       <option value="COLLEGE">College</option>
                     </select>
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Session</label>
-                    <input className="form-input" placeholder="2024-25"
-                      onChange={e => setForm(f => ({...f, current_session: e.target.value}))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">City</label>
-                    <input className="form-input" placeholder="New Delhi"
-                      onChange={e => setForm(f => ({...f, city: e.target.value}))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">State</label>
-                    <input className="form-input" placeholder="Delhi"
-                      onChange={e => setForm(f => ({...f, state: e.target.value}))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Phone</label>
-                    <input className="form-input" placeholder="+91-XXXXX-XXXXX"
-                      onChange={e => setForm(f => ({...f, phone: e.target.value}))} />
-                  </div>
-                  <div className="form-group">
-                    <label className="form-label">Email</label>
-                    <input className="form-input" type="email" placeholder="info@school.edu"
-                      onChange={e => setForm(f => ({...f, email: e.target.value}))} />
                   </div>
                 </div>
                 <div className="form-group">
                   <label className="form-label">Address</label>
                   <input className="form-input" placeholder="Full address..."
-                    onChange={e => setForm(f => ({...f, address: e.target.value}))} />
+                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
                 </div>
               </div>
               <div className="modal-footer">
@@ -348,6 +506,53 @@ export default function AdminDashboard() {
                   onClick={() => setShowSchoolModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
                   {saving ? 'Creating...' : '🏫 Create School'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Edit School Modal ── */}
+      {showEditModal && editSchool && (
+        <div className="modal-backdrop"
+          onClick={e => e.target === e.currentTarget && setShowEditModal(false)}>
+          <div className="modal">
+            <div className="modal-header">
+              <h3>✏️ Edit School — {editSchool.name}</h3>
+              <button className="modal-close" onClick={() => setShowEditModal(false)}>✕</button>
+            </div>
+            <form onSubmit={saveEdit}>
+              <div className="modal-body">
+                <div className="grid-2">
+                  {[
+                    ['name',            'School Name *',  'text',  true],
+                    ['city',            'City',           'text',  false],
+                    ['state',           'State',          'text',  false],
+                    ['phone',           'Phone',          'text',  false],
+                    ['email',           'Email',          'email', false],
+                    ['current_session', 'Session',        'text',  false],
+                  ].map(([field, label, type, req]) => (
+                    <div className="form-group" key={field}>
+                      <label className="form-label">{label}</label>
+                      <input className="form-input" type={type} required={req}
+                        value={form[field] || ''}
+                        onChange={e => setForm(f => ({ ...f, [field]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Address</label>
+                  <input className="form-input"
+                    value={form.address || ''}
+                    onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-neutral"
+                  onClick={() => setShowEditModal(false)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Saving...' : '💾 Save Changes'}
                 </button>
               </div>
             </form>
@@ -369,18 +574,18 @@ export default function AdminDashboard() {
                 <div className="form-group">
                   <label className="form-label">Full Name *</label>
                   <input className="form-input" placeholder="John Doe" required
-                    onChange={e => setForm(f => ({...f, name: e.target.value}))} />
+                    onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Email *</label>
                   <input className="form-input" type="email" placeholder="john@school.edu" required
-                    onChange={e => setForm(f => ({...f, email: e.target.value}))} />
+                    onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
                 <div className="grid-2">
                   <div className="form-group">
                     <label className="form-label">Role *</label>
                     <select className="form-select" required
-                      onChange={e => setForm(f => ({...f, role: e.target.value}))}>
+                      onChange={e => setForm(f => ({ ...f, role: e.target.value }))}>
                       <option value="">Select role</option>
                       {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
                     </select>
@@ -388,7 +593,7 @@ export default function AdminDashboard() {
                   <div className="form-group">
                     <label className="form-label">Assign School</label>
                     <select className="form-select"
-                      onChange={e => setForm(f => ({...f, school_id: e.target.value || null}))}>
+                      onChange={e => setForm(f => ({ ...f, school_id: e.target.value || null }))}>
                       <option value="">None (Super Admin)</option>
                       {schools.map(s => (
                         <option key={s.id} value={s.id}>{s.name}</option>
@@ -400,12 +605,12 @@ export default function AdminDashboard() {
                   <label className="form-label">Password</label>
                   <input className="form-input" type="password"
                     placeholder="Leave blank for default: EduErp@123"
-                    onChange={e => setForm(f => ({...f, password: e.target.value}))} />
+                    onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
                 </div>
                 <div className="form-group">
                   <label className="form-label">Phone</label>
                   <input className="form-input" placeholder="+91-XXXXX-XXXXX"
-                    onChange={e => setForm(f => ({...f, phone: e.target.value}))} />
+                    onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                 </div>
               </div>
               <div className="modal-footer">
@@ -420,7 +625,7 @@ export default function AdminDashboard() {
         </div>
       )}
 
-      {/* ── Credentials Modal (after user create) ── */}
+      {/* ── Credentials Modal ── */}
       {createdCreds && (
         <div className="modal-backdrop">
           <div className="modal" style={{ maxWidth: 420 }}>
@@ -430,7 +635,6 @@ export default function AdminDashboard() {
                 onClick={() => { setCreatedCreds(null); setCopied(false); }}>✕</button>
             </div>
             <div className="modal-body">
-
               <div style={{
                 background: '#f0fdf4', border: '1px solid #bbf7d0',
                 borderRadius: 10, padding: '16px 20px', marginBottom: 16,
@@ -461,7 +665,6 @@ export default function AdminDashboard() {
                   </div>
                 ))}
               </div>
-
               <div style={{
                 background: '#fffbeb', border: '1px solid #fde68a',
                 borderRadius: 8, padding: '10px 14px', marginBottom: 16,
@@ -469,7 +672,6 @@ export default function AdminDashboard() {
               }}>
                 ⚠️ Save these credentials now — password cannot be retrieved later.
               </div>
-
               <button onClick={handleCopy} style={{
                 width: '100%', padding: '11px', borderRadius: 8, border: 'none',
                 background: copied ? '#2e844a' : 'var(--blue-60)',
