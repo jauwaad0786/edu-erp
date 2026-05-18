@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/axios';
 
 const ROLE_MENUS = {
   SUPER_ADMIN: [
     { icon: '⊞', label: 'Dashboard',    path: '/dashboard' },
     { icon: '🏫', label: 'Schools',      path: '/schools' },
     { icon: '👥', label: 'Users',        path: '/users' },
-    { icon: '📊', label: 'Reports',      path: '/reports' },
+    
   ],
   PRINCIPAL: [
     { icon: '⊞', label: 'Dashboard',    path: '/dashboard' },
