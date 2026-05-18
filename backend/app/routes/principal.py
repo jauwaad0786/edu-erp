@@ -244,6 +244,76 @@ def collect_fee():
         d['class_name']   = f"{cls.name} - {cls.section}" if cls else ''
     return jsonify(d), 200
 
+@principal_bp.route('/fees/generate', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def generate_fees():
+    """
+    Generate monthly fee records for a class.
+    Body:
+    {
+        class_id,
+        month,
+        fee_type,
+        amount,
+        due_date
+    }
+    """
+
+    data = request.get_json()
+
+    class_id = data.get('class_id')
+    month    = data.get('month')
+    fee_type = data.get('fee_type', 'TUITION')
+    amount   = float(data.get('amount', 0))
+    due_date = data.get('due_date')
+
+    if not class_id or not month or amount <= 0:
+        return jsonify({'error': 'Missing required fields'}), 400
+
+    students = Student.query.filter_by(
+        school_id=_school_id(),
+        class_id=class_id
+    ).all()
+
+    created = 0
+    skipped = 0
+
+    for s in students:
+
+        # duplicate prevention
+        exists = FeeRecord.query.filter_by(
+            student_id=s.id,
+            month=month,
+            fee_type=fee_type
+        ).first()
+
+        if exists:
+            skipped += 1
+            continue
+
+        rec = FeeRecord(
+            school_id=_school_id(),
+            student_id=s.id,
+            fee_type=fee_type,
+            month=month,
+            amount_due=amount,
+            amount_paid=0,
+            status='PENDING',
+            due_date=date.fromisoformat(due_date) if due_date else None
+        )
+
+        db.session.add(rec)
+        created += 1
+
+    db.session.commit()
+
+    return jsonify({
+        'message': f'{created} fee records generated',
+        'created': created,
+        'skipped': skipped
+    }), 201
+
+
 
 @principal_bp.route('/fees/class-summary', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
