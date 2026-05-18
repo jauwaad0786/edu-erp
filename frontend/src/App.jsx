@@ -14,7 +14,7 @@ import TeachersPage        from './pages/TeachersPage';
 import ClassesPage         from './pages/ClassesPage';
 import FeesPage            from './pages/FeesPage';
 import ExamsPage           from './pages/ExamsPage';
-import SchoolDetail        from './pages/SchoolDetailPage';
+import SchoolDetailPage    from './pages/SchoolDetailPage';
 
 export default function App() {
   return (
