@@ -35,12 +35,24 @@ export default function PrincipalDashboard() {
       
     });
   }, []);
-
   const fmt  = n => n?.toLocaleString('en-IN') ?? '0';
-  const fmtK = n => n >= 100000 ? `₹${(n/100000).toFixed(1)}L` : n >= 1000 ? `₹${(n/1000).toFixed(0)}K` : `₹${n ?? 0}`;
 
+  const fmtK = n => {
+    n = Number(n || 0);
+  
+    if (n >= 100000) {
+      return `₹${(n / 100000).toFixed(1)}L`;
+    }
+  
+    if (n >= 1000) {
+      return `₹${(n / 1000).toFixed(0)}K`;
+    }
+  
+    return `₹${n}`;
+  };
+  
   const collectionPct = fees
-    ? Math.round(fees.total_collected / (fees.total_due || 1) * 100)
+    ? Math.round((fees.total_collected / (fees.total_due || 1)) * 100)
     : 0;
 
   const TABS = [
