@@ -13,6 +13,7 @@ const ROLE_MENUS = {
   PRINCIPAL: [
     { icon: '⊞', label: 'Dashboard',    path: '/dashboard' },
     { icon: '🎒', label: 'Students',     path: '/students' },
+    { icon: '🎓', label: 'New Admission', path: '/admission' },
     { icon: '👩‍🏫', label: 'Teachers',    path: '/teachers' },
     { icon: '🏛',  label: 'Classes',     path: '/classes' },
     { icon: '📋', label: 'Attendance',   path: '/attendance' },
