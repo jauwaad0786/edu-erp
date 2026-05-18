@@ -14,7 +14,7 @@ import TeachersPage        from './pages/TeachersPage';
 import ClassesPage         from './pages/ClassesPage';
 import FeesPage            from './pages/FeesPage';
 import ExamsPage           from './pages/ExamsPage';
-import SchoolDetail        from './pages/SchoolDetail';
+import SchoolDetail        from './pages/SchoolDetailPage';
 
 export default function App() {
   return (
@@ -68,7 +68,7 @@ export default function App() {
           } />
           <Route path="/schools/:id" element={
             <ProtectedRoute roles={['SUPER_ADMIN']}>
-              <SchoolDetail />
+              <SchoolDetailPage />
             </ProtectedRoute>
           } />
           <Route path="/users" element={
