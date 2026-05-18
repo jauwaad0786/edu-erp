@@ -2,12 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
-const [genModal, setGenModal] = useState(false);
-const [genClass, setGenClass] = useState('');
-const [genMonth, setGenMonth] = useState('');
-const [genAmount, setGenAmount] = useState('');
-const [genFeeType, setGenFeeType] = useState('TUITION');
-const [genDueDate, setGenDueDate] = useState('');
+
 /* ── small helpers ──────────────────────────────────────────────────────── */
 const fmt  = n => Number(n ?? 0).toLocaleString('en-IN');
 const MODES = ['CASH', 'UPI', 'ONLINE', 'CHEQUE'];
@@ -48,6 +43,12 @@ export default function FeesPage() {
   const [payMode,  setPayMode]  = useState('CASH');
   const [remarks,  setRemarks]  = useState('');
   const [saving,   setSaving]   = useState(false);
+  const [genModal, setGenModal] = useState(false);
+  const [genClass, setGenClass] = useState('');
+  const [genMonth, setGenMonth] = useState('');
+  const [genAmount, setGenAmount] = useState('');
+  const [genFeeType, setGenFeeType] = useState('TUITION');
+  const [genDueDate, setGenDueDate] = useState('');
 
   /* receipt modal */
   const [receiptRec, setReceiptRec] = useState(null);
