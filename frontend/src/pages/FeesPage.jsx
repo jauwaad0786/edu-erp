@@ -294,7 +294,7 @@ async function generateFees() {
                   <option value="HOSTEL">Hostel</option>
                 </select>
                 
-                {/* month filter */}
+                 {/* month filter */}
                 <input
                   type="month"
                   className="form-input"
@@ -302,6 +302,11 @@ async function generateFees() {
                   value={filterMonth}
                   onChange={e => setFilterMonth(e.target.value)}
                 />
+
+              </div>
+            </div>
+
+           
 
             <div className="table-container">
               {loading ? (
