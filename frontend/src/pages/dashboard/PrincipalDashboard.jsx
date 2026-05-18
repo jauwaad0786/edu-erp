@@ -27,7 +27,7 @@ export default function PrincipalDashboard() {
     Promise.all([
       api.get('/principal/dashboard').catch(() => ({ data: null })),
       api.get('/principal/classes').catch(() => ({ data: [] })),
-      api.get('/principal/fees/summary').catch(() => ({ data: null })),
+      api.get('/principal/fees/class-summary').catch(() => ({ data: [] })),
     ]).then(([s, c, f]) => {
       setStats(s.data);
       setClasses(c.data || []);
@@ -46,7 +46,7 @@ export default function PrincipalDashboard() {
   const TABS = [
     { key: 'students', label: '🎒 Class-wise Students' },
     { key: 'fees',     label: '💰 Class-wise Fees' },
-    { key: 'actions',  label: '⚡ Quick Actions' },
+    
   ];
 
   return (
@@ -366,7 +366,7 @@ export default function PrincipalDashboard() {
                               borderRadius: 4, padding: '4px 10px',
                               fontSize: 11, fontWeight: 700,
                             }}
-                              onClick={() => window.location.href = '/fees'}>
+                              onClick={() => window.location.href = `/fees?class_id=${c.id}`}
                               💸 Collect
                             </button>
                           </td>
@@ -411,54 +411,6 @@ export default function PrincipalDashboard() {
             </div>
           )}
 
-          {/* ══ TAB: Quick Actions ══ */}
-          {tab === 'actions' && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: 12,
-            }}>
-              {[
-                { icon: '🎒', label: 'Enroll Student',  href: '/students',   bg: '#e8f4fd', color: '#0176d3' },
-                { icon: '👩‍🏫', label: 'Add Teacher',     href: '/teachers',   bg: '#f3f0ff', color: '#5867e8' },
-                { icon: '🏛',  label: 'Add Class',       href: '/classes',    bg: '#eaf5ea', color: '#2e844a' },
-                { icon: '📋',  label: 'Mark Attendance', href: '/attendance', bg: '#fef5e4', color: '#dd7a01' },
-                { icon: '📝',  label: 'Schedule Exam',   href: '/exams',      bg: '#fef1ee', color: '#ba0517' },
-                { icon: '💸',  label: 'Collect Fee',     href: '/fees',       bg: '#eaf5ea', color: '#2e844a' },
-                { icon: '🎟',  label: 'Admit Cards',     href: '/exams',      bg: '#fef5e4', color: '#dd7a01' },
-                { icon: '📊',  label: 'Result Cards',    href: '/exams',      bg: '#f3f0ff', color: '#5867e8' },
-              ].map(a => (
-                <button key={a.label}
-                  onClick={() => window.location.href = a.href}
-                  style={{
-                    background: a.bg, border: 'none', borderRadius: 12,
-                    padding: '20px 16px', cursor: 'pointer', textAlign: 'left',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                    transition: 'transform 0.15s, box-shadow 0.15s',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
-                  }}
-                  onMouseEnter={e => {
-                    e.currentTarget.style.transform = 'translateY(-2px)';
-                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
-                  }}
-                  onMouseLeave={e => {
-                    e.currentTarget.style.transform = 'none';
-                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.06)';
-                  }}
-                >
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10,
-                    background: a.color + '20',
-                    display: 'flex', alignItems: 'center',
-                    justifyContent: 'center', fontSize: 20, flexShrink: 0,
-                  }}>{a.icon}</div>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: a.color }}>
-                    {a.label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
 
         </div>
       </div>
