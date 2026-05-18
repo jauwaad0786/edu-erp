@@ -96,52 +96,121 @@ export default function StudentsPage() {
               </div>
             </div>
           </div>
-
           <div className="card">
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Roll No</th><th>Name</th><th>Admission No</th>
-                    <th>Class</th><th>Parent</th><th>Contact</th><th>Status</th>
+                    <th>Roll No</th>
+                    <th>Name</th>
+                    <th>Admission No</th>
+                    <th>Class</th>
+                    <th>Parent</th>
+                    <th>Contact</th>
+                    <th>Status</th>
+                    <th>Actions</th>
                   </tr>
                 </thead>
+          
                 <tbody>
                   {filtered.map(s => (
                     <tr key={s.id}>
                       <td>
-                        <span className="badge badge-info">{s.roll_number || '—'}</span>
+                        <span className="badge badge-info">
+                          {s.roll_number || '—'}
+                        </span>
                       </td>
+          
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{
-                            width: 30, height: 30, borderRadius: '50%',
-                            background: 'var(--blue-10)', color: 'var(--blue-80)',
-                            display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: 12, fontWeight: 700,
-                          }}>{s.name?.charAt(0).toUpperCase()}</div>
+                            width: 30,
+                            height: 30,
+                            borderRadius: '50%',
+                            background: 'var(--blue-10)',
+                            color: 'var(--blue-80)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}>
+                            {s.name?.charAt(0).toUpperCase()}
+                          </div>
+          
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--neutral-6)' }}>{s.email}</div>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>
+                              {s.name}
+                            </div>
+          
+                            <div style={{
+                              fontSize: 11,
+                              color: 'var(--neutral-6)'
+                            }}>
+                              {s.email}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>
+          
+                      <td style={{
+                        color: 'var(--neutral-6)',
+                        fontSize: 12
+                      }}>
                         {s.admission_no || '—'}
                       </td>
+          
                       <td style={{ fontSize: 12 }}>
                         {classes.find(c => c.id === s.class_id)?.name || '—'}
                       </td>
-                      <td style={{ fontSize: 12 }}>{s.parent_name || '—'}</td>
-                      <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>
+          
+                      <td style={{ fontSize: 12 }}>
+                        {s.parent_name || '—'}
+                      </td>
+          
+                      <td style={{
+                        fontSize: 12,
+                        color: 'var(--neutral-6)'
+                      }}>
                         {s.parent_phone || '—'}
                       </td>
-                      <td><span className="badge badge-success">Active</span></td>
+          
+                      <td>
+                        <span className="badge badge-success">
+                          Active
+                        </span>
+                      </td>
+          
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            onClick={() => {
+                              window.open(
+                                `${process.env.REACT_APP_API_URL || ''}/api/principal/admission-card/${s.id}`,
+                                '_blank'
+                              );
+                            }}
+                            style={{
+                              background: '#e8f4fd',
+                              color: '#0176d3',
+                              border: 'none',
+                              borderRadius: 4,
+                              padding: '4px 10px',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                            }}
+                          >
+                            🎓 Admission Card
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
+          
                   {!filtered.length && (
                     <tr>
-                      <td colSpan={7}>
+                      <td colSpan={8}>
                         <div className="empty-state">
                           <div className="empty-state-icon">🎒</div>
                           <p>No students found</p>
@@ -153,8 +222,6 @@ export default function StudentsPage() {
               </table>
             </div>
           </div>
-        </div>
-      </div>
 
       {/* ── Enroll Student Modal ── */}
       {showModal && (
