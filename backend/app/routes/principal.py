@@ -160,14 +160,12 @@ def fees_summary():
 @principal_bp.route('/fees/records', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
 def fee_records():
-    """
-    Returns fee records with full student info.
-    Query params: class_id, status, student_id
-    """
-    sid      = _school_id()
-    class_id = request.args.get('class_id')
-    status   = request.args.get('status')
+    sid        = _school_id()
+    class_id   = request.args.get('class_id')
+    status     = request.args.get('status')
     student_id = request.args.get('student_id')
+    month      = request.args.get('month')       # ← ADD
+    fee_type   = request.args.get('fee_type')    # ← ADD
 
     q = FeeRecord.query.filter_by(school_id=sid)
 
@@ -175,6 +173,10 @@ def fee_records():
         q = q.filter_by(status=status)
     if student_id:
         q = q.filter_by(student_id=student_id)
+    if month:
+        q = q.filter(FeeRecord.month == month)        # ← ADD
+    if fee_type:
+        q = q.filter(FeeRecord.fee_type == fee_type.upper())  # ← ADD
 
     # Join with Student to filter by class
     if class_id:
@@ -182,24 +184,7 @@ def fee_records():
              .filter(Student.class_id == class_id)
 
     records = q.order_by(FeeRecord.created_at.desc()).all()
-
-    result = []
-    for r in records:
-        d = r.to_dict()
-        # Attach student info
-        student = Student.query.get(r.student_id)
-        if student:
-            cls = Class.query.get(student.class_id)
-            d['student_name']  = student.user.name if student.user else ''
-            d['father_name']   = student.parent_name or ''
-            d['parent_phone']  = student.parent_phone or ''
-            d['roll_number']   = student.roll_number or ''
-            d['admission_no']  = student.admission_no or ''
-            d['class_name']    = f"{cls.name} - {cls.section}" if cls else ''
-            d['class_id']      = student.class_id
-        result.append(d)
-
-    return jsonify(result), 200
+    # ... rest same
 
 
 @principal_bp.route('/fees/collect', methods=['POST'])
