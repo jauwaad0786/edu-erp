@@ -1,32 +1,74 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
 
 export default function StudentsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
   const [students,     setStudents]     = useState([]);
   const [classes,      setClasses]      = useState([]);
   const [filter,       setFilter]       = useState('');
-  const [classFilter,  setClassFilter]  = useState('');
+  // Fix #3 — URL se class_id padho
+  const [classFilter,  setClassFilter]  = useState(searchParams.get('class_id') || '');
   const [showModal,    setShowModal]    = useState(false);
   const [createdCreds, setCreatedCreds] = useState(null);
   const [copied,       setCopied]       = useState(false);
-  const [form,   setForm]   = useState({});
-  const [saving, setSaving] = useState(false);
-  const [msg,    setMsg]    = useState('');
+  const [form,         setForm]         = useState({});
+  const [saving,       setSaving]       = useState(false);
+  const [msg,          setMsg]          = useState('');
+  // Fix #2 — downloading state
+  const [downloading,  setDownloading]  = useState(null);
 
   const load = () => {
     const q = classFilter ? `?class_id=${classFilter}` : '';
     api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
     api.get('/principal/classes').then(r => setClasses(r.data)).catch(() => {});
   };
+
   useEffect(() => { load(); }, [classFilter]);
+
+  // Fix #3 — classFilter change hone par URL bhi update karo
+  useEffect(() => {
+    if (classFilter) {
+      setSearchParams({ class_id: classFilter });
+    } else {
+      setSearchParams({});
+    }
+  }, [classFilter]);
+
+  // Fix #2 — axios blob download (JWT token automatically jata hai)
+  async function downloadAdmissionCard(studentId, studentName) {
+    setDownloading(studentId);
+    try {
+      const res = await api.get(
+        `/principal/admission-card/${studentId}`,
+        { responseType: 'blob' }
+      );
+      const url = window.URL.createObjectURL(
+        new Blob([res.data], { type: 'application/pdf' })
+      );
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `AdmissionCard_${studentName}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+    } catch {
+      setMsg('❌ Admission card generate nahi hua');
+    }
+    setDownloading(null);
+  }
 
   const createStudent = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
-      // Auto-generate internal email — student ko email ki zaroorat nahi
-      const autoEmail = `stu_${form.roll_number || Date.now()}_${Math.random().toString(36).slice(2,6)}@internal.school`;
+      const autoEmail = `stu_${form.roll_number || Date.now()}_${
+        Math.random().toString(36).slice(2, 6)
+      }@internal.school`;
       const payload = { ...form, email: autoEmail };
       await api.post('/principal/students', payload);
       setShowModal(false);
@@ -78,16 +120,38 @@ export default function StudentsPage() {
 
           <div className="card mb-6">
             <div className="card-body" style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <input className="form-input" placeholder="🔍 Search by name, roll no..."
-                style={{ maxWidth: 280 }} value={filter}
-                onChange={e => setFilter(e.target.value)} />
-              <select className="form-select" style={{ maxWidth: 200 }}
-                value={classFilter} onChange={e => setClassFilter(e.target.value)}>
+              <input
+                className="form-input"
+                placeholder="🔍 Search by name, roll no..."
+                style={{ maxWidth: 280 }}
+                value={filter}
+                onChange={e => setFilter(e.target.value)}
+              />
+              {/* Fix #3 — String() wrap for proper value match */}
+              <select
+                className="form-select"
+                style={{ maxWidth: 200 }}
+                value={String(classFilter)}
+                onChange={e => setClassFilter(e.target.value)}
+              >
                 <option value="">All Classes</option>
                 {classes.map(c => (
-                  <option key={c.id} value={c.id}>{c.name} {c.section}</option>
+                  <option key={c.id} value={String(c.id)}>
+                    {c.name} — {c.section}
+                  </option>
                 ))}
               </select>
+
+              {/* Clear filter button — URL se aaya ho to */}
+              {classFilter && (
+                <button
+                  className="btn btn-neutral btn-sm"
+                  onClick={() => setClassFilter('')}
+                >
+                  ✕ Clear Filter
+                </button>
+              )}
+
               <div style={{
                 marginLeft: 'auto', display: 'flex',
                 alignItems: 'center', fontSize: 13, color: 'var(--neutral-6)',
@@ -96,6 +160,7 @@ export default function StudentsPage() {
               </div>
             </div>
           </div>
+
           <div className="card">
             <div className="table-container">
               <table>
@@ -111,7 +176,6 @@ export default function StudentsPage() {
                     <th>Actions</th>
                   </tr>
                 </thead>
-          
                 <tbody>
                   {filtered.map(s => (
                     <tr key={s.id}>
@@ -120,100 +184,46 @@ export default function StudentsPage() {
                           {s.roll_number || '—'}
                         </span>
                       </td>
-          
                       <td>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                           <div style={{
-                            width: 30,
-                            height: 30,
-                            borderRadius: '50%',
-                            background: 'var(--blue-10)',
-                            color: 'var(--blue-80)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 12,
-                            fontWeight: 700,
+                            width: 30, height: 30, borderRadius: '50%',
+                            background: 'var(--blue-10)', color: 'var(--blue-80)',
+                            display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', fontSize: 12, fontWeight: 700,
                           }}>
                             {s.name?.charAt(0).toUpperCase()}
                           </div>
-          
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>
-                              {s.name}
-                            </div>
-          
-                            <div style={{
-                              fontSize: 11,
-                              color: 'var(--neutral-6)'
-                            }}>
+                            <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--neutral-6)' }}>
                               {s.email}
                             </div>
                           </div>
                         </div>
                       </td>
-          
-                      <td style={{
-                        color: 'var(--neutral-6)',
-                        fontSize: 12
-                      }}>
+                      <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>
                         {s.admission_no || '—'}
                       </td>
-          
+                      {/* Fix #3 — String() comparison for class name lookup */}
                       <td style={{ fontSize: 12 }}>
-                        {classes.find(c => c.id === s.class_id)?.name || '—'}
+                        {classes.find(c => String(c.id) === String(s.class_id))?.name || '—'}
                       </td>
-          
-                      <td style={{ fontSize: 12 }}>
-                        {s.parent_name || '—'}
-                      </td>
-          
-                      <td style={{
-                        fontSize: 12,
-                        color: 'var(--neutral-6)'
-                      }}>
+                      <td style={{ fontSize: 12 }}>{s.parent_name || '—'}</td>
+                      <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>
                         {s.parent_phone || '—'}
                       </td>
-          
                       <td>
-                        <span className="badge badge-success">
-                          Active
-                        </span>
+                        <span className="badge badge-success">Active</span>
                       </td>
-          
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          // ✅ ADD THIS — top of component, after useState declarations
-                          const [downloading, setDownloading] = useState(null);
-                          
-                          // ✅ ADD THIS function inside component (before return)
-                          async function downloadAdmissionCard(studentId, studentName) {
-                            setDownloading(studentId);
-                            try {
-                              const res = await api.get(
-                                `/principal/admission-card/${studentId}`,
-                                { responseType: 'blob' }
-                              );
-                              const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-                              const a   = document.createElement('a');
-                              a.href    = url;
-                              a.download = `AdmissionCard_${studentName}.pdf`;
-                              document.body.appendChild(a);
-                              a.click();
-                              document.body.removeChild(a);
-                              window.URL.revokeObjectURL(url);
-                            } catch {
-                              setMsg('❌ Admission card generate nahi hua');
-                            }
-                            setDownloading(null);
-                          }
-                          
-                          // ✅ REPLACE button with this
+                          {/* Fix #2 — axios blob download instead of window.open */}
                           <button
                             onClick={() => downloadAdmissionCard(s.id, s.name)}
                             disabled={downloading === s.id}
                             style={{
-                              background: '#e8f4fd',
+                              background: downloading === s.id ? '#f1f5f9' : '#e8f4fd',
                               color: '#0176d3',
                               border: 'none',
                               borderRadius: 4,
@@ -222,44 +232,46 @@ export default function StudentsPage() {
                               fontWeight: 700,
                               cursor: downloading === s.id ? 'not-allowed' : 'pointer',
                               opacity: downloading === s.id ? 0.6 : 1,
+                              transition: 'all 0.15s',
                             }}
                           >
-                            {downloading === s.id ? '⏳...' : '🎓 Admission Card'}
-                          </button>
-                            style={{
-                              background: '#e8f4fd',
-                              color: '#0176d3',
-                              border: 'none',
-                              borderRadius: 4,
-                              padding: '4px 10px',
-                              fontSize: 11,
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                            }}
-                          >
-                            🎓 Admission Card
+                            {downloading === s.id ? '⏳ Loading...' : '🎓 Admission Card'}
                           </button>
                         </div>
                       </td>
                     </tr>
                   ))}
-          
+
                   {!filtered.length && (
                     <tr>
                       <td colSpan={8}>
                         <div className="empty-state">
                           <div className="empty-state-icon">🎒</div>
-                          <p>No students found</p>
+                          <p>
+                            {classFilter
+                              ? 'Is class mein koi student nahi mila'
+                              : 'No students found'}
+                          </p>
+                          {classFilter && (
+                            <button
+                              className="btn btn-neutral btn-sm"
+                              style={{ marginTop: 12 }}
+                              onClick={() => setClassFilter('')}
+                            >
+                              Sab students dekho
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
                   )}
                 </tbody>
               </table>
-               </div>
-              </div>
             </div>
           </div>
+
+        </div>
+      </div>
 
       {/* ── Enroll Student Modal ── */}
       {showModal && (
@@ -276,23 +288,22 @@ export default function StudentsPage() {
                   <div className="form-group">
                     <label className="form-label">Full Name *</label>
                     <input className="form-input" required placeholder="Student name"
-                      onChange={e => setForm(f => ({...f, name: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
                   </div>
-                  
                   <div className="form-group">
                     <label className="form-label">Roll Number</label>
                     <input className="form-input" placeholder="e.g. 101"
-                      onChange={e => setForm(f => ({...f, roll_number: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, roll_number: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Admission No</label>
                     <input className="form-input" placeholder="e.g. ADM2024001"
-                      onChange={e => setForm(f => ({...f, admission_no: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, admission_no: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Class</label>
                     <select className="form-select"
-                      onChange={e => setForm(f => ({...f, class_id: e.target.value || null}))}>
+                      onChange={e => setForm(f => ({ ...f, class_id: e.target.value || null }))}>
                       <option value="">Select class</option>
                       {classes.map(c => (
                         <option key={c.id} value={c.id}>{c.name} - {c.section}</option>
@@ -302,7 +313,7 @@ export default function StudentsPage() {
                   <div className="form-group">
                     <label className="form-label">Gender</label>
                     <select className="form-select"
-                      onChange={e => setForm(f => ({...f, gender: e.target.value}))}>
+                      onChange={e => setForm(f => ({ ...f, gender: e.target.value }))}>
                       <option value="">Select</option>
                       <option value="Male">Male</option>
                       <option value="Female">Female</option>
@@ -312,28 +323,28 @@ export default function StudentsPage() {
                   <div className="form-group">
                     <label className="form-label">Parent / Guardian Name</label>
                     <input className="form-input" placeholder="Father/Mother name"
-                      onChange={e => setForm(f => ({...f, parent_name: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, parent_name: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Parent Phone</label>
                     <input className="form-input" placeholder="+91-XXXXX-XXXXX"
-                      onChange={e => setForm(f => ({...f, parent_phone: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, parent_phone: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Parent Email</label>
                     <input className="form-input" type="email" placeholder="parent@email.com"
-                      onChange={e => setForm(f => ({...f, parent_email: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, parent_email: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Session</label>
                     <input className="form-input" defaultValue="2024-25"
-                      onChange={e => setForm(f => ({...f, session: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, session: e.target.value }))} />
                   </div>
                   <div className="form-group">
                     <label className="form-label">Custom Password</label>
                     <input className="form-input" type="password"
                       placeholder="Leave blank → Student@123"
-                      onChange={e => setForm(f => ({...f, password: e.target.value}))} />
+                      onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
                   </div>
                 </div>
               </div>
@@ -367,13 +378,13 @@ export default function StudentsPage() {
                   📋 Student / Parent ko ye credentials share karein:
                 </p>
                 {[
-                  ['👤 Name',         createdCreds.name],
-                  ['🎒 Roll No',       createdCreds.rollNo],
-                  ['📋 Admission No',  createdCreds.admissionNo],
-                  ['🏛 Class',         createdCreds.className],
-                  ['👨‍👩‍👦 Parent',       createdCreds.parentName],
-                  ['📱 Mobile', createdCreds.parentPhone],
-                  ['🔑 Password',      createdCreds.password],
+                  ['👤 Name',        createdCreds.name],
+                  ['🎒 Roll No',      createdCreds.rollNo],
+                  ['📋 Admission No', createdCreds.admissionNo],
+                  ['🏛 Class',        createdCreds.className],
+                  ['👨‍👩‍👦 Parent',      createdCreds.parentName],
+                  ['📱 Mobile',       createdCreds.parentPhone],
+                  ['🔑 Password',     createdCreds.password],
                 ].map(([label, value]) => (
                   <div key={label} style={{
                     display: 'flex', justifyContent: 'space-between',
@@ -405,7 +416,6 @@ export default function StudentsPage() {
                   `Roll No:      ${createdCreds.rollNo}\n` +
                   `Admission No: ${createdCreds.admissionNo}\n` +
                   `Class:        ${createdCreds.className}\n` +
-                  `Email:        ${createdCreds.email}\n` +
                   `Password:     ${createdCreds.password}\n` +
                   `Login URL:    ${window.location.origin}/login`;
                 navigator.clipboard.writeText(text);
