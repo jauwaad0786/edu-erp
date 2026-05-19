@@ -23,7 +23,6 @@ export default function PrincipalDashboard() {
   const [classes, setClasses] = useState([]);
   const [fees,    setFees]    = useState(null);
   const [tab,     setTab]     = useState('students');
-  
 
   useEffect(() => {
     Promise.all([
@@ -34,25 +33,18 @@ export default function PrincipalDashboard() {
       setStats(s.data);
       setClasses(c.data || []);
       setFees(f.data);
-      
     });
   }, []);
-  const fmt  = n => n?.toLocaleString('en-IN') ?? '0';
+
+  const fmt = n => n?.toLocaleString('en-IN') ?? '0';
 
   const fmtK = n => {
     n = Number(n || 0);
-  
-    if (n >= 100000) {
-      return `₹${(n / 100000).toFixed(1)}L`;
-    }
-  
-    if (n >= 1000) {
-      return `₹${(n / 1000).toFixed(0)}K`;
-    }
-  
+    if (n >= 100000) return `₹${(n / 100000).toFixed(1)}L`;
+    if (n >= 1000)   return `₹${(n / 1000).toFixed(0)}K`;
     return `₹${n}`;
   };
-  
+
   const collectionPct = fees
     ? Math.round((fees.total_collected / (fees.total_due || 1)) * 100)
     : 0;
@@ -60,7 +52,6 @@ export default function PrincipalDashboard() {
   const TABS = [
     { key: 'students', label: '🎒 Class-wise Students' },
     { key: 'fees',     label: '💰 Class-wise Fees' },
-    
   ];
 
   return (
@@ -79,7 +70,7 @@ export default function PrincipalDashboard() {
             <div className="flex gap-2">
               <button className="btn btn-neutral btn-sm">📥 Export Report</button>
               <button className="btn btn-primary btn-sm"
-                onClick={() => window.location.href = '/students'}>
+                onClick={() => navigate('/students')}>
                 + Enroll Student
               </button>
             </div>
@@ -239,12 +230,11 @@ export default function PrincipalDashboard() {
                             </div>
                           </td>
                           <td>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button className="btn btn-neutral btn-sm"
-                                onClick={() => navigate(`/students?class_id=${c.id}`)}
-                                View Students
-                              </button>
-                            </div>
+                            <button
+                              className="btn btn-neutral btn-sm"
+                              onClick={() => navigate(`/students?class_id=${c.id}`)}>
+                              View Students
+                            </button>
                           </td>
                         </tr>
                       );
@@ -254,11 +244,7 @@ export default function PrincipalDashboard() {
                         <td colSpan={7}>
                           <div className="empty-state">
                             <div className="empty-state-icon">🏛</div>
-                            <p>No classes added yet.
-                              <a href="/classes" style={{ color: 'var(--blue-60)', marginLeft: 4 }}>
-                                Add a class →
-                              </a>
-                            </p>
+                            <p>No classes added yet.</p>
                           </div>
                         </td>
                       </tr>
@@ -318,16 +304,14 @@ export default function PrincipalDashboard() {
                   </thead>
                   <tbody>
                     {classes.length > 0 ? classes.map((c, i) => {
-                      // Each class gets an estimated share of total fees
-                      // Replace with real per-class API when available
                       const totalStudents = classes.reduce(
                         (a, x) => a + (x.student_count ?? 0), 0
                       ) || 1;
-                      const ratio    = (c.student_count ?? 0) / totalStudents;
-                      const due      = Math.round((fees?.total_due ?? 0) * ratio);
-                      const paid     = Math.round((fees?.total_collected ?? 0) * ratio);
-                      const pending  = due - paid;
-                      const pct      = due > 0 ? Math.round(paid / due * 100) : 0;
+                      const ratio   = (c.student_count ?? 0) / totalStudents;
+                      const due     = Math.round((fees?.total_due ?? 0) * ratio);
+                      const paid    = Math.round((fees?.total_collected ?? 0) * ratio);
+                      const pending = due - paid;
+                      const pct     = due > 0 ? Math.round(paid / due * 100) : 0;
                       return (
                         <tr key={c.id}>
                           <td style={{ color: 'var(--neutral-5)', fontSize: 12 }}>{i + 1}</td>
@@ -340,9 +324,7 @@ export default function PrincipalDashboard() {
                           <td>
                             <span className="badge badge-info">{c.student_count ?? 0}</span>
                           </td>
-                          <td style={{ fontWeight: 600, fontSize: 13 }}>
-                            ₹{fmt(due)}
-                          </td>
+                          <td style={{ fontWeight: 600, fontSize: 13 }}>₹{fmt(due)}</td>
                           <td style={{ fontWeight: 600, color: '#2e844a', fontSize: 13 }}>
                             ₹{fmt(paid)}
                           </td>
@@ -374,13 +356,15 @@ export default function PrincipalDashboard() {
                             </div>
                           </td>
                           <td>
-                            <button className="btn btn-sm" style={{
-                              background: '#eaf5ea', color: '#2e844a',
-                              border: 'none', cursor: 'pointer',
-                              borderRadius: 4, padding: '4px 10px',
-                              fontSize: 11, fontWeight: 700,
-                            }}
-                              onClick={() => navigate(`/fees?class_id=${c.id}`)}
+                            <button
+                              className="btn btn-sm"
+                              style={{
+                                background: '#eaf5ea', color: '#2e844a',
+                                border: 'none', cursor: 'pointer',
+                                borderRadius: 4, padding: '4px 10px',
+                                fontSize: 11, fontWeight: 700,
+                              }}
+                              onClick={() => navigate(`/fees?class_id=${c.id}`)}>
                               💸 Collect
                             </button>
                           </td>
@@ -424,7 +408,6 @@ export default function PrincipalDashboard() {
               </div>
             </div>
           )}
-
 
         </div>
       </div>
