@@ -74,13 +74,25 @@ export default function NewAdmissionPage() {
     setSaving(false);
   }
 
-  function downloadPDF(studentId) {
-    const base = process.env.REACT_APP_API_URL || '';
-    window.open(
-      `${base}/api/principal/admission-card/${studentId}`,
-      '_blank'
+ // ✅ REPLACE WITH THIS
+async function downloadPDF(studentId, studentName) {
+  try {
+    const res = await api.get(
+      `/principal/admission-card/${studentId}`,
+      { responseType: 'blob' }
     );
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+    const a   = document.createElement('a');
+    a.href    = url;
+    a.download = `AdmissionCard_${studentName || studentId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch {
+    flash('❌ PDF generate nahi hua', 'error');
   }
+}
 
   /* ══════════════════════════════════════════════════════════════════════ */
   return (
@@ -345,7 +357,7 @@ export default function NewAdmissionPage() {
 
                 {/* PDF download */}
                 <button
-                  onClick={() => downloadPDF(done.id)}
+                  onClick={() => downloadPDF(done.id, done.name)}
                   style={{
                     background: '#0176d3', color: '#fff',
                     border: 'none', borderRadius: 10,
