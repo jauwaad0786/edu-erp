@@ -4,6 +4,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider }    from './context/AuthContext';
 import ProtectedRoute      from './components/ProtectedRoute';
+import DocumentsPage from './pages/DocumentsPage';
 
 // Pages
 import Landing             from './pages/Landing';
@@ -63,6 +64,12 @@ export default function App() {
           <Route path="/attendance" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
               <AttendancePage />
+            </ProtectedRoute>
+          } />
+          // ✅ YE ADD KARO attendance route ke baad
+          <Route path="/documents" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+              <DocumentsPage />
             </ProtectedRoute>
           } />
           <Route path="/exams" element={
