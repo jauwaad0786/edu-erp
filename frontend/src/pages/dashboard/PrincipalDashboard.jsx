@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Navbar  from '../../components/Navbar';
 import api from '../../api/axios';
@@ -17,6 +18,7 @@ function StatCard({ icon, label, value, sub, color = '#0176d3', bg }) {
 }
 
 export default function PrincipalDashboard() {
+  const navigate = useNavigate();
   const [stats,   setStats]   = useState(null);
   const [classes, setClasses] = useState([]);
   const [fees,    setFees]    = useState(null);
@@ -239,7 +241,7 @@ export default function PrincipalDashboard() {
                           <td>
                             <div style={{ display: 'flex', gap: 6 }}>
                               <button className="btn btn-neutral btn-sm"
-                                onClick={() => window.location.href = `/students?class_id=${c.id}`}>
+                                onClick={() => navigate(`/students?class_id=${c.id}`)}
                                 View Students
                               </button>
                             </div>
@@ -378,7 +380,7 @@ export default function PrincipalDashboard() {
                               borderRadius: 4, padding: '4px 10px',
                               fontSize: 11, fontWeight: 700,
                             }}
-                              onClick={() => window.location.href = `/fees?class_id=${c.id}`}>
+                              onClick={() => navigate(`/fees?class_id=${c.id}`)}
                               💸 Collect
                             </button>
                           </td>
