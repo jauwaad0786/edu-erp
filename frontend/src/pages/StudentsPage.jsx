@@ -183,13 +183,49 @@ export default function StudentsPage() {
           
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          <button
-                            onClick={() => {
-                              window.open(
-                                `${process.env.REACT_APP_API_URL || ''}/api/principal/admission-card/${s.id}`,
-                                '_blank'
+                          // ✅ ADD THIS — top of component, after useState declarations
+                          const [downloading, setDownloading] = useState(null);
+                          
+                          // ✅ ADD THIS function inside component (before return)
+                          async function downloadAdmissionCard(studentId, studentName) {
+                            setDownloading(studentId);
+                            try {
+                              const res = await api.get(
+                                `/principal/admission-card/${studentId}`,
+                                { responseType: 'blob' }
                               );
+                              const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+                              const a   = document.createElement('a');
+                              a.href    = url;
+                              a.download = `AdmissionCard_${studentName}.pdf`;
+                              document.body.appendChild(a);
+                              a.click();
+                              document.body.removeChild(a);
+                              window.URL.revokeObjectURL(url);
+                            } catch {
+                              setMsg('❌ Admission card generate nahi hua');
+                            }
+                            setDownloading(null);
+                          }
+                          
+                          // ✅ REPLACE button with this
+                          <button
+                            onClick={() => downloadAdmissionCard(s.id, s.name)}
+                            disabled={downloading === s.id}
+                            style={{
+                              background: '#e8f4fd',
+                              color: '#0176d3',
+                              border: 'none',
+                              borderRadius: 4,
+                              padding: '4px 10px',
+                              fontSize: 11,
+                              fontWeight: 700,
+                              cursor: downloading === s.id ? 'not-allowed' : 'pointer',
+                              opacity: downloading === s.id ? 0.6 : 1,
                             }}
+                          >
+                            {downloading === s.id ? '⏳...' : '🎓 Admission Card'}
+                          </button>
                             style={{
                               background: '#e8f4fd',
                               color: '#0176d3',
