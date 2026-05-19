@@ -20,24 +20,21 @@ export default function StudentsPage() {
   const [saving,       setSaving]       = useState(false);
   const [msg,          setMsg]          = useState('');
   // Fix #2 — downloading state
-  const [downloading,  setDownloading]  = useState(null);
+const [downloading, setDownloading] = useState(null);
 
-  const load = () => {
-    const q = classFilter ? `?class_id=${classFilter}` : '';
-    api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
-    api.get('/principal/classes').then(r => setClasses(r.data)).catch(() => {});
-  };
+useEffect(() => {
+  const q = classFilter ? `?class_id=${classFilter}` : '';
+  api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
+  api.get('/principal/classes').then(r => setClasses(r.data)).catch(() => {});
+}, [classFilter]);
 
-  useEffect(() => { load(); }, [classFilter]);
-
-  // Fix #3 — classFilter change hone par URL bhi update karo
-  useEffect(() => {
-    if (classFilter) {
-      setSearchParams({ class_id: classFilter });
-    } else {
-      setSearchParams({});
-    }
-  }, [classFilter]);
+useEffect(() => {
+  if (classFilter) {
+    setSearchParams({ class_id: classFilter });
+  } else {
+    setSearchParams({});
+  }
+}, [classFilter]);
 
   // Fix #2 — axios blob download (JWT token automatically jata hai)
   async function downloadAdmissionCard(studentId, studentName) {
@@ -81,7 +78,9 @@ export default function StudentsPage() {
         parentPhone: form.parent_phone || '—',
         password:    form.password     || 'Student@123',
       });
-      setForm({}); load();
+    setForm({});
+      const q = classFilter ? `?class_id=${classFilter}` : '';
+      api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
     } catch (err) {
       setMsg('❌ ' + (err.response?.data?.error || 'Error'));
     }
