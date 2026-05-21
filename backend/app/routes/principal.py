@@ -1442,3 +1442,35 @@ def submit_self_attendance():
         teacher_id=teacher.id, date=att_date
     ).first()
     return jsonify(result.to_dict()), 201
+
+@principal_bp.route('/teachers/<int:t_id>', methods=['PATCH'])
+@role_required('PRINCIPAL')
+def update_teacher(t_id):
+    t    = Teacher.query.get_or_404(t_id)
+    if t.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    if data.get('department'):   t.department   = data['department']
+    if data.get('designation'):  t.designation  = data['designation']
+    if data.get('qualification'):t.qualification= data['qualification']
+    if data.get('salary'):       t.salary       = float(data['salary'])
+    if data.get('joining_date'): t.joining_date = date.fromisoformat(data['joining_date'])
+    if t.user:
+        if data.get('name'):  t.user.name  = data['name']
+        if data.get('phone'): t.user.phone = data['phone']
+    db.session.commit()
+    return jsonify(t.to_dict()), 200
+
+
+@principal_bp.route('/teachers/<int:t_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_teacher(t_id):
+    t = Teacher.query.get_or_404(t_id)
+    if t.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    user = t.user
+    db.session.delete(t)
+    if user:
+        db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': 'Teacher removed'}), 200
