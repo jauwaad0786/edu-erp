@@ -19,6 +19,8 @@ import SchoolDetailPage    from './pages/SchoolDetailPage';
 import AttendancePage      from './pages/AttendancePage';
 import NewAdmissionPage    from './pages/NewAdmissionPage';
 import StudentProfile      from './pages/StudentProfile';
+import ClassDetailPage     from './pages/ClassDetailPage';
+import TeacherProfile      from './pages/TeacherProfile';
 export default function App() {
   return (
     <AuthProvider>
@@ -57,6 +59,16 @@ export default function App() {
               <ClassesPage />
             </ProtectedRoute>
           } />
+          <Route path="/classes/:id" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+              <ClassDetailPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/teachers/:id" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
+              <TeacherProfile />
+            </ProtectedRoute>
+          } />
           <Route path="/fees" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'STUDENT', 'PARENT']}>
               <FeesPage />
@@ -72,7 +84,7 @@ export default function App() {
               <AttendancePage />
             </ProtectedRoute>
           } />
-          // ✅ YE ADD KARO attendance route ke baad
+          
           <Route path="/documents" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
               <DocumentsPage />
