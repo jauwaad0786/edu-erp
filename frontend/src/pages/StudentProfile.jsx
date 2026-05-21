@@ -1,0 +1,482 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import Sidebar from '../components/Sidebar';
+import Navbar  from '../components/Navbar';
+import api     from '../api/axios';
+
+const STATUS_COLOR = {
+  PRESENT:    { bg: '#dcfce7', color: '#16a34a', label: 'P' },
+  ABSENT:     { bg: '#fee2e2', color: '#dc2626', label: 'A' },
+  LATE:       { bg: '#fef3c7', color: '#d97706', label: 'L' },
+  NOT_MARKED: { bg: '#f1f5f9', color: '#94a3b8', label: '—' },
+};
+
+export default function StudentProfile() {
+  const { id }     = useParams();
+  const navigate   = useNavigate();
+  const [data,     setData]     = useState(null);
+  const [tab,      setTab]      = useState('overview');
+  const [loading,  setLoading]  = useState(true);
+  const [dlLoading,setDlLoading]= useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/principal/students/${id}/profile`)
+      .then(r => setData(r.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [id]);
+
+  const downloadCard = async (type) => {
+    setDlLoading(type);
+    try {
+      const url = type === 'admission'
+        ? `/principal/admission-card/${id}`
+        : `/principal/admit-card/${id}/${type}`;
+      const res = await api.get(url, { responseType: 'blob' });
+      const link = document.createElement('a');
+      link.href = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+      link.download = `${type}_card_${data?.info?.name}.pdf`;
+      link.click();
+    } catch { alert('PDF generate nahi hua'); }
+    setDlLoading(false);
+  };
+
+  const fmt  = n => Number(n || 0).toLocaleString('en-IN');
+  const fmtK = n => {
+    n = Number(n || 0);
+    if (n >= 100000) return `₹${(n/100000).toFixed(1)}L`;
+    if (n >= 1000)   return `₹${(n/1000).toFixed(0)}K`;
+    return `₹${n}`;
+  };
+
+  const TABS = [
+    { key: 'overview',    label: '📊 Overview'    },
+    { key: 'attendance',  label: '📅 Attendance'  },
+    { key: 'fees',        label: '💰 Fees'        },
+    { key: 'marks',       label: '📝 Marks'       },
+    { key: 'documents',   label: '🎓 Documents'   },
+  ];
+
+  if (loading) return (
+    <div className="app-shell">
+      <Sidebar />
+      <div className="main-content">
+        <Navbar title="Student Profile" />
+        <div className="page-body" style={{ display:'flex', alignItems:'center', justifyContent:'center', height:300 }}>
+          <span style={{ color:'var(--neutral-5)', fontSize:14 }}>⏳ Loading profile...</span>
+        </div>
+      </div>
+    </div>
+  );
+
+  if (!data) return (
+    <div className="app-shell">
+      <Sidebar />
+      <div className="main-content">
+        <Navbar title="Student Profile" />
+        <div className="page-body">
+          <div className="empty-state"><p>Student nahi mila.</p></div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const { info, attendance, fees, exams } = data;
+  const att = attendance || {};
+  const feeData = fees || {};
+
+  return (
+    <div className="app-shell">
+      <Sidebar />
+      <div className="main-content">
+        <Navbar title="Student Profile" />
+        <div className="page-body">
+
+          {/* ── Header ── */}
+          <div style={{ display:'flex', alignItems:'center', gap:16, marginBottom:24 }}>
+            <button
+              onClick={() => navigate(-1)}
+              style={{
+                background:'none', border:'1px solid var(--neutral-3)',
+                borderRadius:8, padding:'6px 14px', cursor:'pointer',
+                fontSize:13, color:'var(--neutral-7)', fontWeight:600,
+              }}>← Back</button>
+            <div style={{
+              width:52, height:52, borderRadius:'50%',
+              background:'var(--blue-10)', color:'var(--blue-80)',
+              display:'flex', alignItems:'center', justifyContent:'center',
+              fontSize:22, fontWeight:800, flexShrink:0,
+            }}>{info.name?.charAt(0).toUpperCase()}</div>
+            <div style={{ flex:1 }}>
+              <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'var(--neutral-9)' }}>
+                {info.name}
+              </h2>
+              <div style={{ fontSize:12, color:'var(--neutral-5)', marginTop:2 }}>
+                {info.class_name} &nbsp;·&nbsp; Roll: {info.roll_number || '—'} &nbsp;·&nbsp; Adm: {info.admission_no || '—'}
+              </div>
+            </div>
+            {/* Quick status pills */}
+            <div style={{ display:'flex', gap:10 }}>
+              <div style={{
+                background: feeData.month_status === 'PAID' ? '#dcfce7' : '#fee2e2',
+                color:      feeData.month_status === 'PAID' ? '#16a34a' : '#dc2626',
+                padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700,
+              }}>
+                💰 {feeData.month_status === 'PAID' ? 'Fees Paid' : 'Fees Pending'}
+              </div>
+              <div style={{
+                background: att.percentage >= 75 ? '#dcfce7' : '#fee2e2',
+                color:      att.percentage >= 75 ? '#16a34a' : '#dc2626',
+                padding:'6px 14px', borderRadius:20, fontSize:12, fontWeight:700,
+              }}>
+                📅 {att.percentage || 0}% Attendance
+              </div>
+            </div>
+          </div>
+
+          {/* ── Tabs ── */}
+          <div style={{ display:'flex', borderBottom:'2px solid var(--neutral-2)', marginBottom:20 }}>
+            {TABS.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)} style={{
+                background:'none', border:'none', cursor:'pointer',
+                padding:'10px 18px', fontSize:13, fontWeight:600,
+                color: tab===t.key ? 'var(--blue-60)' : 'var(--neutral-6)',
+                borderBottom: tab===t.key ? '2px solid var(--blue-60)' : '2px solid transparent',
+                marginBottom:-2, transition:'color 0.15s',
+              }}>{t.label}</button>
+            ))}
+          </div>
+
+          {/* ══ OVERVIEW ══ */}
+          {tab === 'overview' && (
+            <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:20 }}>
+
+              {/* Personal Info */}
+              <div className="card" style={{ margin:0 }}>
+                <div className="card-header"><h4>👤 Personal Details</h4></div>
+                <div className="card-body">
+                  {[
+                    ['Full Name',     info.name],
+                    ['Roll Number',   info.roll_number  || '—'],
+                    ['Admission No',  info.admission_no || '—'],
+                    ['Class',         info.class_name   || '—'],
+                    ['Gender',        info.gender       || '—'],
+                    ['Date of Birth', info.dob          || '—'],
+                    ['Session',       info.session      || '—'],
+                    ['Address',       info.address      || '—'],
+                  ].map(([label, value]) => (
+                    <div key={label} style={{
+                      display:'flex', justifyContent:'space-between',
+                      padding:'8px 0', borderBottom:'1px solid var(--neutral-1)',
+                      fontSize:13,
+                    }}>
+                      <span style={{ color:'var(--neutral-6)', minWidth:120 }}>{label}</span>
+                      <span style={{ fontWeight:600, color:'var(--neutral-9)', textAlign:'right' }}>{value}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Parent + Quick Stats */}
+              <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                <div className="card" style={{ margin:0 }}>
+                  <div className="card-header"><h4>👨‍👩‍👦 Parent / Guardian</h4></div>
+                  <div className="card-body">
+                    {[
+                      ['Name',  info.parent_name  || '—'],
+                      ['Phone', info.parent_phone || '—'],
+                      ['Email', info.parent_email || '—'],
+                    ].map(([label, value]) => (
+                      <div key={label} style={{
+                        display:'flex', justifyContent:'space-between',
+                        padding:'8px 0', borderBottom:'1px solid var(--neutral-1)', fontSize:13,
+                      }}>
+                        <span style={{ color:'var(--neutral-6)' }}>{label}</span>
+                        <span style={{ fontWeight:600 }}>{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Quick stats */}
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  {[
+                    { icon:'📅', label:'Attendance', value:`${att.percentage||0}%`,
+                      sub:`${att.present||0} present / ${att.absent||0} absent`,
+                      color: att.percentage>=75 ? '#16a34a' : '#dc2626' },
+                    { icon:'💰', label:'Fees This Month', value: feeData.month_status || 'N/A',
+                      sub:`Paid: ₹${fmt(feeData.month_paid)} / Due: ₹${fmt(feeData.month_due)}`,
+                      color: feeData.month_status==='PAID' ? '#16a34a' : '#dc2626' },
+                    { icon:'💸', label:'Total Paid', value: fmtK(feeData.total_paid),
+                      sub:`Pending: ₹${fmt(feeData.pending)}`, color:'#0176d3' },
+                    { icon:'📝', label:'Exams',
+                      value: `${exams?.length || 0} exams`,
+                      sub: exams?.length ? `Avg: ${Math.round(exams.reduce((a,e)=>a+e.avg_pct,0)/exams.length)}%` : 'No data',
+                      color:'#5867e8' },
+                  ].map(s => (
+                    <div key={s.label} style={{
+                      background:'#fff', borderRadius:10,
+                      padding:'14px 16px', border:'1px solid var(--neutral-2)',
+                    }}>
+                      <div style={{ fontSize:18 }}>{s.icon}</div>
+                      <div style={{ fontSize:11, color:'var(--neutral-5)', marginTop:6 }}>{s.label}</div>
+                      <div style={{ fontSize:16, fontWeight:800, color:s.color, marginTop:2 }}>{s.value}</div>
+                      <div style={{ fontSize:11, color:'var(--neutral-5)', marginTop:2 }}>{s.sub}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ ATTENDANCE ══ */}
+          {tab === 'attendance' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+              {/* Summary pills */}
+              <div style={{ display:'flex', gap:14, flexWrap:'wrap' }}>
+                {[
+                  { label:'Total Days',  value: att.total_marked || 0, bg:'#f1f5f9', color:'#0f172a' },
+                  { label:'Present',     value: att.present  || 0, bg:'#dcfce7', color:'#16a34a' },
+                  { label:'Absent',      value: att.absent   || 0, bg:'#fee2e2', color:'#dc2626' },
+                  { label:'Late',        value: att.late     || 0, bg:'#fef3c7', color:'#d97706' },
+                  { label:'Attendance %',value:`${att.percentage||0}%`,
+                    bg: att.percentage>=75 ? '#dcfce7' : '#fee2e2',
+                    color: att.percentage>=75 ? '#16a34a' : '#dc2626' },
+                ].map(p => (
+                  <div key={p.label} style={{
+                    background:p.bg, borderRadius:12, padding:'12px 20px', textAlign:'center', minWidth:90,
+                  }}>
+                    <div style={{ fontSize:22, fontWeight:800, color:p.color }}>{p.value}</div>
+                    <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>{p.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Last 30 days calendar */}
+              <div className="card" style={{ margin:0 }}>
+                <div className="card-header"><h4>📅 Last 30 Days</h4></div>
+                <div style={{ padding:'16px 20px', display:'flex', flexWrap:'wrap', gap:6 }}>
+                  {(att.calendar_30 || []).map((d, i) => {
+                    const s = STATUS_COLOR[d.status] || STATUS_COLOR.NOT_MARKED;
+                    return (
+                      <div key={i} title={`${d.date} — ${d.status}`} style={{
+                        width:38, height:44, borderRadius:8,
+                        background:s.bg, color:s.color,
+                        display:'flex', flexDirection:'column',
+                        alignItems:'center', justifyContent:'center',
+                        fontSize:10, fontWeight:700, cursor:'default',
+                        border:`1px solid ${s.color}22`,
+                      }}>
+                        <span style={{ fontSize:9, color:'#94a3b8' }}>{d.day}</span>
+                        <span style={{ fontSize:13 }}>{s.label}</span>
+                        <span style={{ fontSize:9, color:'#94a3b8' }}>
+                          {d.date.slice(8)}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Monthly breakdown */}
+              <div className="card" style={{ margin:0 }}>
+                <div className="card-header"><h4>📊 Month-wise Summary</h4></div>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Month</th><th>Present</th><th>Absent</th>
+                        <th>Late</th><th>Total</th><th>%</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(att.monthly || []).length === 0 ? (
+                        <tr><td colSpan={6} style={{ textAlign:'center', padding:24, color:'var(--neutral-4)' }}>
+                          Koi attendance record nahi
+                        </td></tr>
+                      ) : (att.monthly || []).map((m, i) => {
+                        const pct = m.total > 0 ? Math.round(m.present/m.total*100) : 0;
+                        return (
+                          <tr key={i}>
+                            <td style={{ fontWeight:600 }}>{m.month}</td>
+                            <td><span style={{ background:'#dcfce7', color:'#16a34a', padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:700 }}>{m.present}</span></td>
+                            <td><span style={{ background:'#fee2e2', color:'#dc2626', padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:700 }}>{m.absent}</span></td>
+                            <td><span style={{ background:'#fef3c7', color:'#d97706', padding:'2px 10px', borderRadius:20, fontSize:12, fontWeight:700 }}>{m.late}</span></td>
+                            <td style={{ fontWeight:600 }}>{m.total}</td>
+                            <td>
+                              <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                <div style={{ width:60, height:6, background:'#f1f5f9', borderRadius:99 }}>
+                                  <div style={{ width:`${pct}%`, height:'100%', borderRadius:99, background: pct>=75?'#16a34a':pct>=50?'#d97706':'#dc2626' }} />
+                                </div>
+                                <span style={{ fontSize:12, fontWeight:700, color: pct>=75?'#16a34a':'#dc2626' }}>{pct}%</span>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ FEES ══ */}
+          {tab === 'fees' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+
+              {/* Summary */}
+              <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:14 }}>
+                {[
+                  { label:'Total Due',    value:fmtK(feeData.total_due),  color:'#0176d3', bg:'#eff6ff' },
+                  { label:'Total Paid',   value:fmtK(feeData.total_paid), color:'#16a34a', bg:'#f0fdf4' },
+                  { label:'Pending',      value:fmtK(feeData.pending),    color:'#dc2626', bg:'#fef2f2' },
+                  { label:`${feeData.this_month}`, value: feeData.month_status || '—',
+                    color: feeData.month_status==='PAID'?'#16a34a':'#dc2626',
+                    bg:    feeData.month_status==='PAID'?'#f0fdf4':'#fef2f2' },
+                ].map(s => (
+                  <div key={s.label} style={{
+                    background:s.bg, borderRadius:12, padding:'16px', textAlign:'center',
+                    border:`1px solid ${s.color}22`,
+                  }}>
+                    <div style={{ fontSize:20, fontWeight:800, color:s.color }}>{s.value}</div>
+                    <div style={{ fontSize:11, color:'#64748b', marginTop:4 }}>{s.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Fee records table */}
+              <div className="card" style={{ margin:0 }}>
+                <div className="card-header"><h4>💳 Payment History</h4></div>
+                <div className="table-container">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Month</th><th>Type</th><th>Due</th>
+                        <th>Paid</th><th>Mode</th><th>Date</th>
+                        <th>Receipt</th><th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(feeData.records || []).length === 0 ? (
+                        <tr><td colSpan={8} style={{ textAlign:'center', padding:24, color:'var(--neutral-4)' }}>
+                          Koi fee record nahi
+                        </td></tr>
+                      ) : (feeData.records || []).map((r, i) => (
+                        <tr key={i}>
+                          <td style={{ fontWeight:600, fontSize:13 }}>{r.month || '—'}</td>
+                          <td><span className="badge badge-info">{r.fee_type || '—'}</span></td>
+                          <td style={{ fontWeight:600 }}>₹{fmt(r.amount_due)}</td>
+                          <td style={{ fontWeight:600, color:'#16a34a' }}>₹{fmt(r.amount_paid)}</td>
+                          <td style={{ fontSize:12, color:'var(--neutral-6)' }}>{r.payment_mode || '—'}</td>
+                          <td style={{ fontSize:12, color:'var(--neutral-6)' }}>{r.paid_date || '—'}</td>
+                          <td style={{ fontSize:11, fontFamily:'monospace', color:'var(--neutral-6)' }}>{r.receipt_no || '—'}</td>
+                          <td>
+                            <span style={{
+                              padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                              background: r.status==='PAID'?'#dcfce7':r.status==='PARTIAL'?'#fef3c7':'#fee2e2',
+                              color:      r.status==='PAID'?'#16a34a':r.status==='PARTIAL'?'#d97706':'#dc2626',
+                            }}>{r.status}</span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ══ MARKS ══ */}
+          {tab === 'marks' && (
+            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
+              {(exams || []).length === 0 ? (
+                <div className="card" style={{ margin:0 }}>
+                  <div className="empty-state" style={{ padding:48 }}>
+                    <div className="empty-state-icon">📝</div>
+                    <p>Koi marks record nahi mila</p>
+                  </div>
+                </div>
+              ) : (exams || []).map((exam, i) => (
+                <div className="card" key={i} style={{ margin:0 }}>
+                  <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <h4>📝 {exam.exam_type}</h4>
+                    <div style={{ display:'flex', gap:12, alignItems:'center' }}>
+                      <span style={{ fontSize:13, color:'var(--neutral-6)' }}>
+                        Total: <strong>{exam.total_obtained}/{exam.total_max}</strong>
+                      </span>
+                      <span style={{
+                        padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:800,
+                        background: exam.avg_pct>=60?'#dcfce7':exam.avg_pct>=33?'#fef3c7':'#fee2e2',
+                        color:      exam.avg_pct>=60?'#16a34a':exam.avg_pct>=33?'#d97706':'#dc2626',
+                      }}>{exam.avg_pct}% avg</span>
+                    </div>
+                  </div>
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr><th>Subject</th><th>Marks</th><th>Max</th><th>%</th><th>Grade</th></tr>
+                      </thead>
+                      <tbody>
+                        {exam.subjects.map((s, j) => {
+                          const gradeColor = s.percentage>=60?'badge-success':s.percentage>=33?'badge-warning':'badge-error';
+                          return (
+                            <tr key={j}>
+                              <td style={{ fontWeight:600 }}>{s.subject}</td>
+                              <td style={{ fontWeight:700, color: s.percentage>=33?'#16a34a':'#dc2626' }}>
+                                {s.marks_obtained}
+                              </td>
+                              <td style={{ color:'var(--neutral-6)' }}>{s.max_marks}</td>
+                              <td>
+                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                                  <div style={{ width:60, height:6, background:'#f1f5f9', borderRadius:99 }}>
+                                    <div style={{
+                                      width:`${s.percentage}%`, height:'100%', borderRadius:99,
+                                      background: s.percentage>=60?'#16a34a':s.percentage>=33?'#d97706':'#dc2626',
+                                    }} />
+                                  </div>
+                                  <span style={{ fontSize:12, fontWeight:700 }}>{s.percentage}%</span>
+                                </div>
+                              </td>
+                              <td><span className={`badge ${gradeColor}`}>{s.grade || '—'}</span></td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* ══ DOCUMENTS ══ */}
+          {tab === 'documents' && (
+            <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(240px,1fr))', gap:16 }}>
+              {[
+                { type:'admission', icon:'🎓', title:'Admission Card',
+                  desc:'Student ka official admission card PDF' },
+              ].map(doc => (
+                <div key={doc.type} className="card" style={{ margin:0, padding:24, textAlign:'center' }}>
+                  <div style={{ fontSize:40, marginBottom:12 }}>{doc.icon}</div>
+                  <div style={{ fontWeight:700, fontSize:15, marginBottom:6 }}>{doc.title}</div>
+                  <div style={{ fontSize:12, color:'var(--neutral-5)', marginBottom:16 }}>{doc.desc}</div>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    disabled={dlLoading === doc.type}
+                    onClick={() => downloadCard(doc.type)}
+                    style={{ width:'100%' }}>
+                    {dlLoading === doc.type ? '⏳ Generating...' : '⬇️ Download PDF'}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+  );
+}
