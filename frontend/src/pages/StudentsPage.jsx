@@ -184,7 +184,10 @@ useEffect(() => {
                         </span>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                          onClick={() => navigate(`/students/${s.id}`)}
+                          title="Profile dekhne ke liye click karein">
                           <div style={{
                             width: 30, height: 30, borderRadius: '50%',
                             background: 'var(--blue-10)', color: 'var(--blue-80)',
@@ -194,7 +197,11 @@ useEffect(() => {
                             {s.name?.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{s.name}</div>
+                            <div style={{
+                              fontWeight: 600, fontSize: 13,
+                              color: 'var(--blue-60)',
+                              borderBottom: '1px dashed var(--blue-30)',
+                            }}>{s.name}</div>
                             <div style={{ fontSize: 11, color: 'var(--neutral-6)' }}>
                               {s.email}
                             </div>
@@ -217,7 +224,16 @@ useEffect(() => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: 6 }}>
-                          {/* Fix #2 — axios blob download instead of window.open */}
+                          <button
+                            onClick={() => navigate(`/students/${s.id}`)}
+                            style={{
+                              background: '#eff6ff', color: '#0176d3',
+                              border: 'none', borderRadius: 4,
+                              padding: '4px 10px', fontSize: 11,
+                              fontWeight: 700, cursor: 'pointer',
+                            }}>
+                            👤 Profile
+                          </button>
                           <button
                             onClick={() => downloadAdmissionCard(s.id, s.name)}
                             disabled={downloading === s.id}
