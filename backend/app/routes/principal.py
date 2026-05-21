@@ -164,8 +164,8 @@ def fee_records():
     class_id   = request.args.get('class_id')
     status     = request.args.get('status')
     student_id = request.args.get('student_id')
-    month      = request.args.get('month')       # ← ADD
-    fee_type   = request.args.get('fee_type')    # ← ADD
+    month      = request.args.get('month')
+    fee_type   = request.args.get('fee_type')
 
     q = FeeRecord.query.filter_by(school_id=sid)
 
@@ -174,17 +174,29 @@ def fee_records():
     if student_id:
         q = q.filter_by(student_id=student_id)
     if month:
-        q = q.filter(FeeRecord.month == month)        # ← ADD
+        q = q.filter(FeeRecord.month == month)
     if fee_type:
-        q = q.filter(FeeRecord.fee_type == fee_type.upper())  # ← ADD
+        q = q.filter(FeeRecord.fee_type == fee_type.upper())
 
-    # Join with Student to filter by class
     if class_id:
         q = q.join(Student, FeeRecord.student_id == Student.id)\
              .filter(Student.class_id == class_id)
 
     records = q.order_by(FeeRecord.created_at.desc()).all()
-    # ... rest same
+
+    result = []
+    for r in records:
+        d = r.to_dict()
+        student = Student.query.get(r.student_id)
+        if student:
+            cls = Class.query.get(student.class_id)
+            d['student_name'] = student.user.name if student.user else ''
+            d['father_name']  = student.parent_name or ''
+            d['roll_number']  = student.roll_number or ''
+            d['class_name']   = f"{cls.name} - {cls.section}" if cls else ''
+        result.append(d)
+
+    return jsonify(result), 200
 
 
 @principal_bp.route('/fees/collect', methods=['POST'])
