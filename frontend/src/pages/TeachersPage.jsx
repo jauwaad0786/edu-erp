@@ -13,7 +13,9 @@ export default function TeachersPage() {
   const [form,   setForm]   = useState({});
   const [subjects, setSubjects] = useState([{ class_name: '', subject_name: '' }]);
   const [saving, setSaving] = useState(false);
-  const [msg,    setMsg]    = useState('');
+  const [msg,       setMsg]       = useState('');
+  const [editForm,  setEditForm]  = useState(null);  // null = closed
+  const [deleting,  setDeleting]  = useState(null);
 
   const navigate = useNavigate();
   const load = () =>
@@ -46,7 +48,24 @@ export default function TeachersPage() {
     }
     setSaving(false);
   };
+  const updateTeacher = async e => {
+    e.preventDefault(); setSaving(true);
+    try {
+      await api.patch(`/principal/teachers/${editForm.id}`, editForm);
+      setEditForm(null); load();
+    } catch (err) { setMsg('❌ ' + (err.response?.data?.error || 'Update failed')); }
+    setSaving(false);
+  };
 
+  const removeTeacher = async (id) => {
+    if (!window.confirm('Are you sure? This will remove the teacher permanently.')) return;
+    setDeleting(id);
+    try {
+      await api.delete(`/principal/teachers/${id}`);
+      load();
+    } catch { setMsg('❌ Remove failed'); }
+    setDeleting(null);
+  };
   const filtered = teachers.filter(t =>
     t.name?.toLowerCase().includes(filter.toLowerCase()) ||
     t.employee_id?.includes(filter) ||
@@ -139,12 +158,17 @@ export default function TeachersPage() {
                               padding: '4px 10px', fontSize: 11,
                               fontWeight: 700, cursor: 'pointer',
                             }}>👤 Profile</button>
-                          <button className="btn btn-neutral btn-sm">Edit</button>
+                          <button className="btn btn-neutral btn-sm"
+                            onClick={() => setEditForm({ ...t })}>Edit</button>
                           <button className="btn btn-sm" style={{
                             background: '#fef1ee', color: 'var(--error)',
                             border: 'none', cursor: 'pointer', borderRadius: 4,
                             padding: '4px 10px', fontSize: 11, fontWeight: 700,
-                          }}>Remove</button>
+                          }}
+                            disabled={deleting === t.id}
+                            onClick={() => removeTeacher(t.id)}>
+                            {deleting === t.id ? '...' : 'Remove'}
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -302,7 +326,44 @@ export default function TeachersPage() {
           </div>
         </div>
       )}
-
+      {editForm && (
+        <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setEditForm(null)}>
+          <div className="modal">
+            <div className="modal-header">
+              <h3>✏️ Edit Teacher</h3>
+              <button className="modal-close" onClick={() => setEditForm(null)}>✕</button>
+            </div>
+            <form onSubmit={updateTeacher}>
+              <div className="modal-body">
+                <div className="grid-2">
+                  {[
+                    ['Full Name',          'name',         'text',   'Teacher name'],
+                    ['Department',         'department',   'text',   'e.g. Mathematics'],
+                    ['Designation',        'designation',  'text',   'e.g. Senior Teacher'],
+                    ['Phone',              'phone',        'text',   '+91-XXXXX'],
+                    ['Monthly Salary (₹)', 'salary',       'number', 'e.g. 25000'],
+                    ['Date of Joining',    'joining_date', 'date',   ''],
+                    ['Qualification',      'qualification','text',   'e.g. B.Ed'],
+                  ].map(([label, field, type, ph]) => (
+                    <div className="form-group" key={field}>
+                      <label className="form-label">{label}</label>
+                      <input className="form-input" type={type} placeholder={ph}
+                        value={editForm[field] || ''}
+                        onChange={e => setEditForm(f => ({ ...f, [field]: e.target.value }))} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-neutral" onClick={() => setEditForm(null)}>Cancel</button>
+                <button type="submit" className="btn btn-primary" disabled={saving}>
+                  {saving ? 'Saving...' : '✅ Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       {/* ── Credentials Modal ── */}
       {createdCreds && (
         <div className="modal-backdrop">
