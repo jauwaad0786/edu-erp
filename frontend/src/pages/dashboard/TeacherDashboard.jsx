@@ -138,6 +138,11 @@ export default function TeacherDashboard() {
   };
 
   /* ── Summary counts ───────────────────────────────────────── */
+  const presentCount = Object.values(attendance).filter(s => s === 'PRESENT').length;
+  const absentCount  = Object.values(attendance).filter(s => s === 'ABSENT').length;
+  const lateCount    = Object.values(attendance).filter(s => s === 'LATE').length;
+
+  /* ── Self Attendance Submit ───────────────────────────────── */
   const saveSelfAttendance = async () => {
     setSelfAttSaving(true);
     try {
