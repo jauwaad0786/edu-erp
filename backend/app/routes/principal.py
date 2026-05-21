@@ -1378,3 +1378,66 @@ def admission_card_pdf(student_id):
         mimetype='application/pdf',
         download_name=f'AdmissionCard_{student.admission_no or student_id}.pdf'
     )
+
+# ─── Teacher Self-Routes (teacher apna attendance submit kare) ────────────────
+
+teacher_bp = Blueprint('teacher', __name__)
+
+@teacher_bp.route('/self-attendance', methods=['GET'])
+@role_required('TEACHER', 'PRINCIPAL')
+def get_self_attendance():
+    """Today's self-attendance request for logged-in teacher."""
+    user    = get_current_user()
+    teacher = Teacher.query.filter_by(user_id=user.id).first()
+    if not teacher:
+        return jsonify(None), 200
+    date_param = request.args.get('date', str(date.today()))
+    req = TeacherAttendanceRequest.query.filter_by(
+        teacher_id=teacher.id,
+        date=date.fromisoformat(date_param)
+    ).first()
+    return jsonify(req.to_dict() if req else None), 200
+
+
+@teacher_bp.route('/self-attendance', methods=['POST'])
+@role_required('TEACHER', 'PRINCIPAL')
+def submit_self_attendance():
+    """Teacher submits own attendance request."""
+    user    = get_current_user()
+    teacher = Teacher.query.filter_by(user_id=user.id).first()
+    if not teacher:
+        return jsonify({'error': 'Teacher profile nahi mila'}), 404
+
+    data     = request.get_json()
+    att_date = date.fromisoformat(data.get('date', str(date.today())))
+
+    existing = TeacherAttendanceRequest.query.filter_by(
+        teacher_id=teacher.id, date=att_date
+    ).first()
+
+    if existing:
+        existing.status    = data.get('status', 'PRESENT')
+        existing.check_in  = data.get('check_in', '')
+        existing.check_out = data.get('check_out', '')
+        existing.remarks   = data.get('remarks', '')
+        existing.approval  = 'PENDING'   # re-submit → back to pending
+        existing.reviewed_by = None
+        existing.reviewed_at = None
+    else:
+        req = TeacherAttendanceRequest(
+            teacher_id = teacher.id,
+            school_id  = teacher.school_id,
+            date       = att_date,
+            status     = data.get('status', 'PRESENT'),
+            check_in   = data.get('check_in', ''),
+            check_out  = data.get('check_out', ''),
+            remarks    = data.get('remarks', ''),
+            approval   = 'PENDING',
+        )
+        db.session.add(req)
+
+    db.session.commit()
+    result = TeacherAttendanceRequest.query.filter_by(
+        teacher_id=teacher.id, date=att_date
+    ).first()
+    return jsonify(result.to_dict()), 201
