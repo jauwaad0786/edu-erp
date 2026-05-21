@@ -39,7 +39,7 @@ def create_app(config_name='default'):
     # Register blueprints
     from app.routes.auth import auth_bp
     from app.routes.admin import admin_bp
-    from app.routes.principal import principal_bp
+    from app.routes.principal import principal_bp, teacher_bp as teacher_self_bp
     from app.routes.teacher import teacher_bp
     from app.routes.student import student_bp
 
@@ -47,7 +47,8 @@ def create_app(config_name='default'):
     app.register_blueprint(admin_bp,     url_prefix='/api/admin')
     app.register_blueprint(principal_bp, url_prefix='/api/principal')
 
-    app.register_blueprint(teacher_bp,   url_prefix='/api/teacher')
+    app.register_blueprint(teacher_bp,        url_prefix='/api/teacher')
+    app.register_blueprint(teacher_self_bp,   url_prefix='/api/teacher')
     app.register_blueprint(student_bp,   url_prefix='/api/student')
 
     # Create tables on first run
