@@ -52,8 +52,14 @@ export default function PrincipalDashboard() {
     return `₹${n}`;
   };
 
-  const collectionPct = fees
-    ? Math.round((fees.total_collected / (fees.total_due || 1)) * 100)
+  const feeTotals = Array.isArray(fees) ? {
+    total_due:       fees.reduce((a, c) => a + (c.total_due       || 0), 0),
+    total_collected: fees.reduce((a, c) => a + (c.total_collected || 0), 0),
+    pending_count:   fees.filter(c => c.pending > 0).length,
+  } : (fees || { total_due: 0, total_collected: 0, pending_count: 0 });
+
+  const collectionPct = feeTotals.total_due > 0
+    ? Math.round(feeTotals.total_collected / feeTotals.total_due * 100)
     : 0;
 
   const TABS = [
@@ -94,12 +100,12 @@ export default function PrincipalDashboard() {
               sub="Active staff"
               color="#5867e8" />
             <StatCard icon="💰" label="Fee Collected"
-              value={fmtK(stats?.fee_collected)}
+              value={fmtK(feeTotals.total_collected)}
               sub={`${collectionPct}% collection rate`}
               color="#2e844a" />
             <StatCard icon="⚠️" label="Fee Pending"
-              value={fmtK(fees ? fees.total_due - fees.total_collected : 0)}
-              sub={`${fmt(fees?.pending_count)} pending`}
+              value={fmtK(feeTotals.total_due - feeTotals.total_collected)}
+              sub={`${fmt(feeTotals.pending_count)} pending`}
               color="#dd7a01" />
           </div>
            
@@ -326,8 +332,7 @@ export default function PrincipalDashboard() {
 
           
 
-          {/* ── Fee Progress Bar ── */}
-          {fees && (
+         {feeTotals.total_due >= 0 && (
             <div className="card mb-6">
               <div className="card-body" style={{ padding: '16px 20px' }}>
                 <div style={{
@@ -340,12 +345,12 @@ export default function PrincipalDashboard() {
                   <div style={{ display: 'flex', gap: 20, fontSize: 13 }}>
                     <span>
                       <span style={{ color: 'var(--neutral-5)' }}>Collected: </span>
-                      <strong style={{ color: '#2e844a' }}>₹{fmt(fees.total_collected)}</strong>
+                      <strong style={{ color: '#2e844a' }}>₹{fmt(feeTotals.total_collected)}</strong>
                     </span>
                     <span>
                       <span style={{ color: 'var(--neutral-5)' }}>Pending: </span>
                       <strong style={{ color: '#dd7a01' }}>
-                        ₹{fmt(fees.total_due - fees.total_collected)}
+                        ₹{fmt(feeTotals.total_due - feeTotals.total_collected)}
                       </strong>
                     </span>
                     <strong style={{
