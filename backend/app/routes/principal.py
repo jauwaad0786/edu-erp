@@ -515,7 +515,112 @@ def mark_attendance():
 
     db.session.commit()
     return jsonify({'message': f'{len(records)} attendance records saved'}), 200
+@principal_bp.route('/teachers/attendance/today', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def teacher_attendance_today():
+    """
+    Today's teacher attendance summary.
+    Returns: present/absent counts + absent teacher name list.
+    Query param: date (YYYY-MM-DD), default today
+    """
+    sid        = _school_id()
+    date_param = request.args.get('date')
+    target     = date.fromisoformat(date_param) if date_param else date.today()
 
+    teachers   = Teacher.query.filter_by(school_id=sid).all()
+    total      = len(teachers)
+
+    att_map = {
+        a.teacher_id: a
+        for a in TeacherAttendance.query.filter_by(
+            school_id=sid, date=target
+        ).all()
+    }
+
+    present    = 0
+    absent     = 0
+    half_day   = 0
+    on_leave   = 0
+    not_marked = 0
+    absent_list = []
+
+    for t in teachers:
+        rec = att_map.get(t.id)
+        if not rec:
+            not_marked += 1
+            continue
+        if rec.status == 'PRESENT':
+            present += 1
+        elif rec.status == 'ABSENT':
+            absent += 1
+            absent_list.append({
+                'teacher_id':  t.id,
+                'name':        t.user.name if t.user else '',
+                'designation': t.designation or 'Teacher',
+                'department':  t.department or '',
+            })
+        elif rec.status == 'HALF_DAY':
+            half_day += 1
+        elif rec.status == 'ON_LEAVE':
+            on_leave += 1
+            absent_list.append({
+                'teacher_id':  t.id,
+                'name':        t.user.name if t.user else '',
+                'designation': t.designation or 'Teacher',
+                'department':  t.department or '',
+                'on_leave':    True,
+            })
+
+    return jsonify({
+        'date':        str(target),
+        'total':       total,
+        'present':     present,
+        'absent':      absent,
+        'half_day':    half_day,
+        'on_leave':    on_leave,
+        'not_marked':  not_marked,
+        'absent_list': absent_list,
+    }), 200
+
+
+@principal_bp.route('/teachers/attendance/mark', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def mark_teacher_attendance():
+    """
+    Mark attendance for multiple teachers.
+    Body: { date, records: [{teacher_id, status, check_in, check_out, remarks}] }
+    """
+    data      = request.get_json()
+    att_date  = date.fromisoformat(data.get('date', str(date.today())))
+    records   = data.get('records', [])
+    marker_id = get_current_user().id
+    sid       = _school_id()
+
+    for rec in records:
+        existing = TeacherAttendance.query.filter_by(
+            teacher_id=rec['teacher_id'], date=att_date
+        ).first()
+        if existing:
+            existing.status    = rec.get('status', 'PRESENT')
+            existing.check_in  = rec.get('check_in')
+            existing.check_out = rec.get('check_out')
+            existing.remarks   = rec.get('remarks', '')
+            existing.marked_by = marker_id
+        else:
+            att = TeacherAttendance(
+                teacher_id=rec['teacher_id'],
+                school_id=sid,
+                date=att_date,
+                status=rec.get('status', 'PRESENT'),
+                check_in=rec.get('check_in'),
+                check_out=rec.get('check_out'),
+                remarks=rec.get('remarks', ''),
+                marked_by=marker_id,
+            )
+            db.session.add(att)
+
+    db.session.commit()
+    return jsonify({'message': f'{len(records)} teacher attendance records saved'}), 200
 
 # ─── Exams & PDF ──────────────────────────────────────────────────────────────
 
@@ -591,15 +696,43 @@ def result_card_pdf(student_id, exam_id):
 @principal_bp.route('/dashboard', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
 def dashboard():
-    sid = _school_id()
+    sid    = _school_id()
+    today  = date.today()
+
+    # Today's student attendance
+    total_students = Student.query.filter_by(school_id=sid).count()
+    att_today      = Attendance.query.join(
+                         Student, Attendance.student_id == Student.id
+                     ).filter(
+                         Student.school_id == sid,
+                         Attendance.date == today
+                     ).all()
+    s_present = sum(1 for a in att_today if a.status == 'PRESENT')
+    s_absent  = sum(1 for a in att_today if a.status == 'ABSENT')
+
+    # Today's teacher attendance
+    total_teachers = Teacher.query.filter_by(school_id=sid).count()
+    t_att_today    = TeacherAttendance.query.filter_by(
+                         school_id=sid, date=today
+                     ).all()
+    t_present = sum(1 for a in t_att_today if a.status == 'PRESENT')
+    t_absent  = sum(1 for a in t_att_today if a.status == 'ABSENT')
+
     return jsonify({
-        'total_students': Student.query.filter_by(school_id=sid).count(),
-        'total_teachers': Teacher.query.filter_by(school_id=sid).count(),
-        'total_classes':  Class.query.filter_by(school_id=sid).count(),
-        'fee_collected':  db.session.query(func.sum(FeeRecord.amount_paid)).filter_by(school_id=sid).scalar() or 0,
-        'fee_pending':    db.session.query(
-                            func.sum(FeeRecord.amount_due - FeeRecord.amount_paid)
-                          ).filter_by(school_id=sid).scalar() or 0,
+        'total_students':    total_students,
+        'total_teachers':    total_teachers,
+        'total_classes':     Class.query.filter_by(school_id=sid).count(),
+        'fee_collected':     db.session.query(func.sum(FeeRecord.amount_paid)).filter_by(school_id=sid).scalar() or 0,
+        'fee_pending':       db.session.query(
+                                 func.sum(FeeRecord.amount_due - FeeRecord.amount_paid)
+                             ).filter_by(school_id=sid).scalar() or 0,
+        # attendance today
+        'students_present':  s_present,
+        'students_absent':   s_absent,
+        'students_marked':   len(att_today),
+        'teachers_present':  t_present,
+        'teachers_absent':   t_absent,
+        'teachers_marked':   len(t_att_today),
     }), 200
 
 
