@@ -1468,8 +1468,14 @@ def delete_teacher(t_id):
     t = Teacher.query.get_or_404(t_id)
     if t.school_id != _school_id():
         return jsonify({'error': 'Unauthorized'}), 403
+    # Remove class teacher reference first
+    Class.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
+    # Remove subject assignments
+    Subject.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
+    
     user = t.user
     db.session.delete(t)
+    db.session.flush()
     if user:
         db.session.delete(user)
     db.session.commit()
