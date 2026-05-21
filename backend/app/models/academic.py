@@ -19,7 +19,8 @@ class Class(db.Model):
         return {
             'id': self.id, 'name': self.name,
             'section': self.section, 'session': self.session,
-            'school_id': self.school_id
+            'school_id': self.school_id,
+            'teacher_id': self.teacher_id,
         }
 
 
