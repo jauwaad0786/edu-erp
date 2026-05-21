@@ -2,7 +2,11 @@ from flask import Blueprint, request, jsonify, send_file
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from app import db
 from app.models.user import User, UserRole
-from app.models.academic import Class, Teacher, Student, Subject, Marks, Attendance, TeacherAttendance
+from app.models.academic import (
+    Class, Teacher, Student, Subject, Marks,
+    Attendance, TeacherAttendance, TeacherAttendanceRequest
+)
+from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable, Holiday
 from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable
 from app.utils.decorators import role_required, get_current_user
 from app.utils.pdf_generator import generate_admit_card, generate_result_card
@@ -1175,6 +1179,143 @@ def student_profile(student_id):
         'fees':       fees,
         'exams':      exams,
     }), 200
+
+# ─── Holidays ─────────────────────────────────────────────────────────────────
+
+@principal_bp.route('/holidays', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER', 'STUDENT')
+def list_holidays():
+    sid        = _school_id()
+    applies_to = request.args.get('applies_to')  # ALL / STUDENT / TEACHER
+    q          = Holiday.query.filter_by(school_id=sid)
+    if applies_to and applies_to != 'ALL':
+        q = q.filter(Holiday.applies_to.in_([applies_to, 'ALL']))
+    holidays = q.order_by(Holiday.date.asc()).all()
+    return jsonify([h.to_dict() for h in holidays]), 200
+
+
+@principal_bp.route('/holidays', methods=['POST'])
+@role_required('PRINCIPAL')
+def create_holiday():
+    data = request.get_json()
+    h = Holiday(
+        school_id   = _school_id(),
+        title       = data['title'],
+        date        = date.fromisoformat(data['date']),
+        end_date    = date.fromisoformat(data['end_date']) if data.get('end_date') else None,
+        holiday_type= data.get('holiday_type', 'HOLIDAY'),
+        applies_to  = data.get('applies_to', 'ALL'),
+        description = data.get('description', ''),
+        created_by  = get_current_user().id,
+    )
+    db.session.add(h)
+    db.session.commit()
+    return jsonify(h.to_dict()), 201
+
+
+@principal_bp.route('/holidays/<int:hid>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_holiday(hid):
+    h = Holiday.query.get_or_404(hid)
+    if h.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    db.session.delete(h)
+    db.session.commit()
+    return jsonify({'message': 'Holiday deleted'}), 200
+
+
+@principal_bp.route('/holidays/<int:hid>', methods=['PUT'])
+@role_required('PRINCIPAL')
+def update_holiday(hid):
+    h    = Holiday.query.get_or_404(hid)
+    if h.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    if data.get('title'):        h.title        = data['title']
+    if data.get('date'):         h.date         = date.fromisoformat(data['date'])
+    if data.get('end_date'):     h.end_date     = date.fromisoformat(data['end_date'])
+    if data.get('holiday_type'): h.holiday_type = data['holiday_type']
+    if data.get('applies_to'):   h.applies_to   = data['applies_to']
+    if data.get('description') is not None: h.description = data['description']
+    db.session.commit()
+    return jsonify(h.to_dict()), 200
+
+
+# ─── Teacher Attendance Approval ──────────────────────────────────────────────
+
+@principal_bp.route('/teachers/attendance/requests', methods=['GET'])
+@role_required('PRINCIPAL')
+def list_attendance_requests():
+    """All pending teacher attendance requests."""
+    sid      = _school_id()
+    approval = request.args.get('approval', 'PENDING')
+    reqs     = TeacherAttendanceRequest.query.filter_by(
+        school_id=sid, approval=approval
+    ).order_by(TeacherAttendanceRequest.date.desc()).all()
+
+    result = []
+    for r in reqs:
+        d = r.to_dict()
+        t = Teacher.query.get(r.teacher_id)
+        d['teacher_name']  = t.user.name if t and t.user else ''
+        d['employee_id']   = t.employee_id or ''
+        d['designation']   = t.designation or 'Teacher'
+        result.append(d)
+    return jsonify(result), 200
+
+
+@principal_bp.route('/teachers/attendance/requests/<int:req_id>/approve', methods=['POST'])
+@role_required('PRINCIPAL')
+def approve_attendance_request(req_id):
+    """Approve a teacher attendance request → creates TeacherAttendance record."""
+    req = TeacherAttendanceRequest.query.get_or_404(req_id)
+    if req.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    req.approval    = 'APPROVED'
+    req.reviewed_by = get_current_user().id
+    req.reviewed_at = datetime.utcnow()
+
+    # Upsert into TeacherAttendance
+    existing = TeacherAttendance.query.filter_by(
+        teacher_id=req.teacher_id, date=req.date
+    ).first()
+    if existing:
+        existing.status    = req.status
+        existing.check_in  = req.check_in
+        existing.check_out = req.check_out
+        existing.remarks   = req.remarks
+        existing.marked_by = get_current_user().id
+    else:
+        att = TeacherAttendance(
+            teacher_id = req.teacher_id,
+            school_id  = req.school_id,
+            date       = req.date,
+            status     = req.status,
+            check_in   = req.check_in,
+            check_out  = req.check_out,
+            remarks    = req.remarks,
+            marked_by  = get_current_user().id,
+        )
+        db.session.add(att)
+
+    db.session.commit()
+    return jsonify({'message': 'Approved', 'request': req.to_dict()}), 200
+
+
+@principal_bp.route('/teachers/attendance/requests/<int:req_id>/deny', methods=['POST'])
+@role_required('PRINCIPAL')
+def deny_attendance_request(req_id):
+    """Deny a teacher attendance request."""
+    req = TeacherAttendanceRequest.query.get_or_404(req_id)
+    if req.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    req.approval    = 'DENIED'
+    req.reviewed_by = get_current_user().id
+    req.reviewed_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'message': 'Denied', 'request': req.to_dict()}), 200
 # ─── Dashboard ────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/dashboard', methods=['GET'])
