@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/Sidebar';
 import Navbar  from '../../components/Navbar';
 import api from '../../api/axios';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  Tooltip, Legend, ResponsiveContainer
+} from 'recharts';
 
 function StatCard({ icon, label, value, sub, color = '#0176d3', bg }) {
   return (
@@ -22,10 +26,11 @@ export default function PrincipalDashboard() {
   const [stats,   setStats]   = useState(null);
   const [classes, setClasses] = useState([]);
   const [fees,    setFees]    = useState(null);
-  const [tab,        setTab]        = useState('students');
   const [attClass,   setAttClass]   = useState([]);   // class-wise student att
   const [teacherAtt, setTeacherAtt] = useState(null); // teacher att summary
   const [attFilter,  setAttFilter]  = useState('');
+  const [weeklyData,    setWeeklyData]    = useState(null);
+  const [chartTab,      setChartTab]      = useState('student');
   const [pendingReqs, setPendingReqs] = useState([]);
   const [approving,   setApproving]   = useState(null);
 
@@ -37,15 +42,18 @@ export default function PrincipalDashboard() {
       api.get('/principal/attendance/class-summary').catch(() => ({ data: [] })),
       api.get('/principal/teachers/attendance/today').catch(() => ({ data: null })),
       api.get('/principal/teachers/attendance/requests?approval=PENDING').catch(() => ({ data: [] })),
-    ]).then(([s, c, f, att, tatt, reqs]) => {
+      api.get('/principal/attendance/weekly').catch(() => ({ data: null })),
+    ]).then(([s, c, f, att, tatt, reqs, weekly]) => {
       setPendingReqs(reqs.data || []);
-    
       setStats(s.data);
       setClasses(c.data || []);
       setFees(f.data);
       setAttClass(att.data || []);
       setTeacherAtt(tatt.data);
+      setWeeklyData(weekly.data);
     });
+    
+      
   }, []);
 
   const fmt = n => n?.toLocaleString('en-IN') ?? '0';
@@ -67,10 +75,7 @@ export default function PrincipalDashboard() {
     ? Math.round(feeTotals.total_collected / feeTotals.total_due * 100)
     : 0;
 
-  const TABS = [
-    { key: 'students', label: '🎒 Class-wise Students' },
-    { key: 'fees',     label: '💰 Class-wise Fees' },
-  ];
+  
 
   return (
     <div className="app-shell">
@@ -451,276 +456,211 @@ export default function PrincipalDashboard() {
           )}
 
           {/* ── Tabs ── */}
-          <div style={{
-            display: 'flex', borderBottom: '2px solid var(--neutral-2)',
-            marginBottom: 20, gap: 0,
-          }}>
-            {TABS.map(t => (
-              <button key={t.key} onClick={() => setTab(t.key)} style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                padding: '10px 20px', fontSize: 13, fontWeight: 600,
-                color: tab === t.key ? 'var(--blue-60)' : 'var(--neutral-6)',
-                borderBottom: tab === t.key
-                  ? '2px solid var(--blue-60)' : '2px solid transparent',
-                marginBottom: -2, transition: 'color 0.15s',
-              }}>{t.label}</button>
-            ))}
-          </div>
-
+          
           {/* ══ TAB: Class-wise Students ══ */}
-          {tab === 'students' && (
-            <div className="card">
-              <div className="card-header" style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <h4>🎒 Students by Class</h4>
-                <span className="badge badge-info">
-                  {classes.reduce((a, c) => a + (c.student_count ?? 0), 0)} total
-                </span>
+          {/* ── Attendance Charts ── */}
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <div style={{ display:'flex', gap:0 }}>
+                {[
+                  { key:'student', label:'🎒 Student Attendance' },
+                  { key:'teacher', label:'👩‍🏫 Teacher Attendance' },
+                ].map(t => (
+                  <button key={t.key} onClick={() => setChartTab(t.key)} style={{
+                    background:'none', border:'none', cursor:'pointer',
+                    padding:'8px 18px', fontSize:13, fontWeight:700,
+                    color: chartTab===t.key ? '#0176d3' : 'var(--neutral-5)',
+                    borderBottom: chartTab===t.key ? '2px solid #0176d3' : '2px solid transparent',
+                  }}>{t.label}</button>
+                ))}
               </div>
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Class</th>
-                      <th>Section</th>
-                      <th>Session</th>
-                      <th>Students</th>
-                      <th>Strength</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classes.map((c, i) => {
-                      const total = classes.reduce(
-                        (a, x) => a + (x.student_count ?? 0), 0
-                      ) || 1;
-                      const pct = Math.round((c.student_count ?? 0) / total * 100);
-                      return (
-                        <tr key={c.id}>
-                          <td style={{ color: 'var(--neutral-5)', fontSize: 12 }}>{i + 1}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{
-                                width: 32, height: 32, borderRadius: 8,
-                                background: 'var(--blue-10)',
-                                display: 'flex', alignItems: 'center',
-                                justifyContent: 'center', fontSize: 14,
-                              }}>🏛</div>
-                              <span style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</span>
-                            </div>
-                          </td>
-                          <td>
-                            <span className="badge badge-neutral">{c.section}</span>
-                          </td>
-                          <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>
-                            {c.session}
-                          </td>
-                          <td>
-                            <span style={{
-                              background: 'var(--blue-10)', color: 'var(--blue-80)',
-                              padding: '3px 12px', borderRadius: 100,
-                              fontSize: 13, fontWeight: 700,
-                            }}>{c.student_count ?? 0}</span>
-                          </td>
-                          <td style={{ minWidth: 140 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{
-                                flex: 1, height: 6,
-                                background: 'var(--neutral-2)', borderRadius: 99,
-                              }}>
-                                <div style={{
-                                  width: `${pct}%`, height: '100%',
-                                  background: 'var(--blue-60)', borderRadius: 99,
-                                  transition: 'width 0.4s',
-                                }} />
-                              </div>
-                              <span style={{
-                                fontSize: 11, color: 'var(--neutral-6)',
-                                minWidth: 28, textAlign: 'right',
-                              }}>{pct}%</span>
-                            </div>
-                          </td>
-                          <td>
-                            <button
-                              className="btn btn-neutral btn-sm"
-                              onClick={() => navigate(`/students?class_id=${c.id}`)}>
-                              View Students
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {!classes.length && (
-                      <tr>
-                        <td colSpan={7}>
-                          <div className="empty-state">
-                            <div className="empty-state-icon">🏛</div>
-                            <p>No classes added yet.</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  {classes.length > 0 && (
-                    <tfoot>
-                      <tr style={{ background: 'var(--neutral-1)' }}>
-                        <td colSpan={4}
-                          style={{ fontWeight: 700, fontSize: 13, padding: '12px 16px' }}>
-                          Total
-                        </td>
-                        <td>
-                          <span style={{
-                            background: '#032d60', color: '#fff',
-                            padding: '3px 12px', borderRadius: 100,
-                            fontSize: 13, fontWeight: 700,
-                          }}>
-                            {classes.reduce((a, c) => a + (c.student_count ?? 0), 0)}
-                          </span>
-                        </td>
-                        <td colSpan={2} />
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
-              </div>
+              {chartTab === 'student' && (
+                <select className="form-select" style={{ width:160, fontSize:12 }}
+                  value={attFilter} onChange={e => setAttFilter(e.target.value)}>
+                  <option value="">All Classes</option>
+                  {(weeklyData?.class_today || []).map(c => (
+                    <option key={c.class_id} value={c.class_id}>{c.class_name}</option>
+                  ))}
+                </select>
+              )}
             </div>
-          )}
 
-          {/* ══ TAB: Class-wise Fees ══ */}
-          {tab === 'fees' && (
-            <div className="card">
-              <div className="card-header" style={{
-                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-              }}>
-                <h4>💰 Fee Collection by Class</h4>
-                {fees && (
-                  <span className="badge badge-success">
-                    {collectionPct}% overall collected
-                  </span>
+            <div style={{ padding:'20px', display:'grid', gridTemplateColumns:'1fr 1fr', gap:24 }}>
+
+              {/* LEFT: Today class-wise OR filtered */}
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--neutral-7)', marginBottom:12 }}>
+                  {chartTab==='student' ? '📊 Today — Class-wise' : '📊 Today — Teacher Status'}
+                </div>
+
+                {chartTab === 'student' ? (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart
+                      data={attFilter
+                        ? (weeklyData?.class_today||[]).filter(c=>String(c.class_id)===String(attFilter))
+                        : (weeklyData?.class_today||[])
+                      }
+                      margin={{ top:5, right:10, left:-10, bottom:5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="class_name" tick={{ fontSize:11 }} />
+                      <YAxis tick={{ fontSize:11 }} />
+                      <Tooltip contentStyle={{ fontSize:12, borderRadius:8 }} />
+                      <Legend wrapperStyle={{ fontSize:12 }} />
+                      <Bar dataKey="total"   name="Total"   fill="#93c5fd" radius={[4,4,0,0]} />
+                      <Bar dataKey="present" name="Present" fill="#4ade80" radius={[4,4,0,0]} />
+                      <Bar dataKey="absent"  name="Absent"  fill="#f87171" radius={[4,4,0,0]} />
+                      <Bar dataKey="late"    name="Late"    fill="#fbbf24" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                ) : (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart
+                      data={[{
+                        name: 'Today',
+                        Total:   teacherAtt?.total   ?? 0,
+                        Present: teacherAtt?.present ?? 0,
+                        Absent:  (teacherAtt?.absent??0)+(teacherAtt?.on_leave??0),
+                        'Half Day': teacherAtt?.half_day ?? 0,
+                      }]}
+                      margin={{ top:5, right:10, left:-10, bottom:5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                      <XAxis dataKey="name" tick={{ fontSize:11 }} />
+                      <YAxis tick={{ fontSize:11 }} />
+                      <Tooltip contentStyle={{ fontSize:12, borderRadius:8 }} />
+                      <Legend wrapperStyle={{ fontSize:12 }} />
+                      <Bar dataKey="Total"    fill="#93c5fd" radius={[4,4,0,0]} />
+                      <Bar dataKey="Present"  fill="#4ade80" radius={[4,4,0,0]} />
+                      <Bar dataKey="Absent"   fill="#f87171" radius={[4,4,0,0]} />
+                      <Bar dataKey="Half Day" fill="#fbbf24" radius={[4,4,0,0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
                 )}
               </div>
-              <div className="table-container">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>Class</th>
-                      <th>Students</th>
-                      <th>Total Due</th>
-                      <th>Collected</th>
-                      <th>Pending</th>
-                      <th>Collection %</th>
-                      <th>Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {classes.length > 0 ? classes.map((c, i) => {
-                      const totalStudents = classes.reduce(
-                        (a, x) => a + (x.student_count ?? 0), 0
-                      ) || 1;
-                      const ratio   = (c.student_count ?? 0) / totalStudents;
-                      const due     = Math.round((fees?.total_due ?? 0) * ratio);
-                      const paid    = Math.round((fees?.total_collected ?? 0) * ratio);
-                      const pending = due - paid;
-                      const pct     = due > 0 ? Math.round(paid / due * 100) : 0;
-                      return (
-                        <tr key={c.id}>
-                          <td style={{ color: 'var(--neutral-5)', fontSize: 12 }}>{i + 1}</td>
-                          <td>
-                            <div style={{ fontWeight: 600, fontSize: 13 }}>{c.name}</div>
-                            <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>
-                              Section {c.section}
-                            </div>
-                          </td>
-                          <td>
-                            <span className="badge badge-info">{c.student_count ?? 0}</span>
-                          </td>
-                          <td style={{ fontWeight: 600, fontSize: 13 }}>₹{fmt(due)}</td>
-                          <td style={{ fontWeight: 600, color: '#2e844a', fontSize: 13 }}>
-                            ₹{fmt(paid)}
-                          </td>
-                          <td style={{
-                            fontWeight: 600, fontSize: 13,
-                            color: pending > 0 ? '#ba0517' : '#2e844a',
-                          }}>
-                            {pending > 0 ? `₹${fmt(pending)}` : '✅ Clear'}
-                          </td>
-                          <td style={{ minWidth: 140 }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                              <div style={{
-                                flex: 1, height: 8,
-                                background: '#fee2e2', borderRadius: 99,
-                              }}>
-                                <div style={{
-                                  width: `${pct}%`, height: '100%', borderRadius: 99,
-                                  background: pct >= 80 ? '#2e844a'
-                                    : pct >= 50 ? '#dd7a01' : '#ba0517',
-                                  transition: 'width 0.4s',
-                                }} />
-                              </div>
-                              <span style={{
-                                fontSize: 11, fontWeight: 700,
-                                color: pct >= 80 ? '#2e844a'
-                                  : pct >= 50 ? '#dd7a01' : '#ba0517',
-                                minWidth: 32,
-                              }}>{pct}%</span>
-                            </div>
-                          </td>
-                          <td>
-                            <button
-                              className="btn btn-sm"
-                              style={{
-                                background: '#eaf5ea', color: '#2e844a',
-                                border: 'none', cursor: 'pointer',
-                                borderRadius: 4, padding: '4px 10px',
-                                fontSize: 11, fontWeight: 700,
-                              }}
-                              onClick={() => navigate(`/fees?class_id=${c.id}`)}>
-                              💸 Collect
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    }) : (
-                      <tr>
-                        <td colSpan={8}>
-                          <div className="empty-state">
-                            <div className="empty-state-icon">💰</div>
-                            <p>No class data available.</p>
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                  {classes.length > 0 && fees && (
-                    <tfoot>
-                      <tr style={{ background: 'var(--neutral-1)' }}>
-                        <td colSpan={3}
-                          style={{ fontWeight: 700, fontSize: 13, padding: '12px 16px' }}>
-                          Grand Total
-                        </td>
-                        <td style={{ fontWeight: 700 }}>₹{fmt(fees.total_due)}</td>
-                        <td style={{ fontWeight: 700, color: '#2e844a' }}>
-                          ₹{fmt(fees.total_collected)}
-                        </td>
-                        <td style={{ fontWeight: 700, color: '#ba0517' }}>
-                          ₹{fmt(fees.total_due - fees.total_collected)}
-                        </td>
-                        <td>
-                          <strong style={{
-                            color: collectionPct >= 70 ? '#2e844a' : '#ba0517',
-                          }}>{collectionPct}%</strong>
-                        </td>
-                        <td />
-                      </tr>
-                    </tfoot>
-                  )}
-                </table>
+
+              {/* RIGHT: Weekly comparison */}
+              <div>
+                <div style={{ fontSize:13, fontWeight:700, color:'var(--neutral-7)', marginBottom:12 }}>
+                  📅 Last 7 Days — Daily Comparison
+                </div>
+                <ResponsiveContainer width="100%" height={260}>
+                  <BarChart
+                    data={chartTab==='student'
+                      ? (weeklyData?.student_weekly||[])
+                      : (weeklyData?.teacher_weekly||[])
+                    }
+                    margin={{ top:5, right:10, left:-10, bottom:5 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                    <XAxis dataKey="day" tick={{ fontSize:11 }} />
+                    <YAxis tick={{ fontSize:11 }} />
+                    <Tooltip contentStyle={{ fontSize:12, borderRadius:8 }} />
+                    <Legend wrapperStyle={{ fontSize:12 }} />
+                    <Bar dataKey="total"   name="Total"   fill="#93c5fd" radius={[4,4,0,0]} />
+                    <Bar dataKey="present" name="Present" fill="#4ade80" radius={[4,4,0,0]} />
+                    <Bar dataKey="absent"  name="Absent"  fill="#f87171" radius={[4,4,0,0]} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
-          )}
+
+            {/* Summary pills below charts */}
+            {chartTab === 'student' && (
+              <div style={{ display:'flex', gap:12, padding:'0 20px 16px', flexWrap:'wrap' }}>
+                {(() => {
+                  const rows = attFilter
+                    ? (weeklyData?.class_today||[]).filter(c=>String(c.class_id)===String(attFilter))
+                    : (weeklyData?.class_today||[]);
+                  const t = rows.reduce((a,c)=>({
+                    total:   a.total+c.total,
+                    present: a.present+c.present,
+                    absent:  a.absent+c.absent,
+                    late:    a.late+c.late,
+                  }), {total:0,present:0,absent:0,late:0});
+                  return [
+                    { label:'Total',   value:t.total,   bg:'#f1f5f9', color:'#0f172a' },
+                    { label:'Present', value:t.present, bg:'#dcfce7', color:'#16a34a' },
+                    { label:'Absent',  value:t.absent,  bg:'#fee2e2', color:'#dc2626' },
+                    { label:'Late',    value:t.late,    bg:'#fef3c7', color:'#d97706' },
+                    { label:'Attendance',
+                      value: t.total>0 ? `${Math.round(t.present/t.total*100)}%` : '0%',
+                      bg:'#eff6ff', color:'#2563eb' },
+                  ].map(p => (
+                    <div key={p.label} style={{
+                      background:p.bg, borderRadius:10,
+                      padding:'8px 18px', textAlign:'center',
+                    }}>
+                      <div style={{ fontSize:20, fontWeight:800, color:p.color }}>{p.value}</div>
+                      <div style={{ fontSize:10, color:'#64748b', marginTop:2 }}>{p.label}</div>
+                    </div>
+                  ));
+                })()}
+              </div>
+            )}
+          </div>
+
+          {/* ── Teacher Attendance History ── */}
+          <div className="card" style={{ marginBottom:24 }}>
+            <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+              <h4 style={{ margin:0 }}>👩‍🏫 Teacher Attendance — Today Detail</h4>
+              <button className="btn btn-neutral btn-sm"
+                onClick={() => navigate('/teachers')}>View All Teachers</button>
+            </div>
+            <div className="table-container">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Teacher</th><th>Designation</th>
+                    <th>Status</th><th>Check In</th><th>Check Out</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teacherAtt?.absent_list?.length === 0 && !teacherAtt?.not_marked ? (
+                    <tr><td colSpan={5} style={{ textAlign:'center', padding:24, color:'var(--neutral-4)' }}>
+                      ✅ Sab teachers present hain aaj
+                    </td></tr>
+                  ) : (
+                    <>
+                      {(teacherAtt?.absent_list || []).map((t,i) => (
+                        <tr key={i}>
+                          <td>
+                            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                              <div style={{
+                                width:32, height:32, borderRadius:'50%',
+                                background: t.on_leave?'#fef3c7':'#fee2e2',
+                                color: t.on_leave?'#d97706':'#dc2626',
+                                display:'flex', alignItems:'center',
+                                justifyContent:'center', fontWeight:800,
+                              }}>{t.name?.charAt(0).toUpperCase()}</div>
+                              <span style={{ fontWeight:600 }}>{t.name}</span>
+                            </div>
+                          </td>
+                          <td style={{ fontSize:12, color:'var(--neutral-6)' }}>{t.designation}</td>
+                          <td>
+                            <span style={{
+                              padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                              background: t.on_leave?'#fef3c7':'#fee2e2',
+                              color: t.on_leave?'#d97706':'#dc2626',
+                            }}>{t.on_leave ? 'On Leave' : 'Absent'}</span>
+                          </td>
+                          <td style={{ fontSize:12 }}>—</td>
+                          <td style={{ fontSize:12 }}>—</td>
+                        </tr>
+                      ))}
+                      {teacherAtt?.not_marked > 0 && (
+                        <tr>
+                          <td colSpan={5} style={{
+                            textAlign:'center', padding:'10px',
+                            background:'#fffbeb', fontSize:12, color:'#92400e',
+                          }}>
+                            ⚠️ {teacherAtt.not_marked} teachers ki attendance abhi mark nahi hui
+                          </td>
+                        </tr>
+                      )}
+                    </>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
 
         </div>
       </div>
