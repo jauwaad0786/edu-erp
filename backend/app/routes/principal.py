@@ -690,7 +690,163 @@ def result_card_pdf(student_id, exam_id):
     return send_file(buf, mimetype='application/pdf',
                      download_name=f'ResultCard_{student.roll_number}_{exam.exam_name}.pdf')
 
+@principal_bp.route('/students/<int:student_id>/profile', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def student_profile(student_id):
+    """
+    Full student profile — basic info + attendance + fees + marks.
+    """
+    student = Student.query.get_or_404(student_id)
+    sid     = _school_id()
 
+    # Security: student must belong to this school
+    if student.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    cls  = Class.query.get(student.class_id) if student.class_id else None
+    user = student.user
+
+    # ── Basic Info ──────────────────────────────────────────
+    info = {
+        'id':           student.id,
+        'name':         user.name       if user else '',
+        'email':        user.email      if user else '',
+        'roll_number':  student.roll_number  or '',
+        'admission_no': student.admission_no or '',
+        'gender':       student.gender       or '',
+        'dob':          str(student.dob)     if student.dob else '',
+        'address':      student.address      or '',
+        'session':      student.session      or '',
+        'parent_name':  student.parent_name  or '',
+        'parent_phone': student.parent_phone or '',
+        'parent_email': student.parent_email or '',
+        'class_name':   f"{cls.name} - {cls.section}" if cls else '',
+        'class_id':     student.class_id,
+    }
+
+    # ── Attendance Summary ───────────────────────────────────
+    all_att = Attendance.query.filter_by(student_id=student_id).all()
+    present  = sum(1 for a in all_att if a.status == 'PRESENT')
+    absent   = sum(1 for a in all_att if a.status == 'ABSENT')
+    late     = sum(1 for a in all_att if a.status == 'LATE')
+    total_marked = len(all_att)
+
+    # Month-wise breakdown
+    from collections import defaultdict
+    month_map = defaultdict(lambda: {'present': 0, 'absent': 0, 'late': 0})
+    for a in all_att:
+        key = a.date.strftime('%Y-%m')
+        month_map[key][a.status.lower()] += 1
+
+    monthly = [
+        {
+            'month':   k,
+            'present': v['present'],
+            'absent':  v['absent'],
+            'late':    v['late'],
+            'total':   v['present'] + v['absent'] + v['late'],
+        }
+        for k, v in sorted(month_map.items(), reverse=True)
+    ]
+
+    # Recent 30 days calendar dots
+    from datetime import timedelta
+    today      = date.today()
+    last_30    = [today - timedelta(days=i) for i in range(30)]
+    att_date_map = {a.date: a.status for a in all_att}
+    calendar_30 = [
+        {
+            'date':   str(d),
+            'status': att_date_map.get(d, 'NOT_MARKED'),
+            'day':    d.strftime('%a'),
+        }
+        for d in reversed(last_30)
+    ]
+
+    attendance = {
+        'total_marked': total_marked,
+        'present':      present,
+        'absent':       absent,
+        'late':         late,
+        'percentage':   round(present / total_marked * 100, 1) if total_marked else 0,
+        'monthly':      monthly,
+        'calendar_30':  calendar_30,
+    }
+
+    # ── Fee Records ─────────────────────────────────────────
+    fee_records = FeeRecord.query.filter_by(student_id=student_id)\
+                                 .order_by(FeeRecord.created_at.desc()).all()
+    total_due   = sum(f.amount_due  for f in fee_records)
+    total_paid  = sum(f.amount_paid for f in fee_records)
+    pending     = total_due - total_paid
+
+    # This month's fees
+    this_month  = date.today().strftime('%B %Y')
+    month_fees  = [f for f in fee_records if f.month == this_month]
+    month_paid  = sum(f.amount_paid for f in month_fees)
+    month_due   = sum(f.amount_due  for f in month_fees)
+
+    fees = {
+        'total_due':    total_due,
+        'total_paid':   total_paid,
+        'pending':      pending,
+        'this_month':   this_month,
+        'month_due':    month_due,
+        'month_paid':   month_paid,
+        'month_status': 'PAID' if month_paid >= month_due and month_due > 0
+                        else 'PARTIAL' if month_paid > 0
+                        else 'PENDING',
+        'records': [
+            {
+                'id':           r.id,
+                'month':        r.month,
+                'fee_type':     r.fee_type,
+                'amount_due':   r.amount_due,
+                'amount_paid':  r.amount_paid,
+                'status':       r.status,
+                'due_date':     str(r.due_date)  if r.due_date  else None,
+                'paid_date':    str(r.paid_date) if r.paid_date else None,
+                'receipt_no':   r.receipt_no,
+                'payment_mode': r.payment_mode,
+            }
+            for r in fee_records
+        ],
+    }
+
+    # ── Marks / Results ─────────────────────────────────────
+    marks_records = Marks.query.filter_by(student_id=student_id).all()
+
+    # Group by exam_type
+    exam_map = defaultdict(list)
+    for m in marks_records:
+        exam_map[m.exam_type].append({
+            'subject':         m.subject.name if m.subject else 'N/A',
+            'marks_obtained':  m.marks_obtained,
+            'max_marks':       m.max_marks,
+            'grade':           m.grade,
+            'percentage':      round(m.marks_obtained / m.max_marks * 100, 1)
+                               if m.max_marks else 0,
+        })
+
+    exams = [
+        {
+            'exam_type': exam,
+            'subjects':  subj_list,
+            'total_obtained': sum(s['marks_obtained'] for s in subj_list),
+            'total_max':      sum(s['max_marks']      for s in subj_list),
+            'avg_pct':        round(
+                sum(s['percentage'] for s in subj_list) / len(subj_list), 1
+            ) if subj_list else 0,
+        }
+        for exam, subj_list in exam_map.items()
+    ]
+
+    return jsonify({
+        'info':       info,
+        'attendance': attendance,
+        'fees':       fees,
+        'exams':      exams,
+    }), 200
 # ─── Dashboard ────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/dashboard', methods=['GET'])
