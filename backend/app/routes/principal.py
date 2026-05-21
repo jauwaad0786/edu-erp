@@ -227,7 +227,8 @@ def create_teacher():
     user.set_password(data.get('password', 'Teacher@123'))
     db.session.add(user)
     db.session.flush()
-     teacher = Teacher(
+    
+    teacher = Teacher(
         user_id      = user.id,
         school_id    = _school_id(),
         employee_id  = data.get('employee_id'),
