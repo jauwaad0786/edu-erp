@@ -4,7 +4,7 @@ from app import db
 from app.models.user import User, UserRole
 from app.models.academic import (
     Class, Teacher, Student, Subject, Marks,
-    Attendance, TeacherAttendance, TeacherAttendanceRequest
+    Attendance, TeacherAttendance, TeacherAttendanceRequest, Note
 )
 from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable, Holiday
 from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable
@@ -1463,13 +1463,16 @@ def update_teacher(t_id):
     Class.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
     Subject.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
     
+    # Delete teacher attendance records
+    TeacherAttendance.query.filter_by(teacher_id=t_id).delete()
+    TeacherAttendanceRequest.query.filter_by(teacher_id=t_id).delete()
+    db.session.flush()
+    
     user = t.user
     db.session.delete(t)
     db.session.flush()
     
     if user:
-        # Null out FK references on user before deleting
-        from app.models.academic import Note
         Note.query.filter_by(uploaded_by=user.id).update({'uploaded_by': None})
         db.session.flush()
         db.session.delete(user)
