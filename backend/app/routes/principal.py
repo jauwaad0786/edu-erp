@@ -243,7 +243,188 @@ def assign_teacher(t_id):
     db.session.commit()
     return jsonify({'message': 'Teacher assigned'}), 200
 
+@principal_bp.route('/teachers/<int:teacher_id>/profile', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def teacher_profile(teacher_id):
+    sid = _school_id()
+    t   = Teacher.query.get_or_404(teacher_id)
+    if t.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
 
+    user = t.user
+
+    # ── Basic Info ──
+    info = {
+        'id':           t.id,
+        'name':         user.name        if user else '',
+        'email':        user.email       if user else '',
+        'phone':        user.phone       if user else '',
+        'employee_id':  t.employee_id    or '',
+        'department':   t.department     or '',
+        'designation':  t.designation    or 'Teacher',
+        'joining_date': str(t.joining_date) if t.joining_date else '',
+        'qualification':t.qualification  or '',
+        'salary':       t.salary         or 0,
+        'subjects_count': t.classes_taught.count(),
+    }
+
+    # ── Classes & Subjects taught ──
+    subjects      = t.classes_taught.all()
+    classes_taught = []
+    seen_classes   = set()
+
+    for subj in subjects:
+        cls = Class.query.get(subj.class_id)
+        if not cls:
+            continue
+        is_class_teacher = (cls.teacher_id == t.id)
+        classes_taught.append({
+            'class_id':         cls.id,
+            'class_name':       cls.name,
+            'section':          cls.section,
+            'session':          cls.session,
+            'subject_name':     subj.name,
+            'subject_id':       subj.id,
+            'student_count':    cls.students.count(),
+            'is_class_teacher': is_class_teacher,
+        })
+        seen_classes.add(cls.id)
+
+    # Also check if class teacher of any class not in subjects
+    class_teacher_of = Class.query.filter_by(
+        school_id=sid, teacher_id=t.id
+    ).all()
+    for cls in class_teacher_of:
+        if cls.id not in seen_classes:
+            classes_taught.append({
+                'class_id':         cls.id,
+                'class_name':       cls.name,
+                'section':          cls.section,
+                'session':          cls.session,
+                'subject_name':     'Class Teacher',
+                'subject_id':       None,
+                'student_count':    cls.students.count(),
+                'is_class_teacher': True,
+            })
+
+    # ── Attendance ──
+    all_att = TeacherAttendance.query.filter_by(
+        teacher_id=teacher_id
+    ).all()
+
+    present   = sum(1 for a in all_att if a.status == 'PRESENT')
+    absent    = sum(1 for a in all_att if a.status == 'ABSENT')
+    half_day  = sum(1 for a in all_att if a.status == 'HALF_DAY')
+    on_leave  = sum(1 for a in all_att if a.status == 'ON_LEAVE')
+    total_marked = len(all_att)
+
+    # Month-wise breakdown
+    from collections import defaultdict
+    month_map = defaultdict(lambda: {'present':0,'absent':0,'half_day':0,'on_leave':0})
+    for a in all_att:
+        key = a.date.strftime('%Y-%m')
+        if   a.status == 'PRESENT':  month_map[key]['present']  += 1
+        elif a.status == 'ABSENT':   month_map[key]['absent']   += 1
+        elif a.status == 'HALF_DAY': month_map[key]['half_day'] += 1
+        elif a.status == 'ON_LEAVE': month_map[key]['on_leave'] += 1
+
+    monthly = [
+        {
+            'month':    k,
+            'present':  v['present'],
+            'absent':   v['absent'],
+            'half_day': v['half_day'],
+            'on_leave': v['on_leave'],
+        }
+        for k, v in sorted(month_map.items(), reverse=True)
+    ]
+
+    attendance = {
+        'total_marked': total_marked,
+        'present':      present,
+        'absent':       absent,
+        'half_day':     half_day,
+        'on_leave':     on_leave,
+        'percentage':   round(present / total_marked * 100, 1) if total_marked else 0,
+        'monthly':      monthly,
+    }
+
+    # ── Salary History ──
+    from app.models.financial import SalaryRecord
+    sal_records = SalaryRecord.query.filter_by(
+        teacher_id=teacher_id
+    ).order_by(SalaryRecord.created_at.desc()).all() \
+    if hasattr(SalaryRecord, 'query') else []
+
+    salary_history = [
+        {
+            'month':        s.month,
+            'amount':       s.amount,
+            'status':       s.status,
+            'payment_date': str(s.payment_date) if s.payment_date else None,
+            'note':         s.note or '',
+        }
+        for s in sal_records
+    ]
+
+    return jsonify({
+        'info':           info,
+        'classes_taught': classes_taught,
+        'attendance':     attendance,
+        'salary_history': salary_history,
+    }), 200
+
+
+@principal_bp.route('/teachers/<int:teacher_id>/salary', methods=['PATCH'])
+@role_required('PRINCIPAL')
+def update_teacher_salary(teacher_id):
+    """Principal manually update kare teacher ki salary."""
+    t = Teacher.query.get_or_404(teacher_id)
+    if t.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data       = request.get_json()
+    old_salary = t.salary or 0
+    new_salary = float(data.get('salary', 0))
+    t.salary   = new_salary
+    db.session.commit()
+
+    return jsonify({
+        'message':    'Salary updated',
+        'old_salary': old_salary,
+        'new_salary': new_salary,
+    }), 200
+
+
+@principal_bp.route('/teachers/<int:teacher_id>/salary/record', methods=['POST'])
+@role_required('PRINCIPAL')
+def add_salary_record(teacher_id):
+    """
+    Manually add a salary payment record.
+    Body: { month, amount, status, payment_date, note }
+    """
+    t = Teacher.query.get_or_404(teacher_id)
+    if t.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+
+    from app.models.financial import SalaryRecord
+    rec = SalaryRecord(
+        teacher_id=teacher_id,
+        school_id=_school_id(),
+        month=data.get('month'),
+        amount=float(data.get('amount', t.salary or 0)),
+        status=data.get('status', 'PAID'),
+        payment_date=date.fromisoformat(data['payment_date'])
+                    if data.get('payment_date') else date.today(),
+        note=data.get('note', ''),
+        created_by=get_current_user().id,
+    )
+    db.session.add(rec)
+    db.session.commit()
+
+    return jsonify({'message': 'Salary record added', 'id': rec.id}), 201
 # ─── Students ─────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/students', methods=['GET'])
