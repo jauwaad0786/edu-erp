@@ -131,3 +131,30 @@ class SalaryRecord(db.Model):
             'note':         self.note,
             'created_at':   self.created_at.isoformat(),
         }
+class Holiday(db.Model):
+    """School holidays — visible to teachers and students."""
+    __tablename__ = 'holidays'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    school_id   = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
+    title       = db.Column(db.String(200), nullable=False)
+    date        = db.Column(db.Date, nullable=False)
+    end_date    = db.Column(db.Date, nullable=True)   # for multi-day holidays
+    holiday_type= db.Column(db.String(30), default='HOLIDAY')
+    # HOLIDAY / FESTIVAL / EXAM / EVENT / OTHER
+    applies_to  = db.Column(db.String(20), default='ALL')
+    # ALL / STUDENT / TEACHER
+    description = db.Column(db.String(300), default='')
+    created_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'title':        self.title,
+            'date':         str(self.date),
+            'end_date':     str(self.end_date) if self.end_date else None,
+            'holiday_type': self.holiday_type,
+            'applies_to':   self.applies_to,
+            'description':  self.description,
+        }
