@@ -11,6 +11,7 @@ export default function TeachersPage() {
   const [createdCreds, setCreatedCreds] = useState(null);
   const [copied,       setCopied]       = useState(false);
   const [form,   setForm]   = useState({});
+  const [subjects, setSubjects] = useState([{ class_name: '', subject_name: '' }]);
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState('');
 
@@ -22,9 +23,17 @@ export default function TeachersPage() {
   const createTeacher = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
-      await api.post('/principal/teachers', form);
+      await api.post('/principal/teachers', {
+        ...form,
+        salary:       form.salary       ? parseFloat(form.salary) : undefined,
+        joining_date: form.joining_date || undefined,
+        qualification:form.qualification|| undefined,
+        subjects:     subjects.filter(s => s.class_name && s.subject_name),
+      });
       setShowModal(false);
+      setSubjects([{ class_name: '', subject_name: '' }]);
       setCreatedCreds({
+      
         name:  form.name,
         email: form.email,
         password: form.password || 'Teacher@123',
@@ -164,7 +173,10 @@ export default function TeachersPage() {
           <div className="modal">
             <div className="modal-header">
               <h3>👩‍🏫 Add New Teacher</h3>
-              <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
+               <button className="modal-close" onClick={() => {
+              setShowModal(false);
+              setSubjects([{ class_name: '', subject_name: '' }]);
+            }}>✕</button>
             </div>
             <form onSubmit={createTeacher}>
               <div className="modal-body">
@@ -211,7 +223,73 @@ export default function TeachersPage() {
                       placeholder="Leave blank → Teacher@123"
                       onChange={e => setForm(f => ({...f, password: e.target.value}))} />
                   </div>
+                  <div className="form-group">
+                    <label className="form-label">Monthly Salary (₹)</label>
+                    <input className="form-input" type="number" placeholder="e.g. 25000"
+                      onChange={e => setForm(f => ({...f, salary: e.target.value}))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Date of Joining</label>
+                    <input className="form-input" type="date"
+                      onChange={e => setForm(f => ({...f, joining_date: e.target.value}))} />
+                  </div>
+                  <div className="form-group">
+                    <label className="form-label">Qualification</label>
+                    <input className="form-input" placeholder="e.g. B.Ed, M.Sc"
+                      onChange={e => setForm(f => ({...f, qualification: e.target.value}))} />
+                  </div>
                 </div>
+                <div style={{ gridColumn: '1 / -1', marginTop: 8 }}>
+                <div style={{
+                  display: 'flex', justifyContent: 'space-between',
+                  alignItems: 'center', marginBottom: 8,
+                }}>
+                  <label className="form-label" style={{ marginBottom: 0 }}>
+                    📚 Subjects to Teach (optional — add later too)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setSubjects(s => [...s, { class_name: '', subject_name: '' }])}
+                    style={{
+                      background: '#eff6ff', color: '#0176d3', border: 'none',
+                      borderRadius: 6, padding: '4px 10px', fontSize: 11,
+                      fontWeight: 700, cursor: 'pointer',
+                    }}>+ Add Row</button>
+                </div>
+                {subjects.map((s, i) => (
+                  <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 6, alignItems: 'center' }}>
+                    <input
+                      className="form-input"
+                      placeholder="Class (e.g. Class 10 - A)"
+                      style={{ flex: 1 }}
+                      value={s.class_name}
+                      onChange={e => setSubjects(prev =>
+                        prev.map((x, j) => j === i ? { ...x, class_name: e.target.value } : x)
+                      )} />
+                    <input
+                      className="form-input"
+                      placeholder="Subject (e.g. Mathematics)"
+                      style={{ flex: 1 }}
+                      value={s.subject_name}
+                      onChange={e => setSubjects(prev =>
+                        prev.map((x, j) => j === i ? { ...x, subject_name: e.target.value } : x)
+                      )} />
+                    {subjects.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => setSubjects(prev => prev.filter((_, j) => j !== i))}
+                        style={{
+                          background: '#fef2f2', color: '#dc2626', border: 'none',
+                          borderRadius: 6, padding: '6px 10px', cursor: 'pointer',
+                          fontSize: 13, fontWeight: 700,
+                        }}>✕</button>
+                    )}
+                  </div>
+                ))}
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>
+                  💡 Class teacher assign karna ho toh Classes page se kar sakte ho
+                </div>
+              </div>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-neutral"
