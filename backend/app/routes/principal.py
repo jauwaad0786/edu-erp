@@ -1460,7 +1460,21 @@ def update_teacher(t_id):
         if data.get('phone'): t.user.phone = data['phone']
     db.session.commit()
     return jsonify(t.to_dict()), 200
-
+    Class.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
+    Subject.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
+    
+    user = t.user
+    db.session.delete(t)
+    db.session.flush()
+    
+    if user:
+        # Null out FK references on user before deleting
+        from app.models.academic import Note
+        Note.query.filter_by(uploaded_by=user.id).update({'uploaded_by': None})
+        db.session.flush()
+        db.session.delete(user)
+    
+    db.session.commit()
 
 @principal_bp.route('/teachers/<int:t_id>', methods=['DELETE'])
 @role_required('PRINCIPAL')
@@ -1469,14 +1483,5 @@ def delete_teacher(t_id):
     if t.school_id != _school_id():
         return jsonify({'error': 'Unauthorized'}), 403
     # Remove class teacher reference first
-    Class.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
-    # Remove subject assignments
-    Subject.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
-    
-    user = t.user
-    db.session.delete(t)
-    db.session.flush()
-    if user:
-        db.session.delete(user)
-    db.session.commit()
+
     return jsonify({'message': 'Teacher removed'}), 200
