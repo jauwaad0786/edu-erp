@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
@@ -13,6 +14,7 @@ export default function TeachersPage() {
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState('');
 
+  const navigate = useNavigate();
   const load = () =>
     api.get('/principal/teachers').then(r => setTeachers(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
@@ -90,15 +92,27 @@ export default function TeachersPage() {
                       <td>
                         <span className="badge badge-info">{t.employee_id || '—'}</span>
                       </td>
+                      
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                          onClick={() => navigate(`/teachers/${t.id}`)}
+                          title="Profile dekhne ke liye click karein">
                           <div style={{
                             width: 32, height: 32, borderRadius: '50%',
                             background: '#f3f0ff', color: '#5867e8',
                             display: 'flex', alignItems: 'center',
                             justifyContent: 'center', fontSize: 13, fontWeight: 700,
                           }}>{t.name?.charAt(0).toUpperCase()}</div>
-                          <span style={{ fontWeight: 600 }}>{t.name}</span>
+                          <div>
+                            <div style={{
+                              fontWeight: 600, color: '#5867e8',
+                              borderBottom: '1px dashed #c4b5fd',
+                            }}>{t.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>
+                              {t.employee_id || '—'}
+                            </div>
+                          </div>
                         </div>
                       </td>
                       <td style={{ color: 'var(--neutral-6)' }}>{t.department || '—'}</td>
@@ -107,7 +121,15 @@ export default function TeachersPage() {
                       </td>
                       <td style={{ fontSize: 12, color: 'var(--neutral-6)' }}>{t.email}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: 6 }}>
+                         <div style={{ display: 'flex', gap: 6 }}>
+                          <button
+                            onClick={() => navigate(`/teachers/${t.id}`)}
+                            style={{
+                              background: '#f3f0ff', color: '#5867e8',
+                              border: 'none', borderRadius: 4,
+                              padding: '4px 10px', fontSize: 11,
+                              fontWeight: 700, cursor: 'pointer',
+                            }}>👤 Profile</button>
                           <button className="btn btn-neutral btn-sm">Edit</button>
                           <button className="btn btn-sm" style={{
                             background: '#fef1ee', color: 'var(--error)',
