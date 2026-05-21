@@ -1488,3 +1488,70 @@ def delete_teacher(t_id):
     # Remove class teacher reference first
 
     return jsonify({'message': 'Teacher removed'}), 200
+
+
+@principal_bp.route('/attendance/weekly', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def attendance_weekly():
+    """Last 7 days student + teacher attendance for charts."""
+    from datetime import timedelta
+    sid   = _school_id()
+    today = date.today()
+    days  = [today - timedelta(days=i) for i in range(6, -1, -1)]
+
+    total_students = Student.query.filter_by(school_id=sid).count()
+    total_teachers = Teacher.query.filter_by(school_id=sid).count()
+    classes        = Class.query.filter_by(school_id=sid).all()
+
+    student_weekly = []
+    teacher_weekly = []
+
+    for d in days:
+        # Students
+        att = Attendance.query.join(Student, Attendance.student_id == Student.id)\
+                .filter(Student.school_id == sid, Attendance.date == d).all()
+        present = sum(1 for a in att if a.status == 'PRESENT')
+        absent  = sum(1 for a in att if a.status == 'ABSENT')
+        late    = sum(1 for a in att if a.status == 'LATE')
+        student_weekly.append({
+            'date':    str(d),
+            'day':     d.strftime('%a'),
+            'total':   total_students,
+            'present': present,
+            'absent':  absent,
+            'late':    late,
+        })
+
+        # Teachers
+        tatt = TeacherAttendance.query.filter_by(school_id=sid, date=d).all()
+        t_present = sum(1 for a in tatt if a.status == 'PRESENT')
+        t_absent  = sum(1 for a in tatt if a.status == 'ABSENT')
+        teacher_weekly.append({
+            'date':    str(d),
+            'day':     d.strftime('%a'),
+            'total':   total_teachers,
+            'present': t_present,
+            'absent':  t_absent,
+        })
+
+    # Class-wise today
+    class_today = []
+    for c in classes:
+        sids = [s.id for s in c.students.all()]
+        att  = Attendance.query.filter(
+            Attendance.student_id.in_(sids), Attendance.date == today
+        ).all() if sids else []
+        class_today.append({
+            'class_id':   c.id,
+            'class_name': f"{c.name} {c.section}",
+            'total':      len(sids),
+            'present':    sum(1 for a in att if a.status == 'PRESENT'),
+            'absent':     sum(1 for a in att if a.status == 'ABSENT'),
+            'late':       sum(1 for a in att if a.status == 'LATE'),
+        })
+
+    return jsonify({
+        'student_weekly': student_weekly,
+        'teacher_weekly': teacher_weekly,
+        'class_today':    class_today,
+    }), 200
