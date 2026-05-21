@@ -103,3 +103,31 @@ class ExamTimetable(db.Model):
             'exam_date': str(self.exam_date), 'start_time': self.start_time,
             'end_time': self.end_time, 'venue': self.venue
         }
+class SalaryRecord(db.Model):
+    """Manual salary payment records per teacher."""
+    __tablename__ = 'salary_records'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    teacher_id   = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    school_id    = db.Column(db.Integer, db.ForeignKey('schools.id'),  nullable=False)
+    month        = db.Column(db.String(20))        # e.g. "May 2026"
+    amount       = db.Column(db.Float, default=0)
+    status       = db.Column(db.String(20), default='PAID')   # PAID / PENDING
+    payment_date = db.Column(db.Date)
+    note         = db.Column(db.String(300), default='')
+    created_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    teacher = db.relationship('Teacher', backref='salary_records')
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'teacher_id':   self.teacher_id,
+            'month':        self.month,
+            'amount':       self.amount,
+            'status':       self.status,
+            'payment_date': str(self.payment_date) if self.payment_date else None,
+            'note':         self.note,
+            'created_at':   self.created_at.isoformat(),
+        }
