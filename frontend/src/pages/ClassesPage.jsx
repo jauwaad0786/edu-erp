@@ -49,7 +49,7 @@ export default function ClassesPage() {
                 className="stat-card"
                 key={c.id}
                 style={{ cursor: 'pointer' }}
-                onClick={() => navigate(`/students?class_id=${c.id}`)}>
+                onClick={() => navigate(`/classes/${c.id}`)}>
                 <div style={{
                   width: 48, height: 48, borderRadius: 12, background: 'var(--blue-10)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -67,7 +67,7 @@ export default function ClassesPage() {
                     className="btn btn-neutral btn-sm"
                     onClick={e => {
                       e.stopPropagation();
-                      navigate(`/students?class_id=${c.id}`);
+                      navigate(`/classes/${c.id}`);
                     }}>
                     👥 View
                   </button>
