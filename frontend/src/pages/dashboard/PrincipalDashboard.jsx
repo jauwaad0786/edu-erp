@@ -26,6 +26,8 @@ export default function PrincipalDashboard() {
   const [attClass,   setAttClass]   = useState([]);   // class-wise student att
   const [teacherAtt, setTeacherAtt] = useState(null); // teacher att summary
   const [attFilter,  setAttFilter]  = useState('');
+  const [pendingReqs, setPendingReqs] = useState([]);
+  const [approving,   setApproving]   = useState(null);
 
  useEffect(() => {
     Promise.all([
@@ -34,7 +36,10 @@ export default function PrincipalDashboard() {
       api.get('/principal/fees/class-summary').catch(() => ({ data: [] })),
       api.get('/principal/attendance/class-summary').catch(() => ({ data: [] })),
       api.get('/principal/teachers/attendance/today').catch(() => ({ data: null })),
-    ]).then(([s, c, f, att, tatt]) => {
+      api.get('/principal/teachers/attendance/requests?approval=PENDING').catch(() => ({ data: [] })),
+    ]).then(([s, c, f, att, tatt, reqs]) => {
+      setPendingReqs(reqs.data || []);
+    
       setStats(s.data);
       setClasses(c.data || []);
       setFees(f.data);
@@ -326,7 +331,80 @@ export default function PrincipalDashboard() {
               )}
             </div>
           </div> 
-
+          
+          {/* ── Teacher Attendance Approval ── */}
+          {pendingReqs.length > 0 && (
+            <div className="card" style={{ marginBottom: 24 }}>
+              <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <h4 style={{ margin:0 }}>🙋 Teacher Attendance — Approval Pending</h4>
+                <span style={{
+                  background:'#fee2e2', color:'#dc2626',
+                  padding:'3px 12px', borderRadius:20, fontSize:12, fontWeight:700,
+                }}>{pendingReqs.length} pending</span>
+              </div>
+              <div className="table-container">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Teacher</th><th>Date</th><th>Status</th>
+                      <th>Check In</th><th>Check Out</th><th>Remarks</th><th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {pendingReqs.map((r, i) => (
+                      <tr key={i}>
+                        <td>
+                          <div style={{ fontWeight:600, fontSize:13 }}>{r.teacher_name}</div>
+                          <div style={{ fontSize:11, color:'var(--neutral-5)' }}>{r.designation}</div>
+                        </td>
+                        <td style={{ fontSize:12 }}>{r.date}</td>
+                        <td>
+                          <span style={{
+                            padding:'3px 10px', borderRadius:20, fontSize:11, fontWeight:700,
+                            background: r.status==='PRESENT'?'#dcfce7':r.status==='ABSENT'?'#fee2e2':'#fef3c7',
+                            color:      r.status==='PRESENT'?'#16a34a':r.status==='ABSENT'?'#dc2626':'#d97706',
+                          }}>{r.status}</span>
+                        </td>
+                        <td style={{ fontSize:12 }}>{r.check_in || '—'}</td>
+                        <td style={{ fontSize:12 }}>{r.check_out || '—'}</td>
+                        <td style={{ fontSize:12, color:'var(--neutral-6)' }}>{r.remarks || '—'}</td>
+                        <td>
+                          <div style={{ display:'flex', gap:6 }}>
+                            <button
+                              disabled={approving === r.id}
+                              onClick={async () => {
+                                setApproving(r.id);
+                                await api.post(`/principal/teachers/attendance/requests/${r.id}/approve`);
+                                setPendingReqs(prev => prev.filter(x => x.id !== r.id));
+                                setApproving(null);
+                              }}
+                              style={{
+                                background:'#f0fdf4', color:'#16a34a', border:'none',
+                                borderRadius:6, padding:'5px 12px', fontSize:11,
+                                fontWeight:700, cursor:'pointer',
+                              }}>✅ Approve</button>
+                            <button
+                              disabled={approving === r.id}
+                              onClick={async () => {
+                                setApproving(r.id);
+                                await api.post(`/principal/teachers/attendance/requests/${r.id}/deny`);
+                                setPendingReqs(prev => prev.filter(x => x.id !== r.id));
+                                setApproving(null);
+                              }}
+                              style={{
+                                background:'#fef2f2', color:'#dc2626', border:'none',
+                                borderRadius:6, padding:'5px 12px', fontSize:11,
+                                fontWeight:700, cursor:'pointer',
+                              }}>❌ Deny</button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
 
 
 
