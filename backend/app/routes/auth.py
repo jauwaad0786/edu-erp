@@ -98,7 +98,7 @@ def student_login():
 @jwt_required()
 def me():
 
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
 
     user = User.query.get(user_id)
 
