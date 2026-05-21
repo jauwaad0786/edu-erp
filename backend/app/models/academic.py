@@ -162,3 +162,34 @@ class Note(db.Model):
             'file_url': self.file_url, 'file_name': self.file_name,
             'subject_id': self.subject_id, 'uploaded_at': self.uploaded_at.isoformat()
         }
+class TeacherAttendance(db.Model):
+    """Daily attendance record for teachers/staff."""
+    __tablename__ = 'teacher_attendance'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    teacher_id  = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    school_id   = db.Column(db.Integer, db.ForeignKey('schools.id'),  nullable=False)
+    date        = db.Column(db.Date, nullable=False)
+    status      = db.Column(db.String(20), default='PRESENT')
+    # PRESENT / ABSENT / HALF_DAY / ON_LEAVE
+    check_in    = db.Column(db.String(10))   # "09:30 AM"
+    check_out   = db.Column(db.String(10))   # "05:00 PM"
+    marked_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+    remarks     = db.Column(db.String(200))
+
+    teacher = db.relationship('Teacher', backref='attendance_records')
+
+    __table_args__ = (
+        db.UniqueConstraint('teacher_id', 'date', name='uq_teacher_attendance'),
+    )
+
+    def to_dict(self):
+        return {
+            'id':         self.id,
+            'teacher_id': self.teacher_id,
+            'date':       str(self.date),
+            'status':     self.status,
+            'check_in':   self.check_in,
+            'check_out':  self.check_out,
+            'remarks':    self.remarks,
+        }
