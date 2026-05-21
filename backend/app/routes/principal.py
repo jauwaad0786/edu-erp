@@ -1382,7 +1382,7 @@ def admission_card_pdf(student_id):
 
 # ─── Teacher Self-Routes (teacher apna attendance submit kare) ────────────────
 
-teacher_bp = Blueprint('teacher', __name__)
+teacher_bp = Blueprint('teacher_self', __name__)
 
 @teacher_bp.route('/self-attendance', methods=['GET'])
 @role_required('TEACHER', 'PRINCIPAL')
