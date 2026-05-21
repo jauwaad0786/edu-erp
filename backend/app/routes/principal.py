@@ -52,7 +52,154 @@ def create_class():
     db.session.commit()
     return jsonify(cls.to_dict()), 201
 
+@principal_bp.route('/classes/<int:class_id>/detail', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def class_detail(class_id):
+    sid = _school_id()
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
 
+    students = cls.students.all()
+    total_students = len(students)
+
+    # ── Fee summary ──
+    student_ids = [s.id for s in students]
+    total_due  = db.session.query(func.sum(FeeRecord.amount_due))\
+                   .filter(FeeRecord.student_id.in_(student_ids)).scalar() or 0 if student_ids else 0
+    total_paid = db.session.query(func.sum(FeeRecord.amount_paid))\
+                   .filter(FeeRecord.student_id.in_(student_ids)).scalar() or 0 if student_ids else 0
+
+    fee_paid_count    = 0
+    fee_pending_count = 0
+    for s in students:
+        s_due  = db.session.query(func.sum(FeeRecord.amount_due)).filter_by(student_id=s.id).scalar() or 0
+        s_paid = db.session.query(func.sum(FeeRecord.amount_paid)).filter_by(student_id=s.id).scalar() or 0
+        if s_due > 0 and s_paid >= s_due:
+            fee_paid_count += 1
+        else:
+            fee_pending_count += 1
+
+    # ── Marks / Topper ──
+    from collections import defaultdict
+    from sqlalchemy import desc
+
+    all_marks = Marks.query.filter(Marks.student_id.in_(student_ids)).all() if student_ids else []
+
+    # Per-student aggregate: total obtained / total max → percentage
+    student_marks_map = defaultdict(lambda: {'obtained': 0, 'max': 0})
+    for m in all_marks:
+        student_marks_map[m.student_id]['obtained'] += m.marks_obtained or 0
+        student_marks_map[m.student_id]['max']      += m.max_marks or 0
+
+    # Exam types available
+    exam_types = list({m.exam_type for m in all_marks})
+
+    # Overall topper (all exams combined)
+    topper = None
+    best_pct = -1
+    for s in students:
+        rec = student_marks_map.get(s.id)
+        if rec and rec['max'] > 0:
+            pct = round(rec['obtained'] / rec['max'] * 100, 1)
+            if pct > best_pct:
+                best_pct = pct
+                topper = {
+                    'student_id': s.id,
+                    'name':       s.user.name if s.user else '',
+                    'roll_number': s.roll_number or '',
+                    'percentage': pct,
+                    'obtained':   rec['obtained'],
+                    'max':        rec['max'],
+                }
+
+    # Subject-wise toppers
+    subject_toppers = {}
+    subjects = cls.subjects.all()
+    for subj in subjects:
+        subj_marks = [m for m in all_marks if m.subject_id == subj.id]
+        if not subj_marks:
+            continue
+        top_m = max(subj_marks, key=lambda m: m.marks_obtained or 0)
+        student = Student.query.get(top_m.student_id)
+        subject_toppers[subj.name] = {
+            'student_id':   top_m.student_id,
+            'name':         student.user.name if student and student.user else '',
+            'marks':        top_m.marks_obtained,
+            'max_marks':    top_m.max_marks,
+            'percentage':   round(top_m.marks_obtained / top_m.max_marks * 100, 1) if top_m.max_marks else 0,
+        }
+
+    # Class avg percentage
+    all_pcts = []
+    for s in students:
+        rec = student_marks_map.get(s.id)
+        if rec and rec['max'] > 0:
+            all_pcts.append(rec['obtained'] / rec['max'] * 100)
+    avg_percentage = round(sum(all_pcts) / len(all_pcts), 1) if all_pcts else 0
+
+    # ── Class Teacher ──
+    class_teacher = None
+    if cls.teacher_id:
+        t = Teacher.query.get(cls.teacher_id)
+        if t:
+            class_teacher = {
+                'teacher_id':  t.id,
+                'name':        t.user.name if t.user else '',
+                'email':       t.user.email if t.user else '',
+                'designation': t.designation or 'Teacher',
+                'department':  t.department or '',
+                'employee_id': t.employee_id or '',
+                'salary':      t.salary or 0,
+            }
+
+    # ── Today's attendance ──
+    today = date.today()
+    att_today = Attendance.query.filter(
+        Attendance.student_id.in_(student_ids),
+        Attendance.date == today
+    ).all() if student_ids else []
+    present_today = sum(1 for a in att_today if a.status == 'PRESENT')
+    absent_today  = sum(1 for a in att_today if a.status == 'ABSENT')
+
+    return jsonify({
+        'class_id':       cls.id,
+        'class_name':     cls.name,
+        'section':        cls.section,
+        'session':        cls.session,
+        'total_students': total_students,
+        'fees': {
+            'total_due':    total_due,
+            'total_paid':   total_paid,
+            'pending':      total_due - total_paid,
+            'paid_count':   fee_paid_count,
+            'pending_count':fee_pending_count,
+            'collection_pct': round(total_paid / total_due * 100, 1) if total_due else 0,
+        },
+        'marks': {
+            'avg_percentage': avg_percentage,
+            'exam_types':     exam_types,
+            'topper':         topper,
+            'subject_toppers': subject_toppers,
+        },
+        'attendance_today': {
+            'present':    present_today,
+            'absent':     absent_today,
+            'not_marked': total_students - len(att_today),
+        },
+        'class_teacher': class_teacher,
+    }), 200
+
+
+@principal_bp.route('/classes/<int:class_id>/assign-teacher', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def assign_class_teacher(class_id):
+    """Assign a class teacher to a class."""
+    cls = Class.query.get_or_404(class_id)
+    data = request.get_json()
+    cls.teacher_id = data.get('teacher_id')
+    db.session.commit()
+    return jsonify({'message': 'Class teacher assigned'}), 200
 # ─── Teachers ─────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/teachers', methods=['GET'])
