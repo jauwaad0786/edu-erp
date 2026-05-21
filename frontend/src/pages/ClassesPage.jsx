@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
@@ -10,6 +11,7 @@ export default function ClassesPage() {
   const [saving, setSaving] = useState(false);
   const [msg,    setMsg]    = useState('');
 
+  const navigate = useNavigate();
   const load = () => api.get('/principal/classes').then(r => setClasses(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
 
@@ -43,7 +45,11 @@ export default function ClassesPage() {
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 16 }}>
             {classes.map(c => (
-              <div className="stat-card" key={c.id} style={{ cursor: 'pointer' }}>
+               <div
+                className="stat-card"
+                key={c.id}
+                style={{ cursor: 'pointer' }}
+                onClick={() => navigate(`/students?class_id=${c.id}`)}>
                 <div style={{
                   width: 48, height: 48, borderRadius: 12, background: 'var(--blue-10)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -56,9 +62,24 @@ export default function ClassesPage() {
                 <div style={{ fontSize: 12, color: 'var(--neutral-4)', marginTop: 4 }}>
                   {c.student_count ?? 0} students · {c.session}
                 </div>
-                <div style={{ marginTop: 14, display: 'flex', gap: 6 }}>
-                  <button className="btn btn-neutral btn-sm">View</button>
-                  <button className="btn btn-neutral btn-sm">Edit</button>
+                 <div style={{ marginTop: 14, display: 'flex', gap: 6 }}>
+                  <button
+                    className="btn btn-neutral btn-sm"
+                    onClick={e => {
+                      e.stopPropagation();
+                      navigate(`/students?class_id=${c.id}`);
+                    }}>
+                    👥 View
+                  </button>
+                  <button
+                    className="btn btn-neutral btn-sm"
+                    onClick={e => {
+                      e.stopPropagation();
+                      setForm({ name: c.name, section: c.section, session: c.session, id: c.id });
+                      setShowModal(true);
+                    }}>
+                    ✏️ Edit
+                  </button>
                 </div>
               </div>
             ))}
