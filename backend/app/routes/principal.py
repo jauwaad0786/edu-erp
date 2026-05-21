@@ -227,11 +227,15 @@ def create_teacher():
     user.set_password(data.get('password', 'Teacher@123'))
     db.session.add(user)
     db.session.flush()
-    teacher = Teacher(
-        user_id=user.id, school_id=_school_id(),
-        employee_id=data.get('employee_id'),
-        department=data.get('department'),
-        designation=data.get('designation', 'Teacher')
+     teacher = Teacher(
+        user_id      = user.id,
+        school_id    = _school_id(),
+        employee_id  = data.get('employee_id'),
+        department   = data.get('department'),
+        designation  = data.get('designation', 'Teacher'),
+        salary       = float(data['salary']) if data.get('salary') else 0.0,
+        joining_date = date.fromisoformat(data['joining_date']) if data.get('joining_date') else None,
+        qualification= data.get('qualification', ''),
     )
     db.session.add(teacher)
     db.session.commit()
