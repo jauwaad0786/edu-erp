@@ -18,6 +18,7 @@ import ExamsPage           from './pages/ExamsPage';
 import SchoolDetailPage    from './pages/SchoolDetailPage';
 import AttendancePage      from './pages/AttendancePage';
 import NewAdmissionPage    from './pages/NewAdmissionPage';
+import StudentProfile      from './pages/StudentProfile';
 export default function App() {
   return (
     <AuthProvider>
@@ -39,6 +40,11 @@ export default function App() {
           <Route path="/students" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
               <StudentsPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/students/:id" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+              <StudentProfile />
             </ProtectedRoute>
           } />
           <Route path="/teachers" element={
