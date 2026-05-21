@@ -194,3 +194,40 @@ class TeacherAttendance(db.Model):
             'check_out':  self.check_out,
             'remarks':    self.remarks,
         }
+class TeacherAttendanceRequest(db.Model):
+    """Teacher self-marks attendance → principal approves/denies."""
+    __tablename__ = 'teacher_attendance_requests'
+
+    id          = db.Column(db.Integer, primary_key=True)
+    teacher_id  = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    school_id   = db.Column(db.Integer, db.ForeignKey('schools.id'),  nullable=False)
+    date        = db.Column(db.Date, nullable=False)
+    status      = db.Column(db.String(20), default='PRESENT')
+    # PRESENT / ABSENT / HALF_DAY / ON_LEAVE
+    check_in    = db.Column(db.String(10))
+    check_out   = db.Column(db.String(10))
+    remarks     = db.Column(db.String(200), default='')
+    approval    = db.Column(db.String(20), default='PENDING')
+    # PENDING / APPROVED / DENIED
+    reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    reviewed_at = db.Column(db.DateTime, nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+    teacher = db.relationship('Teacher', backref='attendance_requests')
+
+    __table_args__ = (
+        db.UniqueConstraint('teacher_id', 'date', name='uq_teacher_att_request'),
+    )
+
+    def to_dict(self):
+        return {
+            'id':          self.id,
+            'teacher_id':  self.teacher_id,
+            'date':        str(self.date),
+            'status':      self.status,
+            'check_in':    self.check_in,
+            'check_out':   self.check_out,
+            'remarks':     self.remarks,
+            'approval':    self.approval,
+            'reviewed_at': self.reviewed_at.isoformat() if self.reviewed_at else None,
+        }
