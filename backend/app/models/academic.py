@@ -86,6 +86,9 @@ class Student(db.Model):
     parent_email = db.Column(db.String(120))
     blood_group  = db.Column(db.String(5))
     session      = db.Column(db.String(20), default='2024-25')
+    father_name  = db.Column(db.String(120))
+    mother_name  = db.Column(db.String(120))
+    photo_url    = db.Column(db.String(500))
 
     attendance = db.relationship('Attendance', backref='student', lazy='dynamic')
     marks      = db.relationship('Marks', backref='student', lazy='dynamic')
@@ -98,7 +101,9 @@ class Student(db.Model):
             'school_id': self.school_id, 'session': self.session,
             'name': self.user.name if self.user else '',
             'email': self.user.email if self.user else '',
-            'parent_name': self.parent_name, 'parent_phone': self.parent_phone
+            'parent_name': self.parent_name, 'parent_phone': self.parent_phone,
+            'father_name': self.father_name, 'mother_name': self.mother_name,
+            'photo_url': self.photo_url
         }
 
 
