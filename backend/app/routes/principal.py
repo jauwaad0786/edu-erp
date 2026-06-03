@@ -966,11 +966,26 @@ def mark_teacher_attendance():
 
 # ─── Exams & PDF ──────────────────────────────────────────────────────────────
 
+# ─── Exams & PDF ──────────────────────────────────────────────────────────────
+
 @principal_bp.route('/exams', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
 def list_exams():
-    exams = ExamSchedule.query.filter_by(school_id=_school_id()).all()
-    return jsonify([e.to_dict() for e in exams]), 200
+    status = request.args.get('status')  # DRAFT / PUBLISHED / ARCHIVED
+    q = ExamSchedule.query.filter_by(school_id=_school_id())
+    if status:
+        q = q.filter_by(status=status)
+    exams = q.order_by(ExamSchedule.created_at.desc()).all()
+    result = []
+    for e in exams:
+        d = e.to_dict()
+        d['timetable_count'] = e.timetable.count()
+        # class list jo is exam mein hain
+        class_ids = list({t.class_id for t in e.timetable.all()})
+        classes = Class.query.filter(Class.id.in_(class_ids)).all() if class_ids else []
+        d['classes'] = [{'id': c.id, 'name': c.name, 'section': c.section} for c in classes]
+        result.append(d)
+    return jsonify(result), 200
 
 
 @principal_bp.route('/exams', methods=['POST'])
@@ -978,27 +993,162 @@ def list_exams():
 def create_exam():
     data = request.get_json()
     exam = ExamSchedule(
-        school_id=_school_id(),
-        exam_name=data['exam_name'],
-        exam_type=data.get('exam_type', 'MID_TERM'),
-        session=data.get('session', '2024-25'),
-        start_date=date.fromisoformat(data['start_date']),
-        end_date=date.fromisoformat(data['end_date']),
-        created_by=get_current_user().id
+        school_id    = _school_id(),
+        exam_name    = data['exam_name'],
+        exam_type    = data.get('exam_type', 'MID_TERM'),
+        session      = data.get('session', '2024-25'),
+        start_date   = date.fromisoformat(data['start_date']),
+        end_date     = date.fromisoformat(data['end_date']),
+        instructions = data.get('instructions', ''),
+        status       = 'DRAFT',
+        is_published = False,
+        created_by   = get_current_user().id
     )
     db.session.add(exam)
     db.session.commit()
     return jsonify(exam.to_dict()), 201
 
 
-@principal_bp.route('/exams/<int:exam_id>/publish', methods=['POST'])
+@principal_bp.route('/exams/<int:exam_id>', methods=['PATCH'])
 @role_required('PRINCIPAL', 'TEACHER')
+def update_exam(exam_id):
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    if exam.status == 'PUBLISHED':
+        return jsonify({'error': 'Published exam edit nahi ho sakta. Pehle unpublish karo.'}), 400
+    data = request.get_json()
+    if data.get('exam_name'):    exam.exam_name    = data['exam_name']
+    if data.get('exam_type'):    exam.exam_type    = data['exam_type']
+    if data.get('session'):      exam.session      = data['session']
+    if data.get('start_date'):   exam.start_date   = date.fromisoformat(data['start_date'])
+    if data.get('end_date'):     exam.end_date     = date.fromisoformat(data['end_date'])
+    if data.get('instructions') is not None:
+                                 exam.instructions = data['instructions']
+    db.session.commit()
+    return jsonify(exam.to_dict()), 200
+
+
+@principal_bp.route('/exams/<int:exam_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_exam(exam_id):
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    if exam.status == 'PUBLISHED':
+        return jsonify({'error': 'Published exam delete nahi ho sakta'}), 400
+    db.session.delete(exam)
+    db.session.commit()
+    return jsonify({'message': 'Exam deleted'}), 200
+
+
+@principal_bp.route('/exams/<int:exam_id>/publish', methods=['POST'])
+@role_required('PRINCIPAL')
 def publish_exam(exam_id):
     exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    exam.status       = 'PUBLISHED'
     exam.is_published = True
+    exam.published_at = datetime.utcnow()
+    exam.published_by = get_current_user().id
     db.session.commit()
     return jsonify({'message': 'Exam published', 'exam': exam.to_dict()}), 200
 
+
+@principal_bp.route('/exams/<int:exam_id>/unpublish', methods=['POST'])
+@role_required('PRINCIPAL')
+def unpublish_exam(exam_id):
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    exam.status       = 'DRAFT'
+    exam.is_published = False
+    exam.published_at = None
+    db.session.commit()
+    return jsonify({'message': 'Exam unpublished', 'exam': exam.to_dict()}), 200
+
+
+@principal_bp.route('/exams/<int:exam_id>/archive', methods=['POST'])
+@role_required('PRINCIPAL')
+def archive_exam(exam_id):
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    exam.status       = 'ARCHIVED'
+    exam.is_published = False
+    db.session.commit()
+    return jsonify({'message': 'Exam archived'}), 200
+
+
+# ─── Exam Timetable (Subject-wise papers) ─────────────────────────────────────
+
+@principal_bp.route('/exams/<int:exam_id>/timetable', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def get_exam_timetable(exam_id):
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    class_id = request.args.get('class_id')
+    q = ExamTimetable.query.filter_by(exam_id=exam_id)
+    if class_id:
+        q = q.filter_by(class_id=class_id)
+    items = q.order_by(ExamTimetable.exam_date.asc()).all()
+    return jsonify([i.to_dict() for i in items]), 200
+
+
+@principal_bp.route('/exams/<int:exam_id>/timetable', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def add_timetable_item(exam_id):
+    """Add subject-wise paper to exam timetable."""
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    item = ExamTimetable(
+        exam_id      = exam_id,
+        class_id     = data['class_id'],
+        subject_id   = data['subject_id'],
+        exam_date    = date.fromisoformat(data['exam_date']),
+        start_time   = data.get('start_time', '10:00 AM'),
+        end_time     = data.get('end_time',   '01:00 PM'),
+        venue        = data.get('venue',      'Main Hall'),
+        max_marks    = data.get('max_marks',  100),
+        pass_marks   = data.get('pass_marks', 33),
+        instructions = data.get('instructions', ''),
+    )
+    db.session.add(item)
+    db.session.commit()
+    return jsonify(item.to_dict()), 201
+
+
+@principal_bp.route('/exams/timetable/<int:item_id>', methods=['PATCH'])
+@role_required('PRINCIPAL', 'TEACHER')
+def update_timetable_item(item_id):
+    item = ExamTimetable.query.get_or_404(item_id)
+    data = request.get_json()
+    if data.get('exam_date'):    item.exam_date    = date.fromisoformat(data['exam_date'])
+    if data.get('start_time'):   item.start_time   = data['start_time']
+    if data.get('end_time'):     item.end_time     = data['end_time']
+    if data.get('venue'):        item.venue        = data['venue']
+    if data.get('max_marks'):    item.max_marks    = data['max_marks']
+    if data.get('pass_marks'):   item.pass_marks   = data['pass_marks']
+    if data.get('instructions') is not None:
+                                 item.instructions = data['instructions']
+    db.session.commit()
+    return jsonify(item.to_dict()), 200
+
+
+@principal_bp.route('/exams/timetable/<int:item_id>', methods=['DELETE'])
+@role_required('PRINCIPAL', 'TEACHER')
+def delete_timetable_item(item_id):
+    item = ExamTimetable.query.get_or_404(item_id)
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'Deleted'}), 200
+
+
+# ─── Admit Card & Result Card PDF ─────────────────────────────────────────────
 
 @principal_bp.route('/admit-card/<int:student_id>/<int:exam_id>', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
@@ -1007,8 +1157,9 @@ def admit_card_pdf(student_id, exam_id):
     exam      = ExamSchedule.query.get_or_404(exam_id)
     from app.models.school import School
     school    = School.query.get(student.school_id)
-    timetable = ExamTimetable.query.filter_by(exam_id=exam_id,
-                                              class_id=student.class_id).all()
+    timetable = ExamTimetable.query.filter_by(
+        exam_id=exam_id, class_id=student.class_id
+    ).order_by(ExamTimetable.exam_date.asc()).all()
     buf = generate_admit_card(student, school, exam, timetable)
     return send_file(buf, mimetype='application/pdf',
                      download_name=f'AdmitCard_{student.roll_number}_{exam.exam_name}.pdf')
@@ -1023,10 +1174,10 @@ def result_card_pdf(student_id, exam_id):
     school  = School.query.get(student.school_id)
     marks   = Marks.query.filter_by(student_id=student_id, exam_type=exam.exam_name).all()
     marks_data = [{
-        'subject_name':    m.subject.name if m.subject else 'N/A',
-        'max_marks':       m.max_marks,
-        'marks_obtained':  m.marks_obtained,
-        'grade':           m.grade
+        'subject_name':   m.subject.name if m.subject else 'N/A',
+        'max_marks':      m.max_marks,
+        'marks_obtained': m.marks_obtained,
+        'grade':          m.grade
     } for m in marks]
     buf = generate_result_card(student, school, exam, marks_data)
     return send_file(buf, mimetype='application/pdf',
