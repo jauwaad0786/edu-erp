@@ -130,7 +130,7 @@ class ExamTimetable(db.Model):
             'max_marks':    self.max_marks,
             'pass_marks':   self.pass_marks,
             'instructions': self.instructions or '',
-        }
+        
         }
 class SalaryRecord(db.Model):
     """Manual salary payment records per teacher."""
