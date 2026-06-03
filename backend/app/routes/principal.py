@@ -6,8 +6,8 @@ from app.models.academic import (
     Class, Teacher, Student, Subject, Marks,
     Attendance, TeacherAttendance, TeacherAttendanceRequest, Note
 )
-from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable, Holiday
-from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable
+from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable, Holiday, Timetable, TimetablePeriod
+
 from app.utils.decorators import role_required, get_current_user
 from app.utils.pdf_generator import generate_admit_card, generate_result_card
 from sqlalchemy import func
@@ -1774,3 +1774,159 @@ def teacher_photo(teacher_id):
     t.photo_url = result['secure_url']
     db.session.commit()
     return jsonify({'photo_url': t.photo_url}), 200
+
+
+
+# ─── Classes subjects route ───────────────────────────────────────────────────
+
+@principal_bp.route('/classes/<int:class_id>/subjects', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def class_subjects(class_id):
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    subjects = cls.subjects.all()
+    return jsonify([s.to_dict() for s in subjects]), 200
+
+
+# ─── Weekly Timetable ─────────────────────────────────────────────────────────
+
+@principal_bp.route('/timetables', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def list_timetables():
+    class_id = request.args.get('class_id')
+    q = Timetable.query.filter_by(school_id=_school_id())
+    if class_id:
+        q = q.filter_by(class_id=class_id)
+    timetables = q.order_by(Timetable.created_at.desc()).all()
+    result = []
+    for t in timetables:
+        d = t.to_dict()
+        cls = Class.query.get(t.class_id)
+        d['class_name'] = f"{cls.name} {cls.section}" if cls else ''
+        d['period_count'] = t.periods.count()
+        result.append(d)
+    return jsonify(result), 200
+
+
+@principal_bp.route('/timetables', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def create_timetable():
+    data = request.get_json()
+    # Only one active timetable per class per session
+    existing = Timetable.query.filter_by(
+        school_id=_school_id(),
+        class_id=data['class_id'],
+        session=data.get('session', '2024-25'),
+        status='DRAFT'
+    ).first()
+    if existing:
+        return jsonify({'error': 'Draft timetable already exists for this class. Edit that instead.'}), 409
+    tt = Timetable(
+        school_id  = _school_id(),
+        class_id   = data['class_id'],
+        session    = data.get('session', '2024-25'),
+        title      = data.get('title', 'Weekly Timetable'),
+        status     = 'DRAFT',
+        created_by = get_current_user().id,
+    )
+    db.session.add(tt)
+    db.session.commit()
+    return jsonify(tt.to_dict()), 201
+
+
+@principal_bp.route('/timetables/<int:tt_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_timetable(tt_id):
+    tt = Timetable.query.get_or_404(tt_id)
+    if tt.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    if tt.status == 'PUBLISHED':
+        return jsonify({'error': 'Published timetable delete nahi ho sakta'}), 400
+    db.session.delete(tt)
+    db.session.commit()
+    return jsonify({'message': 'Deleted'}), 200
+
+
+@principal_bp.route('/timetables/<int:tt_id>/publish', methods=['POST'])
+@role_required('PRINCIPAL')
+def publish_timetable(tt_id):
+    tt = Timetable.query.get_or_404(tt_id)
+    if tt.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    tt.status       = 'PUBLISHED'
+    tt.published_at = datetime.utcnow()
+    tt.published_by = get_current_user().id
+    db.session.commit()
+    return jsonify({'message': 'Timetable published', 'timetable': tt.to_dict()}), 200
+
+
+@principal_bp.route('/timetables/<int:tt_id>/unpublish', methods=['POST'])
+@role_required('PRINCIPAL')
+def unpublish_timetable(tt_id):
+    tt = Timetable.query.get_or_404(tt_id)
+    if tt.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    tt.status       = 'DRAFT'
+    tt.published_at = None
+    db.session.commit()
+    return jsonify({'message': 'Unpublished'}), 200
+
+
+@principal_bp.route('/timetables/<int:tt_id>/periods', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def get_periods(tt_id):
+    tt = Timetable.query.get_or_404(tt_id)
+    if tt.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    periods = tt.periods.order_by(TimetablePeriod.day, TimetablePeriod.period_no).all()
+    return jsonify([p.to_dict() for p in periods]), 200
+
+
+@principal_bp.route('/timetables/<int:tt_id>/periods', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def add_period(tt_id):
+    tt = Timetable.query.get_or_404(tt_id)
+    if tt.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    # upsert — same day + period_no → replace
+    existing = TimetablePeriod.query.filter_by(
+        timetable_id=tt_id,
+        day=data['day'],
+        period_no=data['period_no']
+    ).first()
+    if existing:
+        existing.subject_id  = data.get('subject_id')
+        existing.teacher_id  = data.get('teacher_id')
+        existing.start_time  = data.get('start_time', '')
+        existing.end_time    = data.get('end_time', '')
+        existing.room        = data.get('room', '')
+        existing.is_break    = data.get('is_break', False)
+        existing.break_label = data.get('break_label', '')
+        db.session.commit()
+        return jsonify(existing.to_dict()), 200
+    p = TimetablePeriod(
+        timetable_id = tt_id,
+        day          = data['day'],
+        period_no    = data['period_no'],
+        subject_id   = data.get('subject_id'),
+        teacher_id   = data.get('teacher_id'),
+        start_time   = data.get('start_time', ''),
+        end_time     = data.get('end_time', ''),
+        room         = data.get('room', ''),
+        is_break     = data.get('is_break', False),
+        break_label  = data.get('break_label', ''),
+    )
+    db.session.add(p)
+    db.session.commit()
+    return jsonify(p.to_dict()), 201
+
+
+@principal_bp.route('/timetables/periods/<int:period_id>', methods=['DELETE'])
+@role_required('PRINCIPAL', 'TEACHER')
+def delete_period(period_id):
+    p = TimetablePeriod.query.get_or_404(period_id)
+    db.session.delete(p)
+    db.session.commit()
+    return jsonify({'message': 'Period deleted'}), 200
