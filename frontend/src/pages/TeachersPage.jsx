@@ -16,11 +16,37 @@ export default function TeachersPage() {
   const [msg,       setMsg]       = useState('');
   const [editForm,  setEditForm]  = useState(null);  // null = closed
   const [deleting,  setDeleting]  = useState(null);
+  const [photoUploading, setPhotoUploading] = useState(null); // teacher id store hoga
 
   const navigate = useNavigate();
   const load = () =>
     api.get('/principal/teachers').then(r => setTeachers(r.data)).catch(() => {});
   useEffect(() => { load(); }, []);
+  async function uploadTeacherPhoto(teacherId, file) {
+  setPhotoUploading(teacherId);
+  try {
+    const fd = new FormData();
+    fd.append('photo', file);
+    await api.post(`/principal/teachers/${teacherId}/photo`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    load();
+    setMsg('✅ Photo upload ho gayi!');
+  } catch {
+    setMsg('❌ Photo upload nahi hui');
+  }
+  setPhotoUploading(null);
+}
+
+async function deleteTeacherPhoto(teacherId) {
+  try {
+    await api.delete(`/principal/teachers/${teacherId}/photo`);
+    load();
+    setMsg('✅ Photo delete ho gayi');
+  } catch {
+    setMsg('❌ Delete nahi hua');
+  }
+}
 
   const createTeacher = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
@@ -126,12 +152,29 @@ export default function TeachersPage() {
                           style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
                           onClick={() => navigate(`/teachers/${t.id}`)}
                           title="Profile dekhne ke liye click karein">
-                          <div style={{
-                            width: 32, height: 32, borderRadius: '50%',
-                            background: '#f3f0ff', color: '#5867e8',
-                            display: 'flex', alignItems: 'center',
-                            justifyContent: 'center', fontSize: 13, fontWeight: 700,
-                          }}>{t.name?.charAt(0).toUpperCase()}</div>
+                          <div style={{ position: 'relative', width: 32, height: 32 }}>
+                            {t.photo_url
+                              ? <img src={t.photo_url} alt={t.name}
+                                  style={{ width: 32, height: 32, borderRadius: '50%', objectFit: 'cover' }} />
+                              : <div style={{
+                                  width: 32, height: 32, borderRadius: '50%',
+                                  background: '#f3f0ff', color: '#5867e8',
+                                  display: 'flex', alignItems: 'center',
+                                  justifyContent: 'center', fontSize: 13, fontWeight: 700,
+                                }}>{t.name?.charAt(0).toUpperCase()}</div>
+                            }
+                            <label onClick={e => e.stopPropagation()} style={{
+                              position: 'absolute', bottom: -2, right: -2,
+                              background: '#0176d3', borderRadius: '50%',
+                              width: 14, height: 14, display: 'flex',
+                              alignItems: 'center', justifyContent: 'center',
+                              cursor: 'pointer', fontSize: 8,
+                            }} title="Photo upload/change">
+                              📷
+                              <input type="file" accept="image/*" style={{ display: 'none' }}
+                                onChange={e => e.target.files[0] && uploadTeacherPhoto(t.id, e.target.files[0])} />
+                            </label>
+                          </div>
                           <div>
                             <div style={{
                               fontWeight: 600, color: '#5867e8',
