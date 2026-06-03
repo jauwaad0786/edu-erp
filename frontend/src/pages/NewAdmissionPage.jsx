@@ -11,6 +11,8 @@ export default function NewAdmissionPage() {
   const [saving,  setSaving]  = useState(false);
   const [msg,     setMsg]     = useState({ text: '', type: '' });
   const [done,    setDone]    = useState(null); // admitted student data
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoPreview,   setPhotoPreview]   = useState(null);
 
   const [form, setForm] = useState({
     name:         '',
@@ -73,7 +75,21 @@ export default function NewAdmissionPage() {
     }
     setSaving(false);
   }
-
+async function uploadPhoto(studentId, file) {
+  setPhotoUploading(true);
+  try {
+    const fd = new FormData();
+    fd.append('photo', file);
+    const res = await api.post(`/principal/students/${studentId}/photo`, fd, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    setPhotoPreview(res.data.photo_url);
+    flash('✅ Photo upload ho gayi!');
+  } catch {
+    flash('❌ Photo upload nahi hui', 'error');
+  }
+  setPhotoUploading(false);
+}
  // ✅ REPLACE WITH THIS
 async function downloadPDF(studentId, studentName) {
   try {
@@ -354,7 +370,45 @@ async function downloadPDF(studentId, studentName) {
                     ))}
                   </div>
                 </div>
-
+                {/* Photo Upload */}
+                <div className="card">
+                  <div className="card-header"><h4>📸 Student Photo</h4></div>
+                  <div className="card-body" style={{ padding: '16px 20px' }}>
+                    {photoPreview
+                      ? <img src={photoPreview} alt="Student" style={{
+                            width: 100, height: 110, objectFit: 'cover',
+                            borderRadius: 8, border: '2px solid #0176d3',
+                            display: 'block', marginBottom: 10 }} />
+                      : <div style={{
+                            width: 100, height: 110, background: '#f1f5f9',
+                            borderRadius: 8, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', color: '#94a3b8',
+                            fontSize: 12, marginBottom: 10 }}>No Photo</div>
+                    }
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <label style={{
+                          cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+                          gap: 6, background: '#f1f5f9', padding: '8px 14px',
+                          borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#475569' }}>
+                        📷 {photoPreview ? 'Change Photo' : 'Upload Photo'}
+                        <input type="file" accept="image/*" style={{ display: 'none' }}
+                          onChange={e => e.target.files[0] && uploadPhoto(done.id, e.target.files[0])} />
+                      </label>
+                      {photoUploading && <span style={{ fontSize: 11, color: '#94a3b8' }}>Uploading...</span>}
+                      {photoPreview &&
+                        <button onClick={async () => {
+                          await api.delete(`/principal/students/${done.id}/photo`);
+                          setPhotoPreview(null);
+                          flash('Photo delete ho gayi');
+                        }} style={{
+                            background: 'none', border: 'none',
+                            color: '#dc2626', fontSize: 12, cursor: 'pointer' }}>
+                          🗑 Delete
+                        </button>
+                      }
+                    </div>
+                  </div>
+                </div>
                 {/* PDF download */}
                 <button
                   onClick={() => downloadPDF(done.id, done.name)}
