@@ -1063,6 +1063,9 @@ def student_profile(student_id):
         'parent_email': student.parent_email or '',
         'class_name':   f"{cls.name} - {cls.section}" if cls else '',
         'class_id':     student.class_id,
+        'father_name':  student.father_name  or '',
+        'mother_name':  student.mother_name  or '',
+        'photo_url':    student.photo_url    or '',
     }
 
     # ── Attendance Summary ───────────────────────────────────
