@@ -77,12 +77,37 @@ export default function TeacherProfile() {
               borderRadius:8, padding:'6px 14px', cursor:'pointer',
               fontSize:13, color:'var(--neutral-7)', fontWeight:600,
             }}>← Back</button>
-            <div style={{
-              width:56, height:56, borderRadius:'50%',
-              background:'#f3f0ff', color:'#5867e8',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:24, fontWeight:800, flexShrink:0,
-            }}>{info.name?.charAt(0).toUpperCase()}</div>
+            <div style={{ position:'relative', width:56, height:56, flexShrink:0 }}>
+              {info.photo_url
+                ? <img src={info.photo_url} alt={info.name}
+                    style={{ width:56, height:56, borderRadius:'50%', objectFit:'cover' }} />
+                : <div style={{
+                    width:56, height:56, borderRadius:'50%',
+                    background:'#f3f0ff', color:'#5867e8',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:24, fontWeight:800,
+                  }}>{info.name?.charAt(0).toUpperCase()}</div>
+              }
+              <label style={{
+                position:'absolute', bottom:0, right:0,
+                background:'#0176d3', borderRadius:'50%',
+                width:18, height:18, display:'flex',
+                alignItems:'center', justifyContent:'center',
+                cursor:'pointer', fontSize:10,
+              }} title="Photo upload/change">
+                📷
+                <input type="file" accept="image/*" style={{ display:'none' }}
+                  onChange={async e => {
+                    if (!e.target.files[0]) return;
+                    const fd = new FormData();
+                    fd.append('photo', e.target.files[0]);
+                    await api.post(`/principal/teachers/${id}/photo`, fd, {
+                      headers: { 'Content-Type': 'multipart/form-data' }
+                    });
+                    load();
+                  }} />
+              </label>
+            </div>
             <div style={{ flex:1 }}>
               <h2 style={{ margin:0, fontSize:20, fontWeight:800 }}>{info.name}</h2>
               <div style={{ fontSize:12, color:'var(--neutral-5)', marginTop:2 }}>
