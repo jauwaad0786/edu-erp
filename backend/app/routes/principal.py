@@ -52,6 +52,8 @@ def create_class():
         name=data['name'],
         section=data.get('section', 'A'),
         session=data.get('session', '2024-25'),
+        father_name=data.get('father_name'),
+        mother_name=data.get('mother_name'),
         school_id=_school_id()
     )
     db.session.add(cls)
