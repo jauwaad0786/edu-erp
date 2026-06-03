@@ -5,7 +5,8 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 import io
-
+from reportlab.platypus import Image as RLImage
+import urllib.request, tempfile, os
 SCHOOL_BLUE = colors.HexColor('#0176d3')
 DARK_BLUE   = colors.HexColor('#032d60')
 
@@ -35,22 +36,72 @@ def generate_admit_card(student, school, exam, timetable_items):
     elements.append(Spacer(1, 0.3*cm))
 
     # Student info table
+    
+
+    # ── Photo fetch (URL se) ──
+    photo_elem = None
+    photo_url  = getattr(student, 'photo_url', None)
+    if photo_url:
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.jpg') as tmp:
+                urllib.request.urlretrieve(photo_url, tmp.name)
+                photo_elem = RLImage(tmp.name, width=2.8*cm, height=3.2*cm)
+        except Exception:
+            photo_elem = None
+
+    # Photo placeholder agar photo nahi mili
+    if not photo_elem:
+        photo_box = Table(
+            [[Paragraph('Photo', ParagraphStyle('ph', fontSize=8,
+                alignment=TA_CENTER, textColor=colors.grey))]],
+            colWidths=[2.8*cm], rowHeights=[3.2*cm]
+        )
+        photo_box.setStyle(TableStyle([
+            ('BOX',        (0,0), (-1,-1), 1, colors.grey),
+            ('ALIGN',      (0,0), (-1,-1), 'CENTER'),
+            ('VALIGN',     (0,0), (-1,-1), 'MIDDLE'),
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8faff')),
+        ]))
+        photo_elem = photo_box
+
+    # ── Student info rows ──
     info_data = [
-        ['Student Name:', student.user.name,    'Roll No:', student.roll_number or 'N/A'],
-        ['Admission No:', student.admission_no,  'Class:', student.class_ref.name if student.class_ref else ''],
-        ['Father/Guardian:', student.parent_name or '', 'Session:', exam.session],
+        ['Student Name:',    student.user.name if student.user else '',
+         'Roll No:',         student.roll_number or 'N/A'],
+        ['Admission No:',    student.admission_no or '',
+         'Class:',           student.class_ref.name if student.class_ref else ''],
+        ['Father Name:',     getattr(student, 'father_name', None) or student.parent_name or '',
+         'Mother Name:',     getattr(student, 'mother_name', None) or ''],
+        ['Session:',         exam.session,
+         'Gender:',          student.gender or ''],
     ]
-    info_table = Table(info_data, colWidths=[3.5*cm, 6*cm, 2.5*cm, 5*cm])
+    info_table = Table(info_data, colWidths=[3*cm, 5.5*cm, 2.8*cm, 4.5*cm])
     info_table.setStyle(TableStyle([
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTNAME', (0,0), (0,-1), 'Helvetica-Bold'),
-        ('FONTNAME', (2,0), (2,-1), 'Helvetica-Bold'),
-        ('FONTSIZE', (0,0), (-1,-1), 9),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 6),
-        ('TEXTCOLOR', (0,0), (0,-1), DARK_BLUE),
-        ('TEXTCOLOR', (2,0), (2,-1), DARK_BLUE),
+        ('FONTNAME',      (0,0), (-1,-1), 'Helvetica'),
+        ('FONTNAME',      (0,0), (0,-1), 'Helvetica-Bold'),
+        ('FONTNAME',      (2,0), (2,-1), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0,0), (-1,-1), 9),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 7),
+        ('TOPPADDING',    (0,0), (-1,-1), 4),
+        ('TEXTCOLOR',     (0,0), (0,-1), DARK_BLUE),
+        ('TEXTCOLOR',     (2,0), (2,-1), DARK_BLUE),
+        ('LINEBELOW',     (0,0), (-1,-1), 0.3, colors.HexColor('#e2e8f0')),
+        ('BACKGROUND',    (0,0), (0,-1), colors.HexColor('#f8faff')),
+        ('BACKGROUND',    (2,0), (2,-1), colors.HexColor('#f8faff')),
+        ('VALIGN',        (0,0), (-1,-1), 'MIDDLE'),
     ]))
-    elements.append(info_table)
+
+    # ── Info + Photo side by side ──
+    combined = Table(
+        [[info_table, photo_elem]],
+        colWidths=[15.7*cm, 3*cm]
+    )
+    combined.setStyle(TableStyle([
+        ('VALIGN',       (0,0), (-1,-1), 'TOP'),
+        ('LEFTPADDING',  (1,0), (1,0), 8),
+        ('RIGHTPADDING', (1,0), (1,0), 0),
+    ]))
+    elements.append(combined)
     elements.append(Spacer(1, 0.4*cm))
     elements.append(HRFlowable(width='100%', color=colors.lightgrey, thickness=1))
     elements.append(Spacer(1, 0.3*cm))
