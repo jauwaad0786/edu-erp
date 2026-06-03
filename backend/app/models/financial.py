@@ -58,33 +58,47 @@ class FeeRecord(db.Model):
 
 
 class ExamSchedule(db.Model):
-    """Exam schedule — triggers admit card generation."""
+    """Exam schedule — full enterprise workflow with draft/publish/archive."""
     __tablename__ = 'exam_schedules'
 
-    id         = db.Column(db.Integer, primary_key=True)
-    school_id  = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
-    exam_name  = db.Column(db.String(100), nullable=False)   # e.g. "Half Yearly 2024"
-    exam_type  = db.Column(db.String(50))                    # MID_TERM / FINAL / UNIT_TEST
-    session    = db.Column(db.String(20), default='2024-25')
-    start_date = db.Column(db.Date)
-    end_date   = db.Column(db.Date)
-    is_published = db.Column(db.Boolean, default=False)
-    created_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id           = db.Column(db.Integer, primary_key=True)
+    school_id    = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
+    exam_name    = db.Column(db.String(100), nullable=False)
+    exam_type    = db.Column(db.String(50))
+    # MID_TERM / FINAL / UNIT_TEST / PRE_BOARD
+    session      = db.Column(db.String(20), default='2024-25')
+    start_date   = db.Column(db.Date)
+    end_date     = db.Column(db.Date)
+    instructions = db.Column(db.Text, default='')
+    # status: DRAFT / PUBLISHED / ARCHIVED
+    status       = db.Column(db.String(20), default='DRAFT')
+    is_published = db.Column(db.Boolean, default=False)  # backward compat
+    published_at = db.Column(db.DateTime, nullable=True)
+    published_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at   = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    timetable  = db.relationship('ExamTimetable', backref='exam', lazy='dynamic')
+    timetable    = db.relationship('ExamTimetable', backref='exam',
+                                   lazy='dynamic', cascade='all, delete-orphan')
 
     def to_dict(self):
         return {
-            'id': self.id, 'exam_name': self.exam_name,
-            'exam_type': self.exam_type, 'session': self.session,
-            'start_date': str(self.start_date), 'end_date': str(self.end_date),
-            'is_published': self.is_published
+            'id':           self.id,
+            'exam_name':    self.exam_name,
+            'exam_type':    self.exam_type,
+            'session':      self.session,
+            'start_date':   str(self.start_date) if self.start_date else None,
+            'end_date':     str(self.end_date)   if self.end_date   else None,
+            'instructions': self.instructions    or '',
+            'status':       self.status,
+            'is_published': self.is_published,
+            'published_at': self.published_at.isoformat() if self.published_at else None,
+            'created_at':   self.created_at.isoformat()  if self.created_at  else None,
         }
 
-
 class ExamTimetable(db.Model):
-    """Subject-wise exam schedule."""
+    """Subject-wise exam schedule — per class per subject."""
     __tablename__ = 'exam_timetable'
 
     id           = db.Column(db.Integer, primary_key=True)
@@ -92,16 +106,31 @@ class ExamTimetable(db.Model):
     class_id     = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     subject_id   = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
     exam_date    = db.Column(db.Date, nullable=False)
-    start_time   = db.Column(db.String(10))  # "10:00 AM"
-    end_time     = db.Column(db.String(10))  # "01:00 PM"
-    venue        = db.Column(db.String(100))
-    max_marks    = db.Column(db.Integer, default=100)
+    start_time   = db.Column(db.String(10))   # "10:00 AM"
+    end_time     = db.Column(db.String(10))   # "01:00 PM"
+    venue        = db.Column(db.String(100),  default='Main Hall')
+    max_marks    = db.Column(db.Integer,      default=100)
+    pass_marks   = db.Column(db.Integer,      default=33)
+    instructions = db.Column(db.Text,         default='')
+    created_at   = db.Column(db.DateTime,     default=datetime.utcnow)
+
+    subject      = db.relationship('Subject', backref='exam_timetables')
 
     def to_dict(self):
         return {
-            'id': self.id, 'subject_id': self.subject_id,
-            'exam_date': str(self.exam_date), 'start_time': self.start_time,
-            'end_time': self.end_time, 'venue': self.venue
+            'id':           self.id,
+            'exam_id':      self.exam_id,
+            'class_id':     self.class_id,
+            'subject_id':   self.subject_id,
+            'subject_name': self.subject.name if self.subject else '',
+            'exam_date':    str(self.exam_date),
+            'start_time':   self.start_time,
+            'end_time':     self.end_time,
+            'venue':        self.venue        or 'Main Hall',
+            'max_marks':    self.max_marks,
+            'pass_marks':   self.pass_marks,
+            'instructions': self.instructions or '',
+        }
         }
 class SalaryRecord(db.Model):
     """Manual salary payment records per teacher."""
