@@ -13,7 +13,9 @@ from app.utils.pdf_generator import generate_admit_card, generate_result_card
 from sqlalchemy import func
 from datetime import date, datetime
 import random, string
-
+import cloudinary
+import cloudinary.uploader
+import os
 principal_bp = Blueprint('principal', __name__)
 
 
@@ -1555,3 +1557,63 @@ def attendance_weekly():
         'teacher_weekly': teacher_weekly,
         'class_today':    class_today,
     }), 200
+
+
+cloudinary.config(
+    cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key    = os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
+)
+
+@principal_bp.route('/students/<int:student_id>/photo', methods=['POST', 'DELETE'])
+@role_required('PRINCIPAL', 'TEACHER')
+def student_photo(student_id):
+    student = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if request.method == 'DELETE':
+        student.photo_url = None
+        db.session.commit()
+        return jsonify({'message': 'Photo deleted'}), 200
+
+    file = request.files.get('photo')
+    if not file:
+        return jsonify({'error': 'No file'}), 400
+    result = cloudinary.uploader.upload(
+        file,
+        folder=f'eduerp/students',
+        public_id=f'student_{student_id}',
+        overwrite=True,
+        resource_type='image'
+    )
+    student.photo_url = result['secure_url']
+    db.session.commit()
+    return jsonify({'photo_url': student.photo_url}), 200
+
+
+@principal_bp.route('/teachers/<int:teacher_id>/photo', methods=['POST', 'DELETE'])
+@role_required('PRINCIPAL')
+def teacher_photo(teacher_id):
+    t = Teacher.query.get_or_404(teacher_id)
+    if t.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    if request.method == 'DELETE':
+        t.photo_url = None
+        db.session.commit()
+        return jsonify({'message': 'Photo deleted'}), 200
+
+    file = request.files.get('photo')
+    if not file:
+        return jsonify({'error': 'No file'}), 400
+    result = cloudinary.uploader.upload(
+        file,
+        folder=f'eduerp/teachers',
+        public_id=f'teacher_{teacher_id}',
+        overwrite=True,
+        resource_type='image'
+    )
+    t.photo_url = result['secure_url']
+    db.session.commit()
+    return jsonify({'photo_url': t.photo_url}), 200
