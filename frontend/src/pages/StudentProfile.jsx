@@ -102,12 +102,18 @@ export default function StudentProfile() {
                 borderRadius:8, padding:'6px 14px', cursor:'pointer',
                 fontSize:13, color:'var(--neutral-7)', fontWeight:600,
               }}>← Back</button>
-            <div style={{
-              width:52, height:52, borderRadius:'50%',
-              background:'var(--blue-10)', color:'var(--blue-80)',
-              display:'flex', alignItems:'center', justifyContent:'center',
-              fontSize:22, fontWeight:800, flexShrink:0,
-            }}>{info.name?.charAt(0).toUpperCase()}</div>
+            <div style={{ width:52, height:52, borderRadius:'50%', flexShrink:0, overflow:'hidden' }}>
+              {info.photo_url
+                ? <img src={info.photo_url} alt={info.name}
+                    style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                : <div style={{
+                    width:52, height:52, borderRadius:'50%',
+                    background:'var(--blue-10)', color:'var(--blue-80)',
+                    display:'flex', alignItems:'center', justifyContent:'center',
+                    fontSize:22, fontWeight:800,
+                  }}>{info.name?.charAt(0).toUpperCase()}</div>
+              }
+            </div>
             <div style={{ flex:1 }}>
               <h2 style={{ margin:0, fontSize:20, fontWeight:800, color:'var(--neutral-9)' }}>
                 {info.name}
@@ -165,6 +171,8 @@ export default function StudentProfile() {
                     ['Date of Birth', info.dob          || '—'],
                     ['Session',       info.session      || '—'],
                     ['Address',       info.address      || '—'],
+                    ['Father Name',   info.father_name  || '—'],
+                    ['Mother Name',   info.mother_name  || '—'],
                   ].map(([label, value]) => (
                     <div key={label} style={{
                       display:'flex', justifyContent:'space-between',
