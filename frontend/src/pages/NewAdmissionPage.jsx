@@ -22,6 +22,8 @@ export default function NewAdmissionPage() {
     gender:       '',
     dob:          '',
     session:      '2025-26',
+    father_name:  '',
+    mother_name:  '',
     parent_name:  '',
     parent_phone: '',
     parent_email: '',
@@ -66,8 +68,8 @@ export default function NewAdmissionPage() {
       setForm({
         name: '', class_id: '', roll_number: '',
         admission_no: '', gender: '', dob: '',
-        session: '2025-26', parent_name: '',
-        parent_phone: '', parent_email: '',
+        session: '2025-26', father_name: '', mother_name: '',
+        parent_name: '', parent_phone: '', parent_email: '',
         address: '', password: 'Student@123',
       });
     } catch (err) {
@@ -260,9 +262,25 @@ async function downloadPDF(studentId, studentName) {
                     marginBottom: 20,
                   }}>
                     <div className="form-group">
-                      <label className="form-label">Father / Guardian Name *</label>
+                      <label className="form-label">Father Name *</label>
                       <input className="form-input" required
-                        placeholder="Father ya guardian ka naam"
+                        placeholder="Father ka naam"
+                        value={form.father_name}
+                        onChange={e => set('father_name', e.target.value)} />
+                    </div>
+
+                    <div className="form-group">
+                      <label className="form-label">Mother Name</label>
+                      <input className="form-input"
+                        placeholder="Mother ka naam"
+                        value={form.mother_name}
+                        onChange={e => set('mother_name', e.target.value)} />
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label className="form-label">Guardian / Parent Name</label>
+                      <input className="form-input"
+                        placeholder="Guardian ka naam (optional)"
                         value={form.parent_name}
                         onChange={e => set('parent_name', e.target.value)} />
                     </div>
