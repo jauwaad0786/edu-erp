@@ -279,6 +279,7 @@ def teacher_profile(teacher_id):
         'qualification':t.qualification  or '',
         'salary':       t.salary         or 0,
         'subjects_count': t.classes_taught.count(),
+        'photo_url': t.photo_url or '',
     }
 
     # ── Classes & Subjects taught ──
