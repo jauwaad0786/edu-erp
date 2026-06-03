@@ -55,6 +55,7 @@ class Teacher(db.Model):
     joining_date = db.Column(db.Date)
     qualification= db.Column(db.String(200))
     salary       = db.Column(db.Float, default=0.0)
+    photo_url    = db.Column(db.String(500))
 
     classes_taught = db.relationship('Subject', backref='teacher_ref', lazy='dynamic',
                                      foreign_keys='Subject.teacher_id')
@@ -65,7 +66,8 @@ class Teacher(db.Model):
             'department': self.department, 'designation': self.designation,
             'school_id': self.school_id,
             'name': self.user.name if self.user else '',
-            'email': self.user.email if self.user else ''
+            'email': self.user.email if self.user else '',
+            'photo_url': self.photo_url
         }
 
 
