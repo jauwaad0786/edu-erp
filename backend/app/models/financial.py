@@ -187,3 +187,73 @@ class Holiday(db.Model):
             'applies_to':   self.applies_to,
             'description':  self.description,
         }
+
+
+# ─── Weekly Class Timetable ───────────────────────────────────────────────────
+
+class Timetable(db.Model):
+    """Weekly class timetable — draft/publish workflow."""
+    __tablename__ = 'timetables'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    school_id    = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
+    class_id     = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
+    session      = db.Column(db.String(20), default='2024-25')
+    title        = db.Column(db.String(100), default='Weekly Timetable')
+    status       = db.Column(db.String(20), default='DRAFT')  # DRAFT / PUBLISHED
+    published_at = db.Column(db.DateTime, nullable=True)
+    published_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
+    created_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at   = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    periods      = db.relationship('TimetablePeriod', backref='timetable',
+                                   lazy='dynamic', cascade='all, delete-orphan')
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'class_id':     self.class_id,
+            'session':      self.session,
+            'title':        self.title,
+            'status':       self.status,
+            'published_at': self.published_at.isoformat() if self.published_at else None,
+            'created_at':   self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class TimetablePeriod(db.Model):
+    """Single period slot in a timetable."""
+    __tablename__ = 'timetable_periods'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    timetable_id = db.Column(db.Integer, db.ForeignKey('timetables.id'), nullable=False)
+    day          = db.Column(db.String(10), nullable=False)   # MON/TUE/WED/THU/FRI/SAT
+    period_no    = db.Column(db.Integer, nullable=False)       # 1,2,3...8
+    subject_id   = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)
+    teacher_id   = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
+    start_time   = db.Column(db.String(10))   # "08:00 AM"
+    end_time     = db.Column(db.String(10))   # "08:45 AM"
+    room         = db.Column(db.String(50), default='')
+    is_break     = db.Column(db.Boolean, default=False)   # lunch/recess
+    break_label  = db.Column(db.String(30), default='')   # "Lunch Break"
+
+    subject = db.relationship('Subject', backref='timetable_periods')
+    teacher = db.relationship('Teacher', backref='timetable_periods')
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'timetable_id': self.timetable_id,
+            'day':          self.day,
+            'period_no':    self.period_no,
+            'subject_id':   self.subject_id,
+            'subject_name': self.subject.name if self.subject else '',
+            'teacher_id':   self.teacher_id,
+            'teacher_name': self.teacher.user.name if self.teacher and self.teacher.user else '',
+            'start_time':   self.start_time,
+            'end_time':     self.end_time,
+            'room':         self.room or '',
+            'is_break':     self.is_break,
+            'break_label':  self.break_label or '',
+        }
