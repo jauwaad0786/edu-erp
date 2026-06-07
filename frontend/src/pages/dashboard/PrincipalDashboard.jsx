@@ -91,7 +91,26 @@ export default function PrincipalDashboard() {
               <p className="page-subtitle">Session 2024–25 &nbsp;·&nbsp; Real-time data</p>
             </div>
             <div className="flex gap-2">
-              <button className="btn btn-neutral btn-sm">📥 Export Report</button>
+              <button className="btn btn-neutral btn-sm" onClick={() => {
+                const rows = [
+                  ['Metric', 'Value'],
+                  ['Total Students', stats?.total_students ?? 0],
+                  ['Total Teachers', stats?.total_teachers ?? 0],
+                  ['Fee Collected', feeTotals.total_collected],
+                  ['Fee Pending', feeTotals.total_due - feeTotals.total_collected],
+                  ['Collection Rate', collectionPct + '%'],
+                  ['Students Present Today', stats?.students_present ?? 0],
+                  ['Teachers Present Today', stats?.teachers_present ?? 0],
+                ];
+                const csv = rows.map(r => r.join(',')).join('\n');
+                const blob = new Blob([csv], { type: 'text/csv' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `EduERP_Report_${new Date().toLocaleDateString('en-IN').replace(/\//g,'-')}.csv`;
+                a.click();
+                URL.revokeObjectURL(url);
+              }}>📥 Export Report</button>
               <button className="btn btn-primary btn-sm"
                 onClick={() => navigate('/students')}>
                 + Enroll Student
@@ -379,8 +398,12 @@ export default function PrincipalDashboard() {
                               disabled={approving === r.id}
                               onClick={async () => {
                                 setApproving(r.id);
-                                await api.post(`/principal/teachers/attendance/requests/${r.id}/approve`);
-                                setPendingReqs(prev => prev.filter(x => x.id !== r.id));
+                                try {
+                                  await api.post(`/principal/teachers/attendance/requests/${r.id}/approve`);
+                                  setPendingReqs(prev => prev.filter(x => x.id !== r.id));
+                                } catch {
+                                  alert('Approve nahi hua, dobara try karo');
+                                }
                                 setApproving(null);
                               }}
                               style={{
@@ -392,8 +415,12 @@ export default function PrincipalDashboard() {
                               disabled={approving === r.id}
                               onClick={async () => {
                                 setApproving(r.id);
-                                await api.post(`/principal/teachers/attendance/requests/${r.id}/deny`);
-                                setPendingReqs(prev => prev.filter(x => x.id !== r.id));
+                                try {
+                                  await api.post(`/principal/teachers/attendance/requests/${r.id}/deny`);
+                                  setPendingReqs(prev => prev.filter(x => x.id !== r.id));
+                                } catch {
+                                  alert('Deny nahi hua, dobara try karo');
+                                }
                                 setApproving(null);
                               }}
                               style={{
