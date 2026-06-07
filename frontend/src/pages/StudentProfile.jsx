@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 const STATUS_COLOR = {
   PRESENT:    { bg: '#dcfce7', color: '#16a34a', label: 'P' },
@@ -38,7 +39,7 @@ export default function StudentProfile() {
       link.href = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
       link.download = `${type}_card_${data?.info?.name}.pdf`;
       link.click();
-    } catch { alert('PDF generate nahi hua'); }
+    } catch { toast.error('PDF generate nahi hua'); }
     setDlLoading(false);
   };
 
