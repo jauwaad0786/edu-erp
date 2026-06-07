@@ -657,63 +657,33 @@ def generate_fees():
 @principal_bp.route('/fees/class-summary', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
 def fees_class_summary():
-    """
-    Per-class fee summary for dashboard.
-    Returns: class name, total_due, total_paid, pending, student list
-    """
     sid     = _school_id()
     classes = Class.query.filter_by(school_id=sid).all()
-    result  = []
 
+    # ONE query: aggregate per student
+    from sqlalchemy import case
+    agg = db.session.query(
+        Student.class_id,
+        func.sum(FeeRecord.amount_due).label('total_due'),
+        func.sum(FeeRecord.amount_paid).label('total_paid'),
+    ).join(FeeRecord, FeeRecord.student_id == Student.id)\
+     .filter(Student.school_id == sid)\
+     .group_by(Student.class_id).all()
+
+    agg_map = {r.class_id: {'due': r.total_due or 0, 'paid': r.total_paid or 0}
+               for r in agg}
+
+    result = []
     for c in classes:
-        student_ids = [s.id for s in c.students.all()]
-        if not student_ids:
-            result.append({
-                'class_id': c.id, 'class_name': c.name,
-                'section': c.section, 'student_count': 0,
-                'total_due': 0, 'total_collected': 0,
-                'pending': 0, 'collection_pct': 0,
-                'students': []
-            })
-            continue
-
-        total_due  = db.session.query(func.sum(FeeRecord.amount_due))\
-                       .filter(FeeRecord.student_id.in_(student_ids)).scalar() or 0
-        total_paid = db.session.query(func.sum(FeeRecord.amount_paid))\
-                       .filter(FeeRecord.student_id.in_(student_ids)).scalar() or 0
-
-        # Per-student summary for click-through
-        students_data = []
-        for s in c.students.all():
-            s_due  = db.session.query(func.sum(FeeRecord.amount_due))\
-                       .filter_by(student_id=s.id).scalar() or 0
-            s_paid = db.session.query(func.sum(FeeRecord.amount_paid))\
-                       .filter_by(student_id=s.id).scalar() or 0
-            students_data.append({
-                'student_id':   s.id,
-                'student_name': s.user.name if s.user else '',
-                'father_name':  s.parent_name or '',
-                'roll_number':  s.roll_number or '',
-                'total_due':    s_due,
-                'total_paid':   s_paid,
-                'balance':      s_due - s_paid,
-                'status':       'PAID' if s_paid >= s_due and s_due > 0
-                                else 'PARTIAL' if s_paid > 0
-                                else 'PENDING'
-            })
-
+        totals = agg_map.get(c.id, {'due': 0, 'paid': 0})
         result.append({
-            'class_id':       c.id,
-            'class_name':     c.name,
-            'section':        c.section,
-            'student_count':  len(student_ids),
-            'total_due':      total_due,
-            'total_collected': total_paid,
-            'pending':        total_due - total_paid,
-            'collection_pct': round(total_paid / total_due * 100, 1) if total_due else 0,
-            'students':       students_data
+            'class_id': c.id, 'class_name': c.name, 'section': c.section,
+            'student_count': c.students.count(),
+            'total_due': totals['due'], 'total_collected': totals['paid'],
+            'pending': totals['due'] - totals['paid'],
+            'collection_pct': round(totals['paid'] / totals['due'] * 100, 1)
+                              if totals['due'] else 0,
         })
-
     return jsonify(result), 200
 
 
