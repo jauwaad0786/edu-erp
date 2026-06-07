@@ -22,5 +22,5 @@ def role_required(*roles):
 
 
 def get_current_user():
-    user_id = get_jwt_identity()
+    user_id = int(get_jwt_identity())   # ← add int()
     return User.query.get(user_id)
