@@ -1,4 +1,7 @@
 from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
@@ -15,12 +18,14 @@ import random
 import time
 
 auth_bp = Blueprint('auth', __name__)
+limiter = Limiter(get_remote_address)
 
 # In-memory OTP store
 _otp_store = {}
 
 
 @auth_bp.route('/login', methods=['POST'])
+@limiter.limit("5 per minute")
 def login():
 
     data = request.get_json()
@@ -56,6 +61,7 @@ def login():
 
 
 @auth_bp.route('/student-login', methods=['POST'])
+@limiter.limit("5 per minute")
 def student_login():
 
     data = request.get_json()
