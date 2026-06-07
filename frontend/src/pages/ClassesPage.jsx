@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
+import toast from 'react-hot-toast';
 
 export default function ClassesPage() {
   const [classes,   setClasses]   = useState([]);
@@ -18,9 +19,23 @@ export default function ClassesPage() {
   const createClass = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
-      await api.post('/principal/classes', form);
-      setMsg('✅ Class created!'); setShowModal(false); setForm({ section: 'A', session: '2024-25' }); load();
-    } catch (err) { setMsg('❌ ' + (err.response?.data?.error || 'Error')); }
+      if (form.id) {
+        await api.patch(`/principal/classes/${form.id}`, form);
+        toast.success('Class updated!');
+      } else {
+        await api.post('/principal/classes', form);
+        toast.success('Class created!');
+      }
+      toast.success('Class created!');
+      setMsg('✅ Class created!');
+      setShowModal(false);
+      setForm({ section: 'A', session: '2024-25' });
+      load();
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Error';
+      setMsg('❌ ' + errMsg);
+      toast.error(errMsg);
+    }
     setSaving(false);
   };
 
@@ -104,7 +119,7 @@ export default function ClassesPage() {
         <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowModal(false)}>
           <div className="modal">
             <div className="modal-header">
-              <h3>🏛 Add New Class</h3>
+              <h3>{form.id ? '✏️ Edit Class' : '🏛 Add New Class'}</h3>
               <button className="modal-close" onClick={() => setShowModal(false)}>✕</button>
             </div>
             <form onSubmit={createClass}>
@@ -132,7 +147,7 @@ export default function ClassesPage() {
               <div className="modal-footer">
                 <button type="button" className="btn btn-neutral" onClick={() => setShowModal(false)}>Cancel</button>
                 <button type="submit" className="btn btn-primary" disabled={saving}>
-                  {saving ? 'Creating...' : '🏛 Create Class'}
+                  {saving ? 'Saving...' : form.id ? '✅ Update Class' : '🏛 Create Class'}
                 </button>
               </div>
             </form>
