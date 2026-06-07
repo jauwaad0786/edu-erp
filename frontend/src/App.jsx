@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider }    from './context/AuthContext';
 import ProtectedRoute      from './components/ProtectedRoute';
 import DocumentsPage from './pages/DocumentsPage';
@@ -24,6 +25,7 @@ import TeacherProfile      from './pages/TeacherProfile';
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Router>
         <Routes>
 
