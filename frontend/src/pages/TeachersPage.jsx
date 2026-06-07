@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
-
+import toast from 'react-hot-toast';
 export default function TeachersPage() {
   const [teachers,     setTeachers]     = useState([]);
   const [filter,       setFilter]       = useState('');
@@ -31,9 +31,11 @@ export default function TeachersPage() {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     load();
+    toast.success('Photo upload ho gayi!');
     setMsg('✅ Photo upload ho gayi!');
   } catch {
     setMsg('❌ Photo upload nahi hui');
+    toast.error('Photo upload nahi hui');
   }
   setPhotoUploading(null);
 }
@@ -58,6 +60,7 @@ async function deleteTeacherPhoto(teacherId) {
         qualification:form.qualification|| undefined,
         subjects:     subjects.filter(s => s.class_name && s.subject_name),
       });
+      toast.success('Teacher added successfully!');
       setShowModal(false);
       setSubjects([{ class_name: '', subject_name: '' }]);
       setCreatedCreds({
@@ -70,16 +73,24 @@ async function deleteTeacherPhoto(teacherId) {
       });
       setForm({}); load();
     } catch (err) {
-      setMsg('❌ ' + (err.response?.data?.error || 'Error'));
+      const errMsg = err.response?.data?.error || 'Error';
+      setMsg('❌ ' + errMsg);
+      toast.error(errMsg);
     }
     setSaving(false);
   };
+  
   const updateTeacher = async e => {
     e.preventDefault(); setSaving(true);
     try {
       await api.patch(`/principal/teachers/${editForm.id}`, editForm);
+      toast.success('Teacher updated!');
       setEditForm(null); load();
-    } catch (err) { setMsg('❌ ' + (err.response?.data?.error || 'Update failed')); }
+    } catch (err) {
+      const errMsg = err.response?.data?.error || 'Update failed';
+      setMsg('❌ ' + errMsg);
+      toast.error(errMsg);
+    }
     setSaving(false);
   };
 
@@ -88,8 +99,12 @@ async function deleteTeacherPhoto(teacherId) {
     setDeleting(id);
     try {
       await api.delete(`/principal/teachers/${id}`);
+      toast.success('Teacher removed');
       load();
-    } catch { setMsg('❌ Remove failed'); }
+    } catch {
+      setMsg('❌ Remove failed');
+      toast.error('Remove failed');
+    }
     setDeleting(null);
   };
   const filtered = teachers.filter(t =>
