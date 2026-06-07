@@ -9,12 +9,16 @@ export default function StudentDashboard() {
   const [fees,       setFees]       = useState(null);
   const [marks,      setMarks]      = useState([]);
   const [tab,        setTab]        = useState('overview');
+  const [exams,       setExams]       = useState([]);
+  const [examModal,   setExamModal]   = useState(null); // 'admit' | 'result' | null
+  const [selectedExam, setSelectedExam] = useState('');
 
   useEffect(() => {
     api.get('/student/profile').then(r => setProfile(r.data)).catch(() => {});
     api.get('/student/attendance').then(r => setAttendance(r.data)).catch(() => {});
     api.get('/student/fees').then(r => setFees(r.data)).catch(() => {});
     api.get('/student/marks').then(r => setMarks(r.data)).catch(() => {});
+    api.get('/principal/exams?status=PUBLISHED').then(r => setExams(r.data || [])).catch(() => {});
   }, []);
 
   const fmt = n => n?.toLocaleString('en-IN') ?? '—';
@@ -58,14 +62,26 @@ export default function StudentDashboard() {
                 </div>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-sm" style={{
-                  background: 'rgba(255,255,255,0.15)', color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.3)', backdropFilter: 'blur(4px)',
-                }}>🎟 Admit Card</button>
-                <button className="btn btn-sm" style={{
-                  background: 'rgba(255,255,255,0.15)', color: '#fff',
-                  border: '1px solid rgba(255,255,255,0.3)',
-                }}>📊 Result Card</button>
+                <button
+                  className="btn btn-sm"
+                  style={{
+                    background: 'rgba(255,255,255,0.15)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                  }}
+                  onClick={() => { setExamModal('admit'); setSelectedExam(''); }}
+                >
+                  🎟 Admit Card
+                </button>
+                <button
+                  className="btn btn-sm"
+                  style={{
+                    background: 'rgba(255,255,255,0.15)', color: '#fff',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                  }}
+                  onClick={() => { setExamModal('result'); setSelectedExam(''); }}
+                >
+                  📊 Result Card
+                </button>
               </div>
             </div>
           )}
@@ -171,7 +187,7 @@ export default function StudentDashboard() {
                     <tbody>
                       {marks.slice(0, 8).map(m => (
                         <tr key={m.id}>
-                          <td>Subject {m.subject_id}</td>
+                          <td>{m.subject_name || `Subject ${m.subject_id}`}</td>
                           <td>{m.marks_obtained}/{m.max_marks}</td>
                           <td><span className={`badge ${m.marks_obtained >= m.max_marks * 0.33 ? 'badge-success' : 'badge-error'}`}>{m.grade}</span></td>
                         </tr>
@@ -224,7 +240,7 @@ export default function StudentDashboard() {
                       const pct = Math.round(m.marks_obtained / m.max_marks * 100);
                       return (
                         <tr key={m.id}>
-                          <td>Subject {m.subject_id}</td>
+                          <td>{m.subject_name || `Subject ${m.subject_id}`}</td>
                           <td style={{ color: 'var(--neutral-6)' }}>{m.exam_type}</td>
                           <td style={{ fontWeight: 600 }}>{m.marks_obtained}/{m.max_marks}</td>
                           <td>{pct}%</td>
@@ -277,7 +293,7 @@ export default function StudentDashboard() {
               </div>
             </div>
           )}
-
+            
         </div>
       </div>
     </div>
