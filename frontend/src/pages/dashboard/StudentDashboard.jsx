@@ -4,13 +4,13 @@ import Navbar  from '../../components/Navbar';
 import api from '../../api/axios';
 
 export default function StudentDashboard() {
-  const [profile,    setProfile]    = useState(null);
-  const [attendance, setAttendance] = useState(null);
-  const [fees,       setFees]       = useState(null);
-  const [marks,      setMarks]      = useState([]);
-  const [tab,        setTab]        = useState('overview');
-  const [exams,       setExams]       = useState([]);
-  const [examModal,   setExamModal]   = useState(null); // 'admit' | 'result' | null
+  const [profile,      setProfile]      = useState(null);
+  const [attendance,   setAttendance]   = useState(null);
+  const [fees,         setFees]         = useState(null);
+  const [marks,        setMarks]        = useState([]);
+  const [tab,          setTab]          = useState('overview');
+  const [exams,        setExams]        = useState([]);
+  const [examModal,    setExamModal]    = useState(null);
   const [selectedExam, setSelectedExam] = useState('');
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export default function StudentDashboard() {
         <Navbar title="Student Portal" />
         <div className="page-body">
 
-          {/* Profile Banner */}
+          {/* ── Profile Banner ── */}
           {profile && (
             <div style={{
               background: 'linear-gradient(135deg, #032d60 0%, #0176d3 100%)',
@@ -49,10 +49,10 @@ export default function StudentDashboard() {
                 <h2 style={{ color: '#fff', margin: 0, fontSize: '1.25rem' }}>{profile.name}</h2>
                 <div style={{ display: 'flex', gap: 16, marginTop: 6, flexWrap: 'wrap' }}>
                   {[
-                    ['🎟 Roll No', profile.roll_number || 'N/A'],
-                    ['📋 Admission', profile.admission_no || 'N/A'],
-                    ['📚 Session', profile.session],
-                    ['👨‍👩‍👦 Parent', profile.parent_name || 'N/A'],
+                    ['🎟 Roll No',    profile.roll_number  || 'N/A'],
+                    ['📋 Admission',  profile.admission_no || 'N/A'],
+                    ['📚 Session',    profile.session],
+                    ['👨‍👩‍👦 Parent', profile.parent_name  || 'N/A'],
                   ].map(([k, v]) => (
                     <div key={k} style={{ fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>
                       <span style={{ opacity: 0.6 }}>{k}: </span>
@@ -86,7 +86,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
-          {/* Stat Cards */}
+          {/* ── Stat Cards ── */}
           <div className="grid-4 mb-6">
             <div className="stat-card">
               <div className="stat-icon" style={{ background: '#e8f4fd' }}>📋</div>
@@ -94,12 +94,15 @@ export default function StudentDashboard() {
               <div className="stat-value" style={{ color: '#0176d3' }}>
                 {attendance ? `${attendance.percentage}%` : '—'}
               </div>
-              <div className="stat-sub">{attendance ? `${attendance.present}/${attendance.total_days} days` : ''}</div>
+              <div className="stat-sub">
+                {attendance ? `${attendance.present}/${attendance.total_days} days` : ''}
+              </div>
               {attendance && (
                 <div className="progress-bar" style={{ marginTop: 10 }}>
-                  <div className="progress-fill"
-                    style={{ width: `${attendance.percentage}%`,
-                      background: attendance.percentage >= 75 ? 'var(--success)' : 'var(--error)' }}></div>
+                  <div className="progress-fill" style={{
+                    width: `${attendance.percentage}%`,
+                    background: attendance.percentage >= 75 ? 'var(--success)' : 'var(--error)',
+                  }} />
                 </div>
               )}
             </div>
@@ -132,13 +135,16 @@ export default function StudentDashboard() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div style={{ display: 'flex', gap: 0, borderBottom: '2px solid var(--neutral-2)', marginBottom: 20 }}>
+          {/* ── Tabs ── */}
+          <div style={{
+            display: 'flex', gap: 0,
+            borderBottom: '2px solid var(--neutral-2)', marginBottom: 20,
+          }}>
             {[
-              ['overview', '🏠 Overview'],
-              ['attendance', '📋 Attendance'],
-              ['marks', '📊 Results'],
-              ['fees', '💰 Fees'],
+              ['overview',    '🏠 Overview'],
+              ['attendance',  '📋 Attendance'],
+              ['marks',       '📊 Results'],
+              ['fees',        '💰 Fees'],
             ].map(([key, label]) => (
               <button key={key} onClick={() => setTab(key)} style={{
                 background: 'none', border: 'none', cursor: 'pointer',
@@ -150,10 +156,9 @@ export default function StudentDashboard() {
             ))}
           </div>
 
-          {/* Tab Content */}
+          {/* ══ TAB: OVERVIEW ══ */}
           {tab === 'overview' && (
             <div className="grid-2">
-              {/* Recent Attendance */}
               <div className="card">
                 <div className="card-header"><h4>📋 Recent Attendance</h4></div>
                 <div className="table-container">
@@ -164,21 +169,25 @@ export default function StudentDashboard() {
                         <tr key={r.id}>
                           <td>{r.date}</td>
                           <td>
-                            <span className={`badge ${r.status === 'PRESENT' ? 'badge-success' : r.status === 'LATE' ? 'badge-warning' : 'badge-error'}`}>
-                              {r.status}
-                            </span>
+                            <span className={`badge ${
+                              r.status === 'PRESENT' ? 'badge-success' :
+                              r.status === 'LATE'    ? 'badge-warning' : 'badge-error'
+                            }`}>{r.status}</span>
                           </td>
                         </tr>
                       ))}
                       {!attendance?.records?.length && (
-                        <tr><td colSpan={2} style={{ textAlign:'center', color:'var(--neutral-4)', padding:24 }}>No records yet</td></tr>
+                        <tr>
+                          <td colSpan={2} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 24 }}>
+                            No records yet
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
               </div>
 
-              {/* Marks Summary */}
               <div className="card">
                 <div className="card-header"><h4>📊 Latest Marks</h4></div>
                 <div className="table-container">
@@ -189,11 +198,19 @@ export default function StudentDashboard() {
                         <tr key={m.id}>
                           <td>{m.subject_name || `Subject ${m.subject_id}`}</td>
                           <td>{m.marks_obtained}/{m.max_marks}</td>
-                          <td><span className={`badge ${m.marks_obtained >= m.max_marks * 0.33 ? 'badge-success' : 'badge-error'}`}>{m.grade}</span></td>
+                          <td>
+                            <span className={`badge ${
+                              m.marks_obtained >= m.max_marks * 0.33 ? 'badge-success' : 'badge-error'
+                            }`}>{m.grade}</span>
+                          </td>
                         </tr>
                       ))}
                       {!marks.length && (
-                        <tr><td colSpan={3} style={{ textAlign:'center', color:'var(--neutral-4)', padding:24 }}>No marks yet</td></tr>
+                        <tr>
+                          <td colSpan={3} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 24 }}>
+                            No marks yet
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
@@ -202,6 +219,7 @@ export default function StudentDashboard() {
             </div>
           )}
 
+          {/* ══ TAB: ATTENDANCE ══ */}
           {tab === 'attendance' && (
             <div className="card">
               <div className="card-header">
@@ -218,23 +236,45 @@ export default function StudentDashboard() {
                   <tbody>
                     {(attendance?.records || []).map((r, i) => (
                       <tr key={r.id}>
-                        <td style={{ color: 'var(--neutral-6)' }}>{i+1}</td>
+                        <td style={{ color: 'var(--neutral-6)' }}>{i + 1}</td>
                         <td>{r.date}</td>
-                        <td><span className={`badge ${r.status === 'PRESENT' ? 'badge-success' : r.status === 'LATE' ? 'badge-warning' : 'badge-error'}`}>{r.status}</span></td>
+                        <td>
+                          <span className={`badge ${
+                            r.status === 'PRESENT' ? 'badge-success' :
+                            r.status === 'LATE'    ? 'badge-warning' : 'badge-error'
+                          }`}>{r.status}</span>
+                        </td>
                       </tr>
                     ))}
+                    {!attendance?.records?.length && (
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 24 }}>
+                          No attendance records yet
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
 
+          {/* ══ TAB: MARKS ══ */}
           {tab === 'marks' && (
             <div className="card">
               <div className="card-header"><h4>📊 Academic Results</h4></div>
               <div className="table-container">
                 <table>
-                  <thead><tr><th>Subject</th><th>Exam</th><th>Marks</th><th>Percentage</th><th>Grade</th><th>Status</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Subject</th>
+                      <th>Exam</th>
+                      <th>Marks</th>
+                      <th>Percentage</th>
+                      <th>Grade</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {marks.map(m => {
                       const pct = Math.round(m.marks_obtained / m.max_marks * 100);
@@ -245,12 +285,20 @@ export default function StudentDashboard() {
                           <td style={{ fontWeight: 600 }}>{m.marks_obtained}/{m.max_marks}</td>
                           <td>{pct}%</td>
                           <td><span className="badge badge-info">{m.grade}</span></td>
-                          <td><span className={`badge ${pct >= 33 ? 'badge-success' : 'badge-error'}`}>{pct >= 33 ? 'PASS' : 'FAIL'}</span></td>
+                          <td>
+                            <span className={`badge ${pct >= 33 ? 'badge-success' : 'badge-error'}`}>
+                              {pct >= 33 ? 'PASS' : 'FAIL'}
+                            </span>
+                          </td>
                         </tr>
                       );
                     })}
                     {!marks.length && (
-                      <tr><td colSpan={6} style={{ textAlign:'center', color:'var(--neutral-4)', padding:24 }}>No marks entered yet</td></tr>
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 24 }}>
+                          No marks entered yet
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
@@ -258,18 +306,32 @@ export default function StudentDashboard() {
             </div>
           )}
 
+          {/* ══ TAB: FEES ══ */}
           {tab === 'fees' && (
             <div className="card">
               <div className="card-header">
                 <h4>💰 Fee Details</h4>
                 <div style={{ display: 'flex', gap: 12, fontSize: 13 }}>
-                  <span style={{ fontWeight: 600, color: 'var(--success)' }}>Paid: ₹{fmt(fees?.total_paid)}</span>
-                  <span style={{ fontWeight: 600, color: 'var(--error)' }}>Due: ₹{fmt(fees?.balance)}</span>
+                  <span style={{ fontWeight: 600, color: 'var(--success)' }}>
+                    Paid: ₹{fmt(fees?.total_paid)}
+                  </span>
+                  <span style={{ fontWeight: 600, color: 'var(--error)' }}>
+                    Due: ₹{fmt(fees?.balance)}
+                  </span>
                 </div>
               </div>
               <div className="table-container">
                 <table>
-                  <thead><tr><th>Fee Type</th><th>Month</th><th>Due</th><th>Paid</th><th>Mode</th><th>Status</th></tr></thead>
+                  <thead>
+                    <tr>
+                      <th>Fee Type</th>
+                      <th>Month</th>
+                      <th>Due</th>
+                      <th>Paid</th>
+                      <th>Mode</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
                   <tbody>
                     {(fees?.records || []).map(r => (
                       <tr key={r.id}>
@@ -279,21 +341,107 @@ export default function StudentDashboard() {
                         <td>₹{r.amount_paid?.toLocaleString('en-IN')}</td>
                         <td style={{ color: 'var(--neutral-6)' }}>{r.payment_mode || '—'}</td>
                         <td>
-                          <span className={`badge ${r.status === 'PAID' ? 'badge-success' : r.status === 'PARTIAL' ? 'badge-warning' : 'badge-error'}`}>
-                            {r.status}
-                          </span>
+                          <span className={`badge ${
+                            r.status === 'PAID'    ? 'badge-success' :
+                            r.status === 'PARTIAL' ? 'badge-warning' : 'badge-error'
+                          }`}>{r.status}</span>
                         </td>
                       </tr>
                     ))}
                     {!fees?.records?.length && (
-                      <tr><td colSpan={6} style={{ textAlign:'center', color:'var(--neutral-4)', padding:24 }}>No fee records</td></tr>
+                      <tr>
+                        <td colSpan={6} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 24 }}>
+                          No fee records
+                        </td>
+                      </tr>
                     )}
                   </tbody>
                 </table>
               </div>
             </div>
           )}
-            
+
+          {/* ══ EXAM MODAL — ADMIT CARD / RESULT CARD ══ */}
+          {examModal && (
+            <div
+              style={{
+                position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 999,
+              }}
+              onClick={e => e.target === e.currentTarget && setExamModal(null)}
+            >
+              <div style={{
+                background: '#fff', borderRadius: 12, padding: 28,
+                width: 400, boxShadow: '0 8px 32px rgba(0,0,0,0.18)',
+              }}>
+                <h3 style={{ margin: '0 0 16px', fontSize: 16, color: '#0f172a' }}>
+                  {examModal === 'admit' ? '🎟 Download Admit Card' : '📊 Download Result Card'}
+                </h3>
+
+                <div style={{ marginBottom: 16 }}>
+                  <label style={{
+                    fontSize: 12, fontWeight: 600, color: '#64748b',
+                    display: 'block', marginBottom: 6,
+                  }}>
+                    Select Exam
+                  </label>
+                  <select
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8,
+                      border: '1px solid #e2e8f0', fontSize: 13,
+                    }}
+                    value={selectedExam}
+                    onChange={e => setSelectedExam(e.target.value)}
+                  >
+                    <option value="">-- Select Exam --</option>
+                    {exams.map(ex => (
+                      <option key={ex.id} value={ex.id}>{ex.exam_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {exams.length === 0 && (
+                  <p style={{ fontSize: 12, color: '#f59e0b', marginBottom: 12 }}>
+                    ⚠️ No published exam available right now
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                  <button
+                    onClick={() => setExamModal(null)}
+                    style={{
+                      padding: '8px 16px', borderRadius: 8,
+                      border: '1px solid #e2e8f0', background: '#f8fafc',
+                      cursor: 'pointer', fontSize: 13,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={!selectedExam}
+                    onClick={() => {
+                      if (!selectedExam || !profile) return;
+                      const url = examModal === 'admit'
+                        ? `/api/principal/admit-card/${profile.id}/${selectedExam}`
+                        : `/api/principal/result-card/${profile.id}/${selectedExam}`;
+                      window.open(`${process.env.REACT_APP_API_URL}${url}`, '_blank');
+                      setExamModal(null);
+                    }}
+                    style={{
+                      padding: '8px 20px', borderRadius: 8, border: 'none',
+                      background: selectedExam ? '#0176d3' : '#94a3b8',
+                      color: '#fff',
+                      cursor: selectedExam ? 'pointer' : 'default',
+                      fontSize: 13, fontWeight: 600,
+                    }}
+                  >
+                    📥 Download PDF
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
     </div>
