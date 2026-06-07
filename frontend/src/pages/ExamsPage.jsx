@@ -95,7 +95,11 @@ function TimetableBuilder({ exam, onUpdate }) {
   const addItem = async e => {
     e.preventDefault(); setSaving(true);
     try {
-      await api.post(`/principal/exams/${exam.id}/timetable`, { ...form, class_id: selClass });
+      await api.post(`/principal/exams/${exam.id}/timetable`, {
+        ...form,
+        class_id: selClass,
+        subject_name_manual: form.subject_name || '',
+      });
       setAdding(false);
       setForm({ subject_id:'', exam_date:'', start_time:'10:00 AM', end_time:'01:00 PM', venue:'Main Hall', max_marks:100, pass_marks:33, instructions:'' });
       loadTimetable();
@@ -170,12 +174,28 @@ function TimetableBuilder({ exam, onUpdate }) {
             <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(160px,1fr))', gap:10 }}>
               <div>
                 <label style={{ fontSize:11, fontWeight:600, color:'#475569', display:'block', marginBottom:3 }}>Subject *</label>
-                <select required value={form.subject_id}
-                  onChange={e => setForm(f => ({...f, subject_id: e.target.value}))}
-                  style={{ width:'100%', padding:'6px 8px', borderRadius:5, border:'1px solid #cbd5e1', fontSize:12 }}>
-                  <option value=''>Select Subject</option>
-                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
+                {subjects.length > 0 ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
+                    <select value={form.subject_id}
+                      onChange={e => setForm(f => ({...f, subject_id: e.target.value, subject_name: ''}))}
+                      style={{ width:'100%', padding:'6px 8px', borderRadius:5, border:'1px solid #cbd5e1', fontSize:12 }}>
+                      <option value=''>-- Select from list --</option>
+                      {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                    <div style={{ fontSize:10, color:'#94a3b8', textAlign:'center' }}>— ya —</div>
+                    <input
+                      placeholder='Type subject name manually'
+                      value={form.subject_name || ''}
+                      onChange={e => setForm(f => ({...f, subject_name: e.target.value, subject_id: ''}))}
+                      style={{ width:'100%', padding:'6px 8px', borderRadius:5, border:'1px solid #cbd5e1', fontSize:12 }} />
+                  </div>
+                ) : (
+                  <input required
+                    placeholder='e.g. Mathematics, Science...'
+                    value={form.subject_name || ''}
+                    onChange={e => setForm(f => ({...f, subject_name: e.target.value, subject_id: ''}))}
+                    style={{ width:'100%', padding:'6px 8px', borderRadius:5, border:'1px solid #cbd5e1', fontSize:12 }} />
+                )}
               </div>
               <div>
                 <label style={{ fontSize:11, fontWeight:600, color:'#475569', display:'block', marginBottom:3 }}>Date *</label>
