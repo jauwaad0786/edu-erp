@@ -1644,8 +1644,26 @@ def delete_teacher(t_id):
     t = Teacher.query.get_or_404(t_id)
     if t.school_id != _school_id():
         return jsonify({'error': 'Unauthorized'}), 403
-    # Remove class teacher reference first
 
+    # Unlink from classes and subjects
+    Class.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
+    Subject.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
+
+    # Delete attendance records
+    TeacherAttendance.query.filter_by(teacher_id=t_id).delete()
+    TeacherAttendanceRequest.query.filter_by(teacher_id=t_id).delete()
+    db.session.flush()
+
+    user = t.user
+    db.session.delete(t)
+    db.session.flush()
+
+    if user:
+        Note.query.filter_by(uploaded_by=user.id).update({'uploaded_by': None})
+        db.session.flush()
+        db.session.delete(user)
+
+    db.session.commit()
     return jsonify({'message': 'Teacher removed'}), 200
 
 
@@ -1930,3 +1948,17 @@ def delete_period(period_id):
     db.session.delete(p)
     db.session.commit()
     return jsonify({'message': 'Period deleted'}), 200
+
+
+@principal_bp.route('/subjects', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def list_subjects():
+    """All subjects for this school, optionally filtered by class."""
+    sid      = _school_id()
+    class_id = request.args.get('class_id')
+    from app.models.academic import Subject
+    q = Subject.query.join(Class, Subject.class_id == Class.id)\
+                     .filter(Class.school_id == sid)
+    if class_id:
+        q = q.filter(Subject.class_id == class_id)
+    return jsonify([s.to_dict() for s in q.all()]), 200
