@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 const fmt = n => Number(n ?? 0).toLocaleString('en-IN');
 
@@ -53,8 +54,8 @@ export default function AttendancePage() {
   }, [selDate]);
 
   useEffect(() => {
-    if (tab === 'overview') loadOverview();
-  }, [tab, loadOverview]);
+    loadOverview();
+  }, [loadOverview]);
 
   /* ── load students for mark tab ── */
   async function loadMarkStudents(class_id) {
@@ -101,6 +102,7 @@ export default function AttendancePage() {
           status:     s.status,
         })),
       });
+      toast.success(`${markStudents.length} students ki attendance save ho gayi`);
       flash(`✅ ${markStudents.length} students ki attendance save ho gayi`);
       loadOverview();
     } catch {
