@@ -1,3 +1,4 @@
+
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import cm
@@ -5,6 +6,8 @@ from reportlab.lib import colors
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable
 from reportlab.lib.enums import TA_CENTER, TA_LEFT
 import io
+from app import db
+from app.models.academic import Class
 from reportlab.platypus import Image as RLImage
 import urllib.request, tempfile, os
 SCHOOL_BLUE = colors.HexColor('#0176d3')
@@ -69,7 +72,7 @@ def generate_admit_card(student, school, exam, timetable_items):
         ['Student Name:',    student.user.name if student.user else '',
          'Roll No:',         student.roll_number or 'N/A'],
         ['Admission No:',    student.admission_no or '',
-         'Class:',           student.class_ref.name if student.class_ref else ''],
+         'Class:',           Class.query.get(student.class_id).name if student.class_id else ''],
         ['Father Name:',     getattr(student, 'father_name', None) or student.parent_name or '',
          'Mother Name:',     getattr(student, 'mother_name', None) or ''],
         ['Session:',         exam.session,
@@ -168,7 +171,7 @@ def generate_result_card(student, school, exam, marks_data):
 
     info_data = [
         ['Student Name:', student.user.name,      'Roll No:', student.roll_number or 'N/A'],
-        ['Admission No:', student.admission_no,   'Class:', student.class_ref.name if student.class_ref else ''],
+        ['Admission No:', student.admission_no,   'Class:', Class.query.get(student.class_id).name if student.class_id else ''],
         ['Father/Guardian:', student.parent_name or '', 'Session:', exam.session],
     ]
     info_table = Table(info_data, colWidths=[3.5*cm, 6*cm, 2.5*cm, 5*cm])
@@ -263,7 +266,7 @@ def generate_admission_card(student, school):
     elements.append(Spacer(1, 0.4*cm))
 
     # ── Student info + Photo box side by side ──
-    cls  = student.class_ref
+    cls  = Class.query.get(student.class_id) if student.class_id else None
     info = [
         ['Admission No.',  student.admission_no  or 'N/A'],
         ['Student Name',   student.user.name     if student.user else ''],
