@@ -60,15 +60,16 @@ def create_app(config_name='default'):
 
 
 def _seed_super_admin():
-    """Create default super admin if not exists."""
     from app.models.user import User, UserRole
+    import os
     if not User.query.filter_by(role=UserRole.SUPER_ADMIN).first():
-        admin = User(
-            name='Super Admin',
-            email='admin@eduErp.com',
-            role=UserRole.SUPER_ADMIN
-        )
-        admin.set_password('Admin@1234')
+        email    = os.environ.get('SUPER_ADMIN_EMAIL', 'admin@eduErp.com')
+        password = os.environ.get('SUPER_ADMIN_PASSWORD')
+        if not password:
+            raise RuntimeError(
+                "Set SUPER_ADMIN_PASSWORD env var before first run."
+            )
+        admin = User(name='Super Admin', email=email, role=UserRole.SUPER_ADMIN)
+        admin.set_password(password)
         db.session.add(admin)
         db.session.commit()
-        print('✅ Super Admin created: admin@eduErp.com / Admin@1234')
