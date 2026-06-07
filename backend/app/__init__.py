@@ -4,6 +4,8 @@ from flask_jwt_extended import JWTManager
 from flask_cors import CORS
 from flask_bcrypt import Bcrypt
 from flask_migrate import Migrate
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 import os
 from dotenv import load_dotenv
 
@@ -12,6 +14,7 @@ jwt = JWTManager()
 bcrypt = Bcrypt()
 migrate = Migrate()
 load_dotenv()
+limiter = Limiter(get_remote_address)
 
 def create_app(config_name='default'):
     app = Flask(__name__)
@@ -24,6 +27,7 @@ def create_app(config_name='default'):
     jwt.init_app(app)
     bcrypt.init_app(app)
     migrate.init_app(app, db)
+    limiter.init_app(app)
     CORS(app, resources={
         r"/api/*": {
             "origins": [
