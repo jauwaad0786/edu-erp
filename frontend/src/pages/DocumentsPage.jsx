@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 export default function DocumentsPage() {
   const [notes,    setNotes]    = useState([]);
@@ -15,9 +16,11 @@ export default function DocumentsPage() {
     Promise.all([
       api.get('/teacher/notes').catch(() => ({ data: [] })),
       api.get('/principal/classes').catch(() => ({ data: [] })),
-    ]).then(([n, c]) => {
+    }).then(([n, c]) => {
       setNotes(n.data || []);
       setClasses(c.data || []);
+    }).catch(() => {
+      toast.error('Documents load nahi hue');
     }).finally(() => setLoading(false));
   }, []);
 
@@ -183,7 +186,7 @@ export default function DocumentsPage() {
                     {/* Download Button */}
                     {note.file_url && (
                       <a
-                        href={`${process.env.REACT_APP_API_URL || ''}${note.file_url}`}
+                        href={note.file_url}
                         target="_blank"
                         rel="noreferrer"
                         style={{
