@@ -1923,12 +1923,11 @@ def delete_period(period_id):
 @principal_bp.route('/subjects', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
 def list_subjects():
-    """All subjects for this school, optionally filtered by class."""
     sid      = _school_id()
     class_id = request.args.get('class_id')
-    from app.models.academic import Subject
     q = Subject.query.join(Class, Subject.class_id == Class.id)\
                      .filter(Class.school_id == sid)
     if class_id:
         q = q.filter(Subject.class_id == class_id)
-    return jsonify([s.to_dict() for s in q.all()]), 200
+    subjects = q.all()
+    return jsonify([s.to_dict() for s in subjects]), 200
