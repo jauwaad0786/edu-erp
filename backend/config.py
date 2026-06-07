@@ -5,8 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    SECRET_KEY = os.environ.get('SECRET_KEY', 'dev-secret-key')
-    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'dev-jwt-secret')
+    SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY') or secrets.token_hex(32)
     JWT_ACCESS_TOKEN_EXPIRES = timedelta(hours=8)
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///eduErp.db')
