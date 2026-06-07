@@ -1922,3 +1922,35 @@ def list_subjects():
         q = q.filter(Subject.class_id == class_id)
     subjects = q.all()
     return jsonify([s.to_dict() for s in subjects]), 200
+
+@principal_bp.route('/subjects', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def create_subject():
+    data     = request.get_json()
+    name     = data.get('name', '').strip()
+    class_id = data.get('class_id')
+    if not name or not class_id:
+        return jsonify({'error': 'name aur class_id zaroori hai'}), 400
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    existing = Subject.query.filter_by(name=name, class_id=class_id).first()
+    if existing:
+        return jsonify({'error': 'Yeh subject is class mein already hai'}), 409
+    subj = Subject(
+        name=name,
+        class_id=class_id,
+        school_id=_school_id(),
+        teacher_id=data.get('teacher_id')
+    )
+    db.session.add(subj)
+    db.session.commit()
+    return jsonify(subj.to_dict()), 201
+
+@principal_bp.route('/subjects/<int:subj_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_subject(subj_id):
+    subj = Subject.query.get_or_404(subj_id)
+    db.session.delete(subj)
+    db.session.commit()
+    return jsonify({'message': 'Subject deleted'}), 200
