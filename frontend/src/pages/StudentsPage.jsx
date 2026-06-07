@@ -3,6 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
+import toast from 'react-hot-toast';
 
 export default function StudentsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -29,12 +30,12 @@ useEffect(() => {
 }, [classFilter]);
 
 useEffect(() => {
-  if (classFilter) {
-    setSearchParams({ class_id: classFilter });
-  } else {
-    setSearchParams({});
-  }
-}, [classFilter]);
+    if (classFilter) {
+      setSearchParams({ class_id: classFilter });
+    } else {
+      setSearchParams({});
+    }
+  }, [classFilter, setSearchParams]);
 
   // Fix #2 — axios blob download (JWT token automatically jata hai)
   async function downloadAdmissionCard(studentId, studentName) {
@@ -56,6 +57,7 @@ useEffect(() => {
       window.URL.revokeObjectURL(url);
     } catch {
       setMsg('❌ Admission card generate nahi hua');
+      toast.error('Admission card generate nahi hua');
     }
     setDownloading(null);
   }
@@ -68,6 +70,7 @@ useEffect(() => {
       }@internal.school`;
       const payload = { ...form, email: autoEmail };
       await api.post('/principal/students', payload);
+      toast.success('Student enrolled successfully!');
       setShowModal(false);
       setCreatedCreds({
         name:        form.name,
@@ -82,7 +85,9 @@ useEffect(() => {
       const q = classFilter ? `?class_id=${classFilter}` : '';
       api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
     } catch (err) {
-      setMsg('❌ ' + (err.response?.data?.error || 'Error'));
+      const errMsg = err.response?.data?.error || 'Error';
+      setMsg('❌ ' + errMsg);
+      toast.error(errMsg);
     }
     setSaving(false);
   };
