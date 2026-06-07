@@ -1084,10 +1084,33 @@ def add_timetable_item(exam_id):
     if exam.school_id != _school_id():
         return jsonify({'error': 'Unauthorized'}), 403
     data = request.get_json()
+
+    subject_id = data.get('subject_id') or None
+
+    if not subject_id and data.get('subject_name_manual'):
+        existing = Subject.query.filter_by(
+            name=data['subject_name_manual'],
+            class_id=data['class_id']
+        ).first()
+        if existing:
+            subject_id = existing.id
+        else:
+            new_subj = Subject(
+                name=data['subject_name_manual'],
+                class_id=data['class_id'],
+                school_id=_school_id()
+            )
+            db.session.add(new_subj)
+            db.session.flush()
+            subject_id = new_subj.id
+
+    if not subject_id:
+        return jsonify({'error': 'Subject select karo ya naam type karo'}), 400
+
     item = ExamTimetable(
         exam_id      = exam_id,
         class_id     = data['class_id'],
-        subject_id   = data['subject_id'],
+        subject_id   = subject_id,
         exam_date    = date.fromisoformat(data['exam_date']),
         start_time   = data.get('start_time', '10:00 AM'),
         end_time     = data.get('end_time',   '01:00 PM'),
