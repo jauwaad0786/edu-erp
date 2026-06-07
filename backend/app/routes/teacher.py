@@ -27,8 +27,10 @@ def mark_attendance():
         if existing:
             existing.status = rec['status']
         else:
+            student = Student.query.get(rec['student_id'])
             a = Attendance(student_id=rec['student_id'], class_id=class_id,
-                           date=att_date, status=rec['status'], marked_by=user.id)
+                           date=att_date, status=rec['status'], marked_by=user.id,
+                           remarks=rec.get('remarks', ''))
             db.session.add(a)
     db.session.commit()
     return jsonify({'message': f'Attendance marked for {len(records)} students'}), 200
@@ -143,6 +145,10 @@ def upload_note():
     )
     file_url = result['secure_url']
 
+    from app.models.academic import Teacher as TeacherModel
+    teacher = TeacherModel.query.filter_by(user_id=user.id).first()
+    school_id = teacher.school_id if teacher else user.school_id
+
     note = Note(
         title       = title,
         description = description,
@@ -150,7 +156,7 @@ def upload_note():
         file_name   = filename,
         subject_id  = subject_id,
         class_id    = class_id,
-        school_id   = user.school_id,
+        school_id   = school_id,
         uploaded_by = user.id,
     )
     db.session.add(note)
@@ -163,7 +169,10 @@ def upload_note():
 def list_notes():
     user     = get_current_user()
     class_id = request.args.get('class_id')
-    q = Note.query.filter_by(school_id=user.school_id)
+    from app.models.academic import Teacher as TeacherModel
+    teacher = TeacherModel.query.filter_by(user_id=user.id).first()
+    school_id = teacher.school_id if teacher else getattr(user, 'school_id', None)
+    q = Note.query.filter_by(school_id=school_id)
     if class_id:
         q = q.filter_by(class_id=class_id)
     return jsonify([n.to_dict() for n in q.all()]), 200
