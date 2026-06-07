@@ -10,24 +10,19 @@ class FeeStructure(db.Model):
     school_id    = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
     class_id     = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
     session      = db.Column(db.String(20), default='2024-25')
-    fee_type     = db.Column(db.String(50))   # TUITION, EXAM, SPORTS, TRANSPORT
+    fee_type     = db.Column(db.String(50))
     amount       = db.Column(db.Float, nullable=False)
-    frequency    = db.Column(db.String(20), default='MONTHLY')  # MONTHLY / QUARTERLY / ANNUAL
-    due_date_day = db.Column(db.Integer, default=10)  # day of month
+    frequency    = db.Column(db.String(20), default='MONTHLY')
+    due_date_day = db.Column(db.Integer, default=10)
 
     def to_dict(self):
-    return {
-        'id': self.id, 'student_id': self.student_id,
-        'fee_type': self.fee_type, 'amount_due': self.amount_due,
-        'amount_paid': self.amount_paid, 'status': self.status,
-        'month': self.month, 'session': self.session,
-        'discount': self.discount or 0, 'fine': self.fine or 0,
-        'due_date': str(self.due_date) if self.due_date else None,
-        'paid_date': str(self.paid_date) if self.paid_date else None,
-        'receipt_no': self.receipt_no, 'payment_mode': self.payment_mode,
-        'remarks': self.remarks or '',
-        'collected_by': self.collected_by,
-    }
+        return {
+            'id': self.id,
+            'class_id': self.class_id,
+            'fee_type': self.fee_type,
+            'amount': self.amount,
+            'frequency': self.frequency
+        }
 
 
 class FeeRecord(db.Model):
@@ -42,12 +37,12 @@ class FeeRecord(db.Model):
     amount_paid  = db.Column(db.Float, default=0.0)
     discount     = db.Column(db.Float, default=0.0)
     fine         = db.Column(db.Float, default=0.0)
-    status       = db.Column(db.String(20), default='PENDING')  # PENDING / PAID / PARTIAL / OVERDUE
-    month        = db.Column(db.String(20))   # e.g. "April 2024"
+    status       = db.Column(db.String(20), default='PENDING')
+    month        = db.Column(db.String(20))
     due_date     = db.Column(db.Date)
     paid_date    = db.Column(db.Date)
     receipt_no   = db.Column(db.String(50), unique=True)
-    payment_mode = db.Column(db.String(30))   # CASH / ONLINE / CHEQUE
+    payment_mode = db.Column(db.String(30))
     collected_by = db.Column(db.Integer, db.ForeignKey('users.id'))
     session      = db.Column(db.String(20), default='2024-25')
     remarks      = db.Column(db.String(300))
@@ -55,12 +50,22 @@ class FeeRecord(db.Model):
 
     def to_dict(self):
         return {
-            'id': self.id, 'student_id': self.student_id,
-            'fee_type': self.fee_type, 'amount_due': self.amount_due,
-            'amount_paid': self.amount_paid, 'status': self.status,
-            'month': self.month, 'due_date': str(self.due_date) if self.due_date else None,
-            'paid_date': str(self.paid_date) if self.paid_date else None,
-            'receipt_no': self.receipt_no, 'payment_mode': self.payment_mode
+            'id':           self.id,
+            'student_id':   self.student_id,
+            'fee_type':     self.fee_type,
+            'amount_due':   self.amount_due,
+            'amount_paid':  self.amount_paid,
+            'status':       self.status,
+            'month':        self.month,
+            'session':      self.session,
+            'discount':     self.discount or 0,
+            'fine':         self.fine or 0,
+            'due_date':     str(self.due_date)  if self.due_date  else None,
+            'paid_date':    str(self.paid_date) if self.paid_date else None,
+            'receipt_no':   self.receipt_no,
+            'payment_mode': self.payment_mode,
+            'remarks':      self.remarks or '',
+            'collected_by': self.collected_by,
         }
 
 
