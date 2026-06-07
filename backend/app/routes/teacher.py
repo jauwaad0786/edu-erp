@@ -111,7 +111,17 @@ def _allowed(filename):
 @teacher_bp.route('/notes', methods=['POST'])
 @role_required('TEACHER')
 def upload_note():
-    user = get_current_user()
+    import cloudinary
+    import cloudinary.uploader
+    import os
+
+    cloudinary.config(
+        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
+        api_key    = os.environ.get('CLOUDINARY_API_KEY'),
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
+    )
+
+    user       = get_current_user()
     title      = request.form.get('title')
     subject_id = request.form.get('subject_id')
     class_id   = request.form.get('class_id')
@@ -122,14 +132,27 @@ def upload_note():
         return jsonify({'error': 'Invalid file type'}), 400
 
     filename = secure_filename(file.filename)
-    save_path = os.path.join(current_app.config['UPLOAD_FOLDER'], 'notes')
-    os.makedirs(save_path, exist_ok=True)
-    file.save(os.path.join(save_path, filename))
 
-    note = Note(title=title, description=description,
-                file_url=f'/uploads/notes/{filename}', file_name=filename,
-                subject_id=subject_id, class_id=class_id,
-                school_id=user.school_id, uploaded_by=user.id)
+    # Upload to Cloudinary as raw file (PDF, DOC etc.)
+    result = cloudinary.uploader.upload(
+        file,
+        folder        = 'eduerp/notes',
+        public_id     = f'note_{user.school_id}_{filename}',
+        resource_type = 'raw',
+        overwrite     = True,
+    )
+    file_url = result['secure_url']
+
+    note = Note(
+        title       = title,
+        description = description,
+        file_url    = file_url,
+        file_name   = filename,
+        subject_id  = subject_id,
+        class_id    = class_id,
+        school_id   = user.school_id,
+        uploaded_by = user.id,
+    )
     db.session.add(note)
     db.session.commit()
     return jsonify(note.to_dict()), 201
