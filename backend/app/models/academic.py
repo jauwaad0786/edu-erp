@@ -6,11 +6,11 @@ class Class(db.Model):
     __tablename__ = 'classes'
 
     id         = db.Column(db.Integer, primary_key=True)
-    name       = db.Column(db.String(50), nullable=False)   # e.g. "Class 10"
-    section    = db.Column(db.String(10))                   # e.g. "A"
+    name       = db.Column(db.String(50), nullable=False)
+    section    = db.Column(db.String(10))
     session    = db.Column(db.String(20), default='2024-25')
     school_id  = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
-    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)  # class teacher
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
 
     students  = db.relationship('Student', backref='class_ref', lazy='dynamic')
     subjects  = db.relationship('Subject', backref='class_ref', lazy='dynamic')
@@ -39,41 +39,43 @@ class Subject(db.Model):
     notes      = db.relationship('Note', backref='subject', lazy='dynamic')
 
     def to_dict(self):
-    return {
-        'id':         self.id,
-        'name':       self.name,
-        'code':       self.code,
-        'class_id':   self.class_id,
-        'teacher_id': self.teacher_id,
-        'max_marks':  self.max_marks,
-    }
+        return {
+            'id':         self.id,
+            'name':       self.name,
+            'code':       self.code,
+            'class_id':   self.class_id,
+            'teacher_id': self.teacher_id,
+            'max_marks':  self.max_marks,
+        }
 
 
 class Teacher(db.Model):
     __tablename__ = 'teachers'
 
-    id           = db.Column(db.Integer, primary_key=True)
-    user_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    school_id    = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
-    employee_id  = db.Column(db.String(30), unique=True)
-    department   = db.Column(db.String(100))
-    designation  = db.Column(db.String(100), default='Teacher')
-    joining_date = db.Column(db.Date)
-    qualification= db.Column(db.String(200))
-    salary       = db.Column(db.Float, default=0.0)
-    photo_url    = db.Column(db.String(500))
+    id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    school_id     = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
+    employee_id   = db.Column(db.String(30), unique=True)
+    department    = db.Column(db.String(100))
+    designation   = db.Column(db.String(100), default='Teacher')
+    joining_date  = db.Column(db.Date)
+    qualification = db.Column(db.String(200))
+    salary        = db.Column(db.Float, default=0.0)
+    photo_url     = db.Column(db.String(500))
 
     classes_taught = db.relationship('Subject', backref='teacher_ref', lazy='dynamic',
                                      foreign_keys='Subject.teacher_id')
 
     def to_dict(self):
         return {
-            'id': self.id, 'employee_id': self.employee_id,
-            'department': self.department, 'designation': self.designation,
-            'school_id': self.school_id,
-            'name': self.user.name if self.user else '',
-            'email': self.user.email if self.user else '',
-            'photo_url': self.photo_url
+            'id':          self.id,
+            'employee_id': self.employee_id,
+            'department':  self.department,
+            'designation': self.designation,
+            'school_id':   self.school_id,
+            'name':        self.user.name  if self.user else '',
+            'email':       self.user.email if self.user else '',
+            'photo_url':   self.photo_url,
         }
 
 
@@ -104,14 +106,19 @@ class Student(db.Model):
 
     def to_dict(self):
         return {
-            'id': self.id, 'roll_number': self.roll_number,
-            'admission_no': self.admission_no, 'class_id': self.class_id,
-            'school_id': self.school_id, 'session': self.session,
-            'name': self.user.name if self.user else '',
-            'email': self.user.email if self.user else '',
-            'parent_name': self.parent_name, 'parent_phone': self.parent_phone,
-            'father_name': self.father_name, 'mother_name': self.mother_name,
-            'photo_url': self.photo_url
+            'id':           self.id,
+            'roll_number':  self.roll_number,
+            'admission_no': self.admission_no,
+            'class_id':     self.class_id,
+            'school_id':    self.school_id,
+            'session':      self.session,
+            'name':         self.user.name  if self.user else '',
+            'email':        self.user.email if self.user else '',
+            'parent_name':  self.parent_name,
+            'parent_phone': self.parent_phone,
+            'father_name':  self.father_name,
+            'mother_name':  self.mother_name,
+            'photo_url':    self.photo_url,
         }
 
 
@@ -122,77 +129,87 @@ class Attendance(db.Model):
     student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
     class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=False)
     date       = db.Column(db.Date, nullable=False)
-    status     = db.Column(db.String(10), default='PRESENT')  # PRESENT / ABSENT / LATE
+    status     = db.Column(db.String(10), default='PRESENT')
     marked_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
     remarks    = db.Column(db.String(200))
 
     __table_args__ = (db.UniqueConstraint('student_id', 'date', name='uq_attendance'),)
 
     def to_dict(self):
-        return {'id': self.id, 'student_id': self.student_id,
-                'date': str(self.date), 'status': self.status}
+        return {
+            'id':         self.id,
+            'student_id': self.student_id,
+            'date':       str(self.date),
+            'status':     self.status,
+        }
 
 
 class Marks(db.Model):
     __tablename__ = 'marks'
 
-    id         = db.Column(db.Integer, primary_key=True)
-    student_id = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
-    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
-    exam_type  = db.Column(db.String(50))   # e.g. "Mid Term", "Final"
+    id             = db.Column(db.Integer, primary_key=True)
+    student_id     = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
+    subject_id     = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+    exam_type      = db.Column(db.String(50))
     marks_obtained = db.Column(db.Float, default=0)
-    max_marks  = db.Column(db.Float, default=100)
-    grade      = db.Column(db.String(5))
-    remarks    = db.Column(db.String(200))
-    entered_by = db.Column(db.Integer, db.ForeignKey('users.id'))
-    entered_at = db.Column(db.DateTime, default=datetime.utcnow)
+    max_marks      = db.Column(db.Float, default=100)
+    grade          = db.Column(db.String(5))
+    remarks        = db.Column(db.String(200))
+    entered_by     = db.Column(db.Integer, db.ForeignKey('users.id'))
+    entered_at     = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
-    return {
-        'id':             self.id,
-        'student_id':     self.student_id,
-        'subject_id':     self.subject_id,
-        'subject_name':   self.subject.name if self.subject else 'N/A',
-        'exam_type':      self.exam_type,
-        'marks_obtained': self.marks_obtained,
-        'max_marks':      self.max_marks,
-        'grade':          self.grade,
-    }
+        return {
+            'id':             self.id,
+            'student_id':     self.student_id,
+            'subject_id':     self.subject_id,
+            'subject_name':   self.subject.name if self.subject else 'N/A',
+            'exam_type':      self.exam_type,
+            'marks_obtained': self.marks_obtained,
+            'max_marks':      self.max_marks,
+            'grade':          self.grade,
+        }
+
 
 class Note(db.Model):
     __tablename__ = 'notes'
 
-    id         = db.Column(db.Integer, primary_key=True)
-    title      = db.Column(db.String(200), nullable=False)
-    description= db.Column(db.Text)
-    file_url   = db.Column(db.String(500))
-    file_name  = db.Column(db.String(200))
-    subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)
-    class_id   = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
-    school_id  = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
-    uploaded_by= db.Column(db.Integer, db.ForeignKey('users.id'))
-    uploaded_at= db.Column(db.DateTime, default=datetime.utcnow)
+    id          = db.Column(db.Integer, primary_key=True)
+    title       = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    file_url    = db.Column(db.String(500))
+    file_name   = db.Column(db.String(200))
+    subject_id  = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=True)
+    class_id    = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
+    school_id   = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False)
+    uploaded_by = db.Column(db.Integer, db.ForeignKey('users.id'))
+    uploaded_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
         return {
-            'id': self.id, 'title': self.title, 'description': self.description,
-            'file_url': self.file_url, 'file_name': self.file_name,
-            'subject_id': self.subject_id, 'uploaded_at': self.uploaded_at.isoformat()
+            'id':          self.id,
+            'title':       self.title,
+            'description': self.description,
+            'file_url':    self.file_url,
+            'file_name':   self.file_name,
+            'subject_id':  self.subject_id,
+            'uploaded_at': self.uploaded_at.isoformat(),
         }
+
+
 class TeacherAttendance(db.Model):
     """Daily attendance record for teachers/staff."""
     __tablename__ = 'teacher_attendance'
 
-    id          = db.Column(db.Integer, primary_key=True)
-    teacher_id  = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
-    school_id   = db.Column(db.Integer, db.ForeignKey('schools.id'),  nullable=False)
-    date        = db.Column(db.Date, nullable=False)
-    status      = db.Column(db.String(20), default='PRESENT')
-    # PRESENT / ABSENT / HALF_DAY / ON_LEAVE
-    check_in    = db.Column(db.String(10))   # "09:30 AM"
-    check_out   = db.Column(db.String(10))   # "05:00 PM"
-    marked_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
-    remarks     = db.Column(db.String(200))
+    id         = db.Column(db.Integer, primary_key=True)
+    teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=False)
+    school_id  = db.Column(db.Integer, db.ForeignKey('schools.id'),  nullable=False)
+    date       = db.Column(db.Date, nullable=False)
+    status     = db.Column(db.String(20), default='PRESENT')
+    check_in   = db.Column(db.String(10))
+    check_out  = db.Column(db.String(10))
+    marked_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
+    remarks    = db.Column(db.String(200))
 
     teacher = db.relationship('Teacher', backref='attendance_records')
 
@@ -210,6 +227,8 @@ class TeacherAttendance(db.Model):
             'check_out':  self.check_out,
             'remarks':    self.remarks,
         }
+
+
 class TeacherAttendanceRequest(db.Model):
     """Teacher self-marks attendance → principal approves/denies."""
     __tablename__ = 'teacher_attendance_requests'
@@ -219,12 +238,10 @@ class TeacherAttendanceRequest(db.Model):
     school_id   = db.Column(db.Integer, db.ForeignKey('schools.id'),  nullable=False)
     date        = db.Column(db.Date, nullable=False)
     status      = db.Column(db.String(20), default='PRESENT')
-    # PRESENT / ABSENT / HALF_DAY / ON_LEAVE
     check_in    = db.Column(db.String(10))
     check_out   = db.Column(db.String(10))
     remarks     = db.Column(db.String(200), default='')
     approval    = db.Column(db.String(20), default='PENDING')
-    # PENDING / APPROVED / DENIED
     reviewed_by = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     reviewed_at = db.Column(db.DateTime, nullable=True)
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
