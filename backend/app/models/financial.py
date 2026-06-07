@@ -16,11 +16,18 @@ class FeeStructure(db.Model):
     due_date_day = db.Column(db.Integer, default=10)  # day of month
 
     def to_dict(self):
-        return {
-            'id': self.id, 'class_id': self.class_id,
-            'fee_type': self.fee_type, 'amount': self.amount,
-            'frequency': self.frequency
-        }
+    return {
+        'id': self.id, 'student_id': self.student_id,
+        'fee_type': self.fee_type, 'amount_due': self.amount_due,
+        'amount_paid': self.amount_paid, 'status': self.status,
+        'month': self.month, 'session': self.session,
+        'discount': self.discount or 0, 'fine': self.fine or 0,
+        'due_date': str(self.due_date) if self.due_date else None,
+        'paid_date': str(self.paid_date) if self.paid_date else None,
+        'receipt_no': self.receipt_no, 'payment_mode': self.payment_mode,
+        'remarks': self.remarks or '',
+        'collected_by': self.collected_by,
+    }
 
 
 class FeeRecord(db.Model):
