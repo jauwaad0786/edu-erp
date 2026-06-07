@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+
 from flask import Blueprint, request, jsonify
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
@@ -18,7 +18,8 @@ import random
 import time
 
 auth_bp = Blueprint('auth', __name__)
-limiter = Limiter(get_remote_address)
+from app import app as flask_app
+limiter = Limiter(get_remote_address, app=flask_app)
 
 # In-memory OTP store
 _otp_store = {}
