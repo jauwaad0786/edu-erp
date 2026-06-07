@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../../components/Sidebar';
 import Navbar  from '../../components/Navbar';
 import api from '../../api/axios';
+import toast from 'react-hot-toast';
 
 export default function TeacherDashboard() {
   const [classes,       setClasses]       = useState([]);
@@ -106,9 +107,11 @@ export default function TeacherDashboard() {
         date:     today,
         records,
       });
+      toast.success('Attendance saved!');
       setMsg('✅ Attendance saved!');
       setAlreadyMarked(true);
     } catch {
+      toast.error('Error saving attendance');
       setMsg('❌ Error saving attendance');
     }
     setSaving(false);
@@ -129,9 +132,12 @@ export default function TeacherDashboard() {
         }));
       if (!entries.length) { setMsg('❌ Kisi ka marks enter nahi kiya'); setSaving(false); return; }
       await api.post('/teacher/marks', { entries, exam_type: examType });
+      toast.success(`${entries.length} students ke marks saved!`);
       setMsg(`✅ ${entries.length} students ke marks saved!`);
     } catch {
+      toast.error('Error saving marks');
       setMsg('❌ Error saving marks');
+    }
     }
     setSaving(false);
     setTimeout(() => setMsg(''), 3500);
@@ -154,9 +160,12 @@ export default function TeacherDashboard() {
         remarks:   selfAtt.remarks,
       });
       setSelfAttSaved(r.data);
+      toast.success('Attendance request submitted!');
       setMsg('✅ Attendance request submitted — Principal se approval pending hai');
     } catch {
+      toast.error('Error submitting attendance');
       setMsg('❌ Error submitting attendance');
+    }
     }
     setSelfAttSaving(false);
     setTimeout(() => setMsg(''), 4000);
@@ -882,10 +891,12 @@ function NotesUpload({ selectedClass }) {
       await api.post('/teacher/notes', fd, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
+      toast.success('Note uploaded successfully!');
       setMsg('✅ Note uploaded successfully!');
       setForm({ title:'', description:'' });
       setFile(null);
     } catch {
+      toast.error('Upload failed');
       setMsg('❌ Upload failed');
     }
     setUploading(false);
