@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 /* ── small helpers ──────────────────────────────────────────────────────── */
 const fmt  = n => Number(n ?? 0).toLocaleString('en-IN');
@@ -61,7 +62,11 @@ export default function FeesPage() {
     const params = new URLSearchParams();
     if (filterStatus) params.append('status',   filterStatus);
     if (filterClass)  params.append('class_id', filterClass);
-    if (filterMonth) params.append('month', filterMonth);
+    if (filterMonth) {
+      const [y, m] = filterMonth.split('-');
+      const monthName = new Date(y, m - 1).toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+      params.append('month', monthName);
+    }
     if (filterFeeType) params.append('fee_type', filterFeeType);
 
     Promise.all([
@@ -83,6 +88,8 @@ export default function FeesPage() {
   function flash(text, type = 'success') {
     setMsg({ text, type });
     setTimeout(() => setMsg({ text: '', type: '' }), 3500);
+    if (type === 'success') toast.success(text.replace(/^✅\s*/, ''));
+    else toast.error(text.replace(/^❌\s*/, ''));
   }
 
   /* ── open collect modal ── */
