@@ -57,3 +57,13 @@ api.interceptors.response.use(
 );
 
 export default api;
+api.interceptors.response.use(
+  r => r,
+  err => {
+    if (err.response?.status === 401) {
+      localStorage.clear();
+      window.location.href = '/login';
+    }
+    return Promise.reject(err);
+  }
+);
