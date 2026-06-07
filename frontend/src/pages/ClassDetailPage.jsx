@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 export default function ClassDetailPage() {
   const { id }       = useParams();
@@ -32,9 +33,12 @@ export default function ClassDetailPage() {
     setAssigning(true);
     try {
       await api.post(`/principal/classes/${id}/assign-teacher`, { teacher_id: selTeacher });
+      toast.success('Class teacher assign ho gaya!');
       const r = await api.get(`/principal/classes/${id}/detail`);
       setData(r.data);
-    } catch {}
+    } catch {
+      toast.error('Teacher assign nahi hua, dobara try karo');
+    }
     setAssigning(false);
   };
 
@@ -269,7 +273,7 @@ export default function ClassDetailPage() {
                         }}>📚</div>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:12, color:'var(--neutral-5)' }}>{subj}</div>
-                          <div style={{ fontWeight:700, fontSize:13 }}
+                          <div
                                onClick={() => navigate(`/students/${t.student_id}`)}
                                style={{ fontWeight:700, fontSize:13, color:'#0176d3', cursor:'pointer' }}>
                             {t.name}
