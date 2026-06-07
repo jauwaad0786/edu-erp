@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 export default function TeacherProfile() {
   const { id }      = useParams();
@@ -28,9 +29,12 @@ export default function TeacherProfile() {
     setSaving(true);
     try {
       await api.patch(`/principal/teachers/${id}/salary`, { salary: parseFloat(newSalary) });
+      toast.success('Salary updated!');
       await load();
       setEditSalary(false);
-    } catch {}
+    } catch {
+      toast.error('Salary update nahi hui');
+    }
     setSaving(false);
   };
 
@@ -101,10 +105,15 @@ export default function TeacherProfile() {
                     if (!e.target.files[0]) return;
                     const fd = new FormData();
                     fd.append('photo', e.target.files[0]);
-                    await api.post(`/principal/teachers/${id}/photo`, fd, {
-                      headers: { 'Content-Type': 'multipart/form-data' }
-                    });
-                    load();
+                    try {
+                      await api.post(`/principal/teachers/${id}/photo`, fd, {
+                        headers: { 'Content-Type': 'multipart/form-data' }
+                      });
+                      toast.success('Photo upload ho gayi!');
+                      load();
+                    } catch {
+                      toast.error('Photo upload nahi hui');
+                    }
                   }} />
               </label>
             </div>
