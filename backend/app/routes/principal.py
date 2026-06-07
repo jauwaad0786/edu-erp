@@ -42,7 +42,18 @@ def list_classes():
         d['student_count'] = c.students.count()
         result.append(d)
     return jsonify(result), 200
-
+@principal_bp.route('/classes/<int:class_id>', methods=['PATCH'])
+@role_required('PRINCIPAL', 'TEACHER')
+def update_class(class_id):
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    data = request.get_json()
+    if data.get('name'):    cls.name    = data['name']
+    if data.get('section'): cls.section = data['section']
+    if data.get('session'): cls.session = data['session']
+    db.session.commit()
+    return jsonify(cls.to_dict()), 200
 
 @principal_bp.route('/classes', methods=['POST'])
 @role_required('PRINCIPAL', 'TEACHER')
