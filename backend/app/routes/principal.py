@@ -52,8 +52,6 @@ def create_class():
         name=data['name'],
         section=data.get('section', 'A'),
         session=data.get('session', '2024-25'),
-        father_name=data.get('father_name'),
-        mother_name=data.get('mother_name'),
         school_id=_school_id()
     )
     db.session.add(cls)
@@ -1589,24 +1587,6 @@ def update_teacher(t_id):
         if data.get('phone'): t.user.phone = data['phone']
     db.session.commit()
     return jsonify(t.to_dict()), 200
-    Class.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
-    Subject.query.filter_by(teacher_id=t_id).update({'teacher_id': None})
-    
-    # Delete teacher attendance records
-    TeacherAttendance.query.filter_by(teacher_id=t_id).delete()
-    TeacherAttendanceRequest.query.filter_by(teacher_id=t_id).delete()
-    db.session.flush()
-    
-    user = t.user
-    db.session.delete(t)
-    db.session.flush()
-    
-    if user:
-        Note.query.filter_by(uploaded_by=user.id).update({'uploaded_by': None})
-        db.session.flush()
-        db.session.delete(user)
-    
-    db.session.commit()
 
 @principal_bp.route('/teachers/<int:t_id>', methods=['DELETE'])
 @role_required('PRINCIPAL')
