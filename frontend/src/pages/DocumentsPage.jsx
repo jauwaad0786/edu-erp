@@ -23,7 +23,6 @@ export default function DocumentsPage() {
       toast.error('Documents load nahi hue');
     }).finally(() => setLoading(false));
   }, []);
-
   const filtered = notes.filter(n => {
     const q = filter.toLowerCase();
     const matchSearch = !q || n.title?.toLowerCase().includes(q) ||
