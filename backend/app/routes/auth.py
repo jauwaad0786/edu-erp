@@ -17,8 +17,8 @@ import random
 import time
 
 auth_bp = Blueprint('auth', __name__)
-from app import app as flask_app
-limiter = Limiter(get_remote_address, app=flask_app)
+
+
 
 # In-memory OTP store
 _otp_store = {}
