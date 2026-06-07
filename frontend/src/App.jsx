@@ -87,6 +87,16 @@ export default function App() {
             </ProtectedRoute>
           } />
           
+          <Route path="/marks" element={
+            <ProtectedRoute roles={['TEACHER', 'PRINCIPAL']}>
+              <Navigate to="/dashboard" replace />
+            </ProtectedRoute>
+          } />
+          <Route path="/notes" element={
+            <ProtectedRoute roles={['TEACHER', 'PRINCIPAL']}>
+              <Navigate to="/dashboard" replace />
+            </ProtectedRoute>
+          } />
           <Route path="/documents" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
               <DocumentsPage />
