@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
+import toast   from 'react-hot-toast';
 
 const GENDERS  = ['Male', 'Female', 'Other'];
 const SESSIONS = ['2024-25', '2025-26', '2026-27'];
@@ -64,6 +65,7 @@ export default function NewAdmissionPage() {
       });
 
       setDone(res.data);
+      toast.success('Student admit ho gaya!');
       flash('✅ Student admit ho gaya!');
       setForm({
         name: '', class_id: '', roll_number: '',
@@ -73,7 +75,9 @@ export default function NewAdmissionPage() {
         address: '', password: 'Student@123',
       });
     } catch (err) {
-      flash('❌ ' + (err.response?.data?.error || 'Error aaya'), 'error');
+      const errMsg = err.response?.data?.error || 'Error aaya';
+      toast.error(errMsg);
+      flash('❌ ' + errMsg, 'error');
     }
     setSaving(false);
   }
@@ -86,8 +90,10 @@ async function uploadPhoto(studentId, file) {
       headers: { 'Content-Type': 'multipart/form-data' }
     });
     setPhotoPreview(res.data.photo_url);
+   toast.success('Photo upload ho gayi!');
     flash('✅ Photo upload ho gayi!');
   } catch {
+    toast.error('Photo upload nahi hui');
     flash('❌ Photo upload nahi hui', 'error');
   }
   setPhotoUploading(false);
@@ -415,9 +421,14 @@ async function downloadPDF(studentId, studentName) {
                       {photoUploading && <span style={{ fontSize: 11, color: '#94a3b8' }}>Uploading...</span>}
                       {photoPreview &&
                         <button onClick={async () => {
-                          await api.delete(`/principal/students/${done.id}/photo`);
-                          setPhotoPreview(null);
-                          flash('Photo delete ho gayi');
+                          try {
+                            await api.delete(`/principal/students/${done.id}/photo`);
+                            setPhotoPreview(null);
+                            toast.success('Photo delete ho gayi');
+                            flash('Photo delete ho gayi');
+                          } catch {
+                            toast.error('Photo delete nahi hui');
+                          }
                         }} style={{
                             background: 'none', border: 'none',
                             color: '#dc2626', fontSize: 12, cursor: 'pointer' }}>
