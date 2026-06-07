@@ -39,8 +39,14 @@ class Subject(db.Model):
     notes      = db.relationship('Note', backref='subject', lazy='dynamic')
 
     def to_dict(self):
-        return {'id': self.id, 'name': self.name, 'code': self.code,
-                'class_id': self.class_id, 'max_marks': self.max_marks}
+    return {
+        'id':         self.id,
+        'name':       self.name,
+        'code':       self.code,
+        'class_id':   self.class_id,
+        'teacher_id': self.teacher_id,
+        'max_marks':  self.max_marks,
+    }
 
 
 class Teacher(db.Model):
@@ -142,13 +148,16 @@ class Marks(db.Model):
     entered_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     def to_dict(self):
-        return {
-            'id': self.id, 'student_id': self.student_id,
-            'subject_id': self.subject_id, 'exam_type': self.exam_type,
-            'marks_obtained': self.marks_obtained, 'max_marks': self.max_marks,
-            'grade': self.grade
-        }
-
+    return {
+        'id':             self.id,
+        'student_id':     self.student_id,
+        'subject_id':     self.subject_id,
+        'subject_name':   self.subject.name if self.subject else 'N/A',
+        'exam_type':      self.exam_type,
+        'marks_obtained': self.marks_obtained,
+        'max_marks':      self.max_marks,
+        'grade':          self.grade,
+    }
 
 class Note(db.Model):
     __tablename__ = 'notes'
