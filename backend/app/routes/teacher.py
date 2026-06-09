@@ -6,7 +6,7 @@ from app.models.academic import Attendance, Marks, Note, Student, Class
 from app.utils.decorators import role_required, get_current_user
 from datetime import date
 import os
-
+import cloudinary.uploader
 teacher_bp = Blueprint('teacher', __name__)
 
 
@@ -27,7 +27,6 @@ def mark_attendance():
         if existing:
             existing.status = rec['status']
         else:
-            student = Student.query.get(rec['student_id'])
             a = Attendance(student_id=rec['student_id'], class_id=class_id,
                            date=att_date, status=rec['status'], marked_by=user.id,
                            remarks=rec.get('remarks', ''))
@@ -92,13 +91,29 @@ def enter_marks():
 @role_required('TEACHER', 'PRINCIPAL')
 def get_marks(class_id):
     exam_type = request.args.get('exam_type')
-    students = Student.query.filter_by(class_id=class_id).all()
-    result = []
-    for s in students:
-        q = Marks.query.filter_by(student_id=s.id)
-        if exam_type:
-            q = q.filter_by(exam_type=exam_type)
-        result.append({'student': s.to_dict(), 'marks': [m.to_dict() for m in q.all()]})
+    from sqlalchemy.orm import joinedload
+    students = Student.query.options(
+        joinedload(Student.user)
+    ).filter_by(class_id=class_id).all()
+
+    student_ids = [s.id for s in students]
+
+    # Single query for all marks
+    marks_q = Marks.query.filter(Marks.student_id.in_(student_ids))
+    if exam_type:
+        marks_q = marks_q.filter_by(exam_type=exam_type)
+    all_marks = marks_q.all()
+
+    # Group marks by student_id in memory
+    from collections import defaultdict
+    marks_map = defaultdict(list)
+    for m in all_marks:
+        marks_map[m.student_id].append(m.to_dict())
+
+    result = [
+        {'student': s.to_dict(), 'marks': marks_map[s.id]}
+        for s in students
+    ]
     return jsonify(result), 200
 
 
@@ -113,9 +128,7 @@ def _allowed(filename):
 @teacher_bp.route('/notes', methods=['POST'])
 @role_required('TEACHER')
 def upload_note():
-    import cloudinary
-    import cloudinary.uploader
-    import os
+    
 
     
     user       = get_current_user()
