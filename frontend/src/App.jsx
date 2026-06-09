@@ -22,6 +22,9 @@ import NewAdmissionPage    from './pages/NewAdmissionPage';
 import StudentProfile      from './pages/StudentProfile';
 import ClassDetailPage     from './pages/ClassDetailPage';
 import TeacherProfile      from './pages/TeacherProfile';
+import HolidaysPage from './pages/HolidaysPage';
+import NotesPage    from './pages/NotesPage';
+
 export default function App() {
   return (
     <AuthProvider>
@@ -92,10 +95,16 @@ export default function App() {
               <Navigate to="/dashboard" replace />
             </ProtectedRoute>
           } />
-          <Route path="/notes" element={
-            <ProtectedRoute roles={['TEACHER', 'PRINCIPAL']}>
-              <Navigate to="/dashboard" replace />
+          <Route path="/holidays" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+              <HolidaysPage />
             </ProtectedRoute>
+          } />
+          <Route path="/notes" element={
+            <ProtectedRoute roles={['TEACHER', 'PRINCIPAL', 'STUDENT']}>
+              <NotesPage />
+            </ProtectedRoute>
+          } />
           } />
           <Route path="/documents" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
