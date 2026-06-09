@@ -56,7 +56,8 @@ export default function TeacherDashboard() {
 
     api.get('/principal/students?class_id=' + selectedClass)
       .then(function(r) {
-        setStudents(r.data);
+        var list = Array.isArray(r.data) ? r.data : (r.data.data || []);
+        setStudents(list);
         var init = {};
         r.data.forEach(function(s) { init[String(s.id)] = 'PRESENT'; });
 
