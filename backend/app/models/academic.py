@@ -34,7 +34,8 @@ class Subject(db.Model):
     teacher_id = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
     max_marks  = db.Column(db.Integer, default=100)
     pass_marks = db.Column(db.Integer, default=33)
-
+    # Line ~42, Subject class mein add karo:
+    school_id  = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
     marks      = db.relationship('Marks', backref='subject', lazy='dynamic')
     notes      = db.relationship('Note', backref='subject', lazy='dynamic')
 
@@ -46,6 +47,7 @@ class Subject(db.Model):
             'class_id':   self.class_id,
             'teacher_id': self.teacher_id,
             'max_marks':  self.max_marks,
+            'school_id': self.school_id,
         }
 
 
