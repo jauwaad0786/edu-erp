@@ -13,7 +13,6 @@ from app.utils.pdf_generator import generate_admit_card, generate_result_card
 from sqlalchemy import func
 from datetime import date, datetime
 import random, string
-import cloudinary
 import cloudinary.uploader
 import os
 principal_bp = Blueprint('principal', __name__)
@@ -77,7 +76,10 @@ def class_detail(class_id):
     if cls.school_id != sid:
         return jsonify({'error': 'Unauthorized'}), 403
 
-    students = cls.students.all()
+    from sqlalchemy.orm import joinedload
+    students = Student.query.options(
+        joinedload(Student.user)
+    ).filter_by(class_id=class_id).all()
     total_students = len(students)
 
     # ── Fee summary ──
@@ -87,12 +89,21 @@ def class_detail(class_id):
     total_paid = db.session.query(func.sum(FeeRecord.amount_paid))\
                    .filter(FeeRecord.student_id.in_(student_ids)).scalar() or 0 if student_ids else 0
 
+    # Single query — per student fee aggregates
+    from sqlalchemy import case
+    fee_agg = db.session.query(
+        FeeRecord.student_id,
+        func.sum(FeeRecord.amount_due).label('due'),
+        func.sum(FeeRecord.amount_paid).label('paid'),
+    ).filter(FeeRecord.student_id.in_(student_ids))\
+     .group_by(FeeRecord.student_id).all() if student_ids else []
+    
     fee_paid_count    = 0
     fee_pending_count = 0
+    fee_agg_map = {r.student_id: r for r in fee_agg}
     for s in students:
-        s_due  = db.session.query(func.sum(FeeRecord.amount_due)).filter_by(student_id=s.id).scalar() or 0
-        s_paid = db.session.query(func.sum(FeeRecord.amount_paid)).filter_by(student_id=s.id).scalar() or 0
-        if s_due > 0 and s_paid >= s_due:
+        r = fee_agg_map.get(s.id)
+        if r and r.due > 0 and r.paid >= r.due:
             fee_paid_count += 1
         else:
             fee_pending_count += 1
@@ -138,10 +149,11 @@ def class_detail(class_id):
         if not subj_marks:
             continue
         top_m = max(subj_marks, key=lambda m: m.marks_obtained or 0)
-        student = Student.query.get(top_m.student_id)
+        # student already loaded in memory — no extra DB call
+        top_student = next((s for s in students if s.id == top_m.student_id), None)
         subject_toppers[subj.name] = {
             'student_id':   top_m.student_id,
-            'name':         student.user.name if student and student.user else '',
+            'name':         top_student.user.name if top_student and top_student.user else '',
             'marks':        top_m.marks_obtained,
             'max_marks':    top_m.max_marks,
             'percentage':   round(top_m.marks_obtained / top_m.max_marks * 100, 1) if top_m.max_marks else 0,
@@ -457,7 +469,17 @@ def list_students():
     q = Student.query.filter_by(school_id=_school_id())
     if class_id:
         q = q.filter_by(class_id=class_id)
-    return jsonify([s.to_dict() for s in q.all()]), 200
+    page     = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 50, type=int), 100)
+    paginated = q.order_by(Student.id).paginate(page=page, per_page=per_page, error_out=False)
+    return jsonify({
+        'data':     [s.to_dict() for s in paginated.items],
+        'total':    paginated.total,
+        'page':     paginated.page,
+        'pages':    paginated.pages,
+        'has_next': paginated.has_next,
+        'has_prev': paginated.has_prev,
+    }), 200
 
 
 @principal_bp.route('/students', methods=['POST'])
@@ -533,12 +555,26 @@ def fee_records():
         q = q.join(Student, FeeRecord.student_id == Student.id)\
              .filter(Student.class_id == class_id)
 
-    records = q.order_by(FeeRecord.created_at.desc()).all()
+    
+
+    from sqlalchemy.orm import joinedload, contains_eager
+
+    page     = request.args.get('page', 1, type=int)
+    per_page = min(request.args.get('per_page', 50, type=int), 100)
+
+    # Eager load student + user + class in one shot
+    q = q.join(Student, FeeRecord.student_id == Student.id)\
+         .join(User, Student.user_id == User.id)\
+         .options(
+             contains_eager(FeeRecord.student).contains_eager(Student.user),
+         ).order_by(FeeRecord.created_at.desc()) if not class_id else q.order_by(FeeRecord.created_at.desc())
+
+    paginated = q.paginate(page=page, per_page=per_page, error_out=False)
 
     result = []
-    for r in records:
+    for r in paginated.items:
         d = r.to_dict()
-        student = Student.query.get(r.student_id)
+        student = r.student if hasattr(r, 'student') and r.student else Student.query.get(r.student_id)
         if student:
             cls = Class.query.get(student.class_id)
             d['student_name'] = student.user.name if student.user else ''
@@ -547,7 +583,13 @@ def fee_records():
             d['class_name']   = f"{cls.name} - {cls.section}" if cls else ''
         result.append(d)
 
-    return jsonify(result), 200
+    return jsonify({
+        'data':     result,
+        'total':    paginated.total,
+        'page':     paginated.page,
+        'pages':    paginated.pages,
+        'has_next': paginated.has_next,
+    }), 200
 
 
 @principal_bp.route('/fees/collect', methods=['POST'])
@@ -1667,20 +1709,43 @@ def attendance_weekly():
     student_weekly = []
     teacher_weekly = []
 
+    from sqlalchemy import case as sa_case
+
+    # All 7 days student att — 1 query
+    s_week_agg = db.session.query(
+        Attendance.date,
+        func.sum(sa_case((Attendance.status == 'PRESENT', 1), else_=0)).label('present'),
+        func.sum(sa_case((Attendance.status == 'ABSENT',  1), else_=0)).label('absent'),
+        func.sum(sa_case((Attendance.status == 'LATE',    1), else_=0)).label('late'),
+    ).join(Student, Attendance.student_id == Student.id)\
+     .filter(Student.school_id == sid, Attendance.date.in_(days))\
+     .group_by(Attendance.date).all()
+    s_week_map = {r.date: r for r in s_week_agg}
+
+    # All 7 days teacher att — 1 query
+    t_week_agg = db.session.query(
+        TeacherAttendance.date,
+        func.sum(sa_case((TeacherAttendance.status == 'PRESENT', 1), else_=0)).label('present'),
+        func.sum(sa_case((TeacherAttendance.status == 'ABSENT',  1), else_=0)).label('absent'),
+    ).filter(TeacherAttendance.school_id == sid, TeacherAttendance.date.in_(days))\
+     .group_by(TeacherAttendance.date).all()
+    t_week_map = {r.date: r for r in t_week_agg}
+
     for d in days:
-        # Students
-        att = Attendance.query.join(Student, Attendance.student_id == Student.id)\
-                .filter(Student.school_id == sid, Attendance.date == d).all()
-        present = sum(1 for a in att if a.status == 'PRESENT')
-        absent  = sum(1 for a in att if a.status == 'ABSENT')
-        late    = sum(1 for a in att if a.status == 'LATE')
+        sr = s_week_map.get(d)
         student_weekly.append({
-            'date':    str(d),
-            'day':     d.strftime('%a'),
+            'date':    str(d), 'day': d.strftime('%a'),
             'total':   total_students,
-            'present': present,
-            'absent':  absent,
-            'late':    late,
+            'present': sr.present if sr else 0,
+            'absent':  sr.absent  if sr else 0,
+            'late':    sr.late    if sr else 0,
+        })
+        tr = t_week_map.get(d)
+        teacher_weekly.append({
+            'date':    str(d), 'day': d.strftime('%a'),
+            'total':   total_teachers,
+            'present': tr.present if tr else 0,
+            'absent':  tr.absent  if tr else 0,
         })
 
         # Teachers
@@ -1696,19 +1761,30 @@ def attendance_weekly():
         })
 
     # Class-wise today
+    # Class-wise today — single aggregated query
+    from sqlalchemy import case as sa_case
+    class_att_agg = db.session.query(
+        Student.class_id,
+        func.count(Student.id).label('total'),
+        func.sum(sa_case((Attendance.status == 'PRESENT', 1), else_=0)).label('present'),
+        func.sum(sa_case((Attendance.status == 'ABSENT',  1), else_=0)).label('absent'),
+        func.sum(sa_case((Attendance.status == 'LATE',    1), else_=0)).label('late'),
+    ).outerjoin(Attendance, (Attendance.student_id == Student.id) & (Attendance.date == today))\
+     .filter(Student.school_id == sid)\
+     .group_by(Student.class_id).all()
+
+    agg_by_class = {r.class_id: r for r in class_att_agg}
+
     class_today = []
     for c in classes:
-        sids = [s.id for s in c.students.all()]
-        att  = Attendance.query.filter(
-            Attendance.student_id.in_(sids), Attendance.date == today
-        ).all() if sids else []
+        r = agg_by_class.get(c.id)
         class_today.append({
             'class_id':   c.id,
             'class_name': f"{c.name} {c.section}",
-            'total':      len(sids),
-            'present':    sum(1 for a in att if a.status == 'PRESENT'),
-            'absent':     sum(1 for a in att if a.status == 'ABSENT'),
-            'late':       sum(1 for a in att if a.status == 'LATE'),
+            'total':      r.total   if r else 0,
+            'present':    r.present if r else 0,
+            'absent':     r.absent  if r else 0,
+            'late':       r.late    if r else 0,
         })
 
     return jsonify({
