@@ -20,7 +20,52 @@ function StatCard({ icon, label, value, sub, color = '#0176d3', bg }) {
     </div>
   );
 }
+function UpcomingExams() {
+  const navigate = useNavigate();
+  const [exams, setExams] = useState([]);
 
+  useEffect(() => {
+    api.get('/principal/exams?status=PUBLISHED')
+      .then(r => setExams((r.data || []).slice(0, 3)))
+      .catch(() => {});
+  }, []);
+
+  if (exams.length === 0) return null;
+
+  return (
+    <div className="card" style={{ marginBottom: 20 }}>
+      <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h4 style={{ margin: 0 }}>📝 Upcoming Exams</h4>
+        <button className="btn btn-neutral btn-sm" onClick={() => navigate('/exams')}>
+          View All
+        </button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, padding: '12px 16px' }}>
+        {exams.map(e => (
+          <div key={e.id} style={{
+            border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 16px',
+            borderLeft: '4px solid #7c3aed',
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>
+              {e.exam_name}
+            </div>
+            <div style={{ fontSize: 11, color: '#64748b', marginBottom: 6 }}>
+              {e.exam_type?.replace('_', ' ')}
+            </div>
+            <div style={{ fontSize: 11, color: '#475569' }}>
+              📅 {e.start_date} → {e.end_date}
+            </div>
+            <span style={{
+              display: 'inline-block', marginTop: 8,
+              background: '#f5f3ff', color: '#7c3aed',
+              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+            }}>PUBLISHED</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
 export default function PrincipalDashboard() {
   const navigate = useNavigate();
   const [stats,   setStats]   = useState(null);
@@ -90,7 +135,15 @@ export default function PrincipalDashboard() {
               <h2 className="page-title">School Overview</h2>
               <p className="page-subtitle">Session 2024–25 &nbsp;·&nbsp; Real-time data</p>
             </div>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              {/* Session badge */}
+              <span style={{
+                background: '#f1f5f9', color: '#475569', fontSize: 12,
+                fontWeight: 600, padding: '5px 12px', borderRadius: 8,
+                border: '1px solid #e2e8f0',
+              }}>
+                📅 {new Date().toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}
+              </span>
               <button className="btn btn-neutral btn-sm" onClick={() => {
                 const rows = [
                   ['Metric', 'Value'],
@@ -110,10 +163,9 @@ export default function PrincipalDashboard() {
                 a.download = `EduERP_Report_${new Date().toLocaleDateString('en-IN').replace(/\//g,'-')}.csv`;
                 a.click();
                 URL.revokeObjectURL(url);
-              }}>📥 Export Report</button>
-              <button className="btn btn-primary btn-sm"
-                onClick={() => navigate('/students')}>
-                + Enroll Student
+              }}>📥 Export</button>
+              <button className="btn btn-primary btn-sm" onClick={() => navigate('/admission')}>
+                + New Admission
               </button>
             </div>
           </div>
@@ -137,7 +189,35 @@ export default function PrincipalDashboard() {
               sub={`${fmt(feeTotals.pending_count)} pending`}
               color="#dd7a01" />
           </div>
-           
+           {/* ── Quick Actions ── */}
+          <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+            {[
+              { icon: '📋', label: 'Mark Attendance', path: '/attendance', color: '#0176d3', bg: '#eff6ff' },
+              { icon: '💰', label: 'Collect Fee',     path: '/fees',       color: '#16a34a', bg: '#f0fdf4' },
+              { icon: '📝', label: 'Add Exam',        path: '/exams',      color: '#7c3aed', bg: '#f5f3ff' },
+              { icon: '✚',  label: 'Enroll Student',  path: '/admission',  color: '#db2777', bg: '#fdf2f8' },
+              { icon: '👩‍🏫', label: 'Add Teacher',   path: '/teachers',   color: '#d97706', bg: '#fffbeb' },
+              { icon: '📤', label: 'Upload Notes',    path: '/notes',      color: '#0891b2', bg: '#ecfeff' },
+            ].map(a => (
+              <button
+                key={a.path}
+                onClick={() => navigate(a.path)}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '8px 16px', borderRadius: 8,
+                  background: a.bg, color: a.color,
+                  border: `1px solid ${a.color}22`,
+                  cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                  transition: 'all 0.15s', whiteSpace: 'nowrap',
+                }}
+                onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-1px)'}
+                onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+              >
+                <span style={{ fontSize: 14 }}>{a.icon}</span>
+                {a.label}
+              </button>
+            ))}
+          </div>
           {/* ── Today's Attendance + Teacher Sidebar ── */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 20, marginBottom: 24 }}>
 
@@ -481,9 +561,9 @@ export default function PrincipalDashboard() {
               </div>
             </div>
           )}
-
-          {/* ── Tabs ── */}
           
+          {/* ── Tabs ── */}
+          <UpcomingExams />
           {/* ══ TAB: Class-wise Students ══ */}
           {/* ── Attendance Charts ── */}
           <div className="card" style={{ marginBottom: 24 }}>
