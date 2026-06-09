@@ -104,7 +104,7 @@ class Student(db.Model):
 
     attendance = db.relationship('Attendance', backref='student', lazy='dynamic')
     marks      = db.relationship('Marks', backref='student', lazy='dynamic')
-    fees       = db.relationship('FeeRecord', backref='student', lazy='dynamic')
+    fees = db.relationship('FeeRecord', backref='student_ref', lazy='dynamic')
 
     def to_dict(self):
         return {
