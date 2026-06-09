@@ -117,12 +117,7 @@ def upload_note():
     import cloudinary.uploader
     import os
 
-    cloudinary.config(
-        cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
-        api_key    = os.environ.get('CLOUDINARY_API_KEY'),
-        api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
-    )
-
+    
     user       = get_current_user()
     title      = request.form.get('title')
     subject_id = request.form.get('subject_id')
