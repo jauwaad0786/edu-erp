@@ -8,7 +8,15 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 from dotenv import load_dotenv
+# Imports mein add karo (top):
+import cloudinary
 
+# After CORS(...) ke baad add karo:
+cloudinary.config(
+    cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
+    api_key    = os.environ.get('CLOUDINARY_API_KEY'),
+    api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
+)
 db = SQLAlchemy()
 jwt = JWTManager()
 bcrypt = Bcrypt()
