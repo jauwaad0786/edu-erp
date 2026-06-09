@@ -25,7 +25,7 @@ const [downloading, setDownloading] = useState(null);
 
 useEffect(() => {
   const q = classFilter ? `?class_id=${classFilter}` : '';
-  api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
+  api.get(`/principal/students${q}`).then(r => {   setStudents(Array.isArray(r.data) ? r.data : (r.data.data || [])); }).catch(() => {});
   api.get('/principal/classes').then(r => setClasses(r.data)).catch(() => {});
 }, [classFilter]);
 
@@ -83,7 +83,7 @@ useEffect(() => {
       });
     setForm({});
       const q = classFilter ? `?class_id=${classFilter}` : '';
-      api.get(`/principal/students${q}`).then(r => setStudents(r.data)).catch(() => {});
+      api.get(`/principal/students${q}`).then(r => {   setStudents(Array.isArray(r.data) ? r.data : (r.data.data || [])); }).catch(() => {});
     } catch (err) {
       const errMsg = err.response?.data?.error || 'Error';
       setMsg('❌ ' + errMsg);
