@@ -36,14 +36,15 @@ def create_app(config_name='default'):
     bcrypt.init_app(app)
     migrate.init_app(app, db)
     limiter.init_app(app)
-    CORS(app, resources={
-        r"/api/*": {
-            "origins": [
-                "http://localhost:3000",
-                "https://edu-erp-frontend.onrender.com"
-            ]
-        }
-    })
+    CORS(app,
+        resources={r"/api/*": {"origins": [
+            "http://localhost:3000",
+            "https://edu-erp-frontend.onrender.com"
+        ]}},
+        supports_credentials=True,
+        allow_headers=["Content-Type", "Authorization"],
+        methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+    )
 
     # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
