@@ -40,11 +40,16 @@ export default function SubjectsPage() {
         api.get("/principal/subjects"),
       ]);
 
-      setClasses(classRes.data || []);
-      setTeachers(teacherRes.data || []);
-      setSubjects(subjectRes.data || []);
+      const classData = Array.isArray(classRes.data) ? classRes.data : [];
+      const teacherData = Array.isArray(teacherRes.data) ? teacherRes.data : [];
+      const subjectData = Array.isArray(subjectRes.data) ? subjectRes.data : [];
+
+      setClasses(classData);
+      setTeachers(teacherData);
+      setSubjects(subjectData);
     } catch (err) {
-      console.error(err);
+      console.error("fetchInitialData error:", err.response?.status, err.response?.data);
+      toast.error("Data load nahi hua — " + (err.response?.data?.error || err.message));
     }
   }
 
@@ -66,7 +71,11 @@ export default function SubjectsPage() {
     setLoading(true);
 
     try {
-      const res = await api.post("/principal/subjects", form);
+      const res = await api.post("/principal/subjects", {
+        name:       form.name,
+        class_id:   Number(form.class_id),
+        teacher_id: form.teacher_id ? Number(form.teacher_id) : null,
+      });
 
       toast.success("Subject created successfully");
 
