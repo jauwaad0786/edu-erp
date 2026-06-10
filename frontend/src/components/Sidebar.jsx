@@ -69,6 +69,12 @@ const ROLE_MENUS = {
       ]
     },
     {
+      group: 'ACADEMICS',
+      items: [
+        { icon: '📅', label: 'Timetable',     path: '/timetable' },
+      ]
+    },
+    {
       group: 'MY WORK',
       items: [
         { icon: '📋', label: 'Attendance',    path: '/attendance' },
@@ -79,7 +85,7 @@ const ROLE_MENUS = {
     },
   ],
 
-  STUDENT: [
+ STUDENT: [
     {
       group: 'OVERVIEW',
       items: [
@@ -89,6 +95,7 @@ const ROLE_MENUS = {
     {
       group: 'MY SCHOOL',
       items: [
+        { icon: '📅', label: 'Timetable',     path: '/timetable' },
         { icon: '📋', label: 'Attendance',    path: '/attendance' },
         { icon: '📊', label: 'Results',       path: '/results' },
         { icon: '💰', label: 'Fees',          path: '/fees' },
