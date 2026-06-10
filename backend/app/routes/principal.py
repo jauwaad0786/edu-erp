@@ -2011,19 +2011,26 @@ def delete_period(period_id):
 def list_subjects():
     sid      = _school_id()
     class_id = request.args.get('class_id')
-    q = Subject.query.join(Class, Subject.class_id == Class.id)\
-                     .filter(Class.school_id == sid)
-    if class_id:
-        q = q.filter(Subject.class_id == class_id)
-    subjects = q.all()
-    return jsonify([s.to_dict() for s in subjects]), 200
+    try:
+        q = Subject.query.join(Class, Subject.class_id == Class.id)\
+                         .filter(Class.school_id == sid)
+        if class_id:
+            q = q.filter(Subject.class_id == class_id)
+        subjects = q.all()
+        return jsonify([s.to_dict() for s in subjects]), 200
+    except Exception as e:
+        return jsonify({'error': str(e), 'subjects': []}), 500
+
+
+
 
 @principal_bp.route('/subjects', methods=['POST'])
 @role_required('PRINCIPAL', 'TEACHER')
 def create_subject():
-    data     = request.get_json()
-    name     = data.get('name', '').strip()
-    class_id = data.get('class_id')
+    data       = request.get_json()
+    name       = data.get('name', '').strip()
+    class_id   = data.get('class_id')
+    teacher_id = data.get('teacher_id') or None
     if not name or not class_id:
         return jsonify({'error': 'name aur class_id zaroori hai'}), 400
     cls = Class.query.get_or_404(class_id)
@@ -2032,15 +2039,19 @@ def create_subject():
     existing = Subject.query.filter_by(name=name, class_id=class_id).first()
     if existing:
         return jsonify({'error': 'Yeh subject is class mein already hai'}), 409
-    subj = Subject(
-        name=name,
-        class_id=class_id,
-        school_id=_school_id(),
-        teacher_id=data.get('teacher_id')
-    )
-    db.session.add(subj)
-    db.session.commit()
-    return jsonify(subj.to_dict()), 201
+    try:
+        subj = Subject(
+            name       = name,
+            class_id   = int(class_id),
+            school_id  = _school_id(),
+            teacher_id = int(teacher_id) if teacher_id else None,
+        )
+        db.session.add(subj)
+        db.session.commit()
+        return jsonify(subj.to_dict()), 201
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
 
 @principal_bp.route('/subjects/<int:subj_id>', methods=['DELETE'])
 @role_required('PRINCIPAL')
