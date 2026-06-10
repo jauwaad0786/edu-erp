@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
@@ -18,6 +18,138 @@ const SUBJECT_COLORS = [
   '#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6',
   '#06b6d4','#f97316','#84cc16','#ec4899','#6366f1',
 ];
+// ─── PDF Generator ───────────────────────────────────────────────────────────
+function generateTimetablePDF({ timetable, periods, subjects, teachers, className, schoolName }) {
+  const doc = document.createElement('div');
+  doc.id = '__tt_pdf_root';
+
+  const subjectColorMap = {};
+  subjects.forEach((s, i) => { subjectColorMap[s.id] = SUBJECT_COLORS[i % SUBJECT_COLORS.length]; });
+
+  const periodMap = {};
+  periods.forEach(p => { periodMap[`${p.day}-${p.period_no}`] = p; });
+
+  const teacherMap = {};
+  teachers.forEach(t => { teacherMap[t.id] = t.name; });
+
+  const subjectMap = {};
+  subjects.forEach(s => { subjectMap[s.id] = s.name; });
+
+  const now = new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
+
+  const rows = PERIODS.map(pNo => {
+    const cells = DAYS.map(day => {
+      const p = periodMap[`${day}-${pNo}`];
+      if (!p) return `<td style="padding:5px 4px;border:1px solid #e2e8f0;min-width:90px;height:52px;background:#f8fafc;"></td>`;
+      if (p.is_break) return `<td style="padding:5px 4px;border:1px solid #e2e8f0;background:#fffbeb;text-align:center;">
+        <div style="font-size:9px;font-weight:700;color:#92400e;">☕ ${p.break_label || 'Break'}</div>
+        ${p.start_time ? `<div style="font-size:8px;color:#a16207;">${p.start_time}–${p.end_time}</div>` : ''}
+      </td>`;
+      const color = subjectColorMap[p.subject_id] || '#64748b';
+      const subName = subjectMap[p.subject_id] || p.subject_name || '—';
+      const tchName = teacherMap[p.teacher_id] || p.teacher_name || '';
+      return `<td style="padding:5px 4px;border:1px solid #e2e8f0;background:${color}10;">
+        <div style="font-weight:700;font-size:9px;color:${color};line-height:1.2;">${subName}</div>
+        ${tchName ? `<div style="font-size:8px;color:#64748b;margin-top:1px;">👤 ${tchName}</div>` : ''}
+        ${p.start_time ? `<div style="font-size:7px;color:#94a3b8;margin-top:2px;">${p.start_time}–${p.end_time}${p.room ? ` · ${p.room}` : ''}</div>` : ''}
+      </td>`;
+    }).join('');
+    return `<tr>
+      <td style="padding:5px 6px;border:1px solid #e2e8f0;text-align:center;font-weight:700;font-size:10px;color:#0176d3;background:#eff6ff;">P${pNo}</td>
+      ${cells}
+    </tr>`;
+  }).join('');
+
+  const legend = subjects.slice(0, 10).map((s, i) => {
+    const c = SUBJECT_COLORS[i % SUBJECT_COLORS.length];
+    return `<span style="display:inline-flex;align-items:center;gap:4px;background:${c}15;border:1px solid ${c}44;border-radius:20px;padding:2px 8px;font-size:9px;font-weight:600;color:${c};margin:2px;">
+      <span style="width:6px;height:6px;border-radius:50%;background:${c};display:inline-block;"></span>${s.name}
+    </span>`;
+  }).join('');
+
+  doc.innerHTML = `
+  <style>
+    @media print {
+      @page { size: A4 landscape; margin: 10mm; }
+      body { margin: 0; font-family: 'Segoe UI', Arial, sans-serif; }
+      #__tt_pdf_root { display: block !important; }
+    }
+    #__tt_pdf_root { font-family: 'Segoe UI', Arial, sans-serif; padding: 16px; }
+  </style>
+  <div style="border:2px solid #0176d3;border-radius:8px;overflow:hidden;">
+    <!-- Header -->
+    <div style="background:linear-gradient(135deg,#032d60,#0176d3);padding:14px 20px;display:flex;justify-content:space-between;align-items:center;">
+      <div>
+        <div style="color:#fff;font-size:18px;font-weight:800;letter-spacing:0.02em;">${schoolName || 'EduERP School'}</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:11px;margin-top:2px;">Weekly Timetable — ${timetable.title || 'Timetable'}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="color:#fff;font-size:14px;font-weight:700;">${className}</div>
+        <div style="color:rgba(255,255,255,0.75);font-size:10px;">Session: ${timetable.session}</div>
+        <span style="background:${timetable.status === 'PUBLISHED' ? '#10b981' : '#f59e0b'};color:#fff;font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;">${timetable.status}</span>
+      </div>
+    </div>
+
+    <!-- Grid -->
+    <div style="padding:12px 14px;background:#fff;">
+      <table style="width:100%;border-collapse:collapse;border-spacing:0;">
+        <thead>
+          <tr>
+            <th style="padding:7px 6px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:10px;color:#94a3b8;width:42px;text-align:center;">Period</th>
+            ${DAYS.map(d => `<th style="padding:7px 6px;background:#f1f5f9;border:1px solid #e2e8f0;font-size:10px;font-weight:700;color:#475569;text-align:center;min-width:90px;">${DAY_LABELS[d]}<br><span style="font-size:8px;color:#94a3b8;font-weight:600;">${d}</span></th>`).join('')}
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>
+
+    <!-- Legend -->
+    ${subjects.length > 0 ? `<div style="padding:8px 14px;border-top:1px solid #f1f5f9;background:#fafafa;">${legend}</div>` : ''}
+
+    <!-- Signature Row -->
+    <div style="padding:16px 20px;border-top:2px solid #e2e8f0;background:#fff;display:flex;justify-content:space-around;align-items:flex-end;gap:20px;">
+      ${[
+        { label: 'Director', line: true },
+        { label: 'Principal', line: true },
+        { label: 'Class Teacher', line: true },
+      ].map(s => `
+        <div style="flex:1;text-align:center;">
+          <div style="height:36px;border-bottom:1.5px solid #334155;margin-bottom:4px;"></div>
+          <div style="font-size:10px;font-weight:700;color:#0f172a;">${s.label}</div>
+          <div style="font-size:8px;color:#94a3b8;margin-top:1px;">Signature &amp; Seal</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <!-- Footer -->
+    <div style="padding:7px 14px;background:#f8fafc;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-size:8px;color:#94a3b8;">Generated by EduERP · ${now}</div>
+      <div style="font-size:8px;color:#94a3b8;">Confidential — For internal use only</div>
+    </div>
+  </div>`;
+
+  return doc;
+}
+
+function downloadTimetablePDF({ timetable, periods, subjects, teachers, className, schoolName }) {
+  const node = generateTimetablePDF({ timetable, periods, subjects, teachers, className, schoolName });
+  document.body.appendChild(node);
+  const style = document.createElement('style');
+  style.id = '__tt_print_style';
+  style.innerHTML = `
+    @media print {
+      body > *:not(#__tt_pdf_root) { display: none !important; }
+      #__tt_pdf_root { display: block !important; position: fixed; inset: 0; z-index: 99999; background: #fff; }
+    }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(() => {
+    document.body.removeChild(node);
+    document.head.removeChild(style);
+  }, 1000);
+}
+
 
 const flash = (setMsg, text, dur = 3500) => {
   setMsg(text); setTimeout(() => setMsg(''), dur);
@@ -110,7 +242,16 @@ function PeriodModal({ day, periodNo, existing, subjects, teachers, onSave, onDe
     is_break:    existing?.is_break    || false,
     break_label: existing?.break_label || 'Lunch Break',
   });
-  const set = (k, v) => setForm(f => ({...f, [k]: v}));
+  const set = (k, v) => {
+    setForm(f => {
+      const updated = { ...f, [k]: v };
+      if (k === 'subject_id' && v && !f.teacher_id) {
+        const sub = subjects.find(s => String(s.id) === String(v));
+        if (sub?.teacher_id) updated.teacher_id = String(sub.teacher_id);
+      }
+      return updated;
+    });
+  };
 
   return (
     <div style={{
@@ -165,11 +306,30 @@ function PeriodModal({ day, periodNo, existing, subjects, teachers, onSave, onDe
                 </select>
               </div>
               <div>
-                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 3 }}>Teacher</label>
+                <label style={{ fontSize: 11, fontWeight: 600, color: '#475569', display: 'block', marginBottom: 3 }}>
+                  Teacher
+                  {form.subject_id && (() => {
+                    const sub = subjects.find(s => String(s.id) === String(form.subject_id));
+                    return sub?.teacher_id
+                      ? <span style={{ marginLeft: 6, fontSize: 10, color: '#10b981', fontWeight: 500 }}>
+                          (Subject teacher auto-selected)
+                        </span>
+                      : null;
+                  })()}
+                </label>
                 <select value={form.teacher_id} onChange={e => set('teacher_id', e.target.value)}
                   style={{ width: '100%', padding: '8px 10px', borderRadius: 6, border: '1px solid #e2e8f0', fontSize: 12 }}>
                   <option value=''>— Select Teacher —</option>
-                  {teachers.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                  {teachers.map(t => {
+                    const isSubjectTeacher = subjects.find(
+                      s => String(s.id) === String(form.subject_id) && String(s.teacher_id) === String(t.id)
+                    );
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.name}{isSubjectTeacher ? ' ✓ Subject Teacher' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div>
@@ -231,7 +391,7 @@ function PeriodModal({ day, periodNo, existing, subjects, teachers, onSave, onDe
 }
 
 // ─── Timetable Grid ───────────────────────────────────────────────────────────
-function TimetableGrid({ timetable, subjects, teachers, onUpdate }) {
+function TimetableGrid({ timetable, subjects, teachers, onUpdate, schoolName = '' }) {
   const [periods,    setPeriods]    = useState([]);
   const [editCell,   setEditCell]   = useState(null); // {day, periodNo, existing}
   const [saving,     setSaving]     = useState(false);
@@ -345,6 +505,20 @@ function TimetableGrid({ timetable, subjects, teachers, onUpdate }) {
           </span>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
+          {/* PDF Download — always visible */}
+          <button
+            onClick={() => downloadTimetablePDF({
+              timetable,
+              periods,
+              subjects,
+              teachers,
+              className: timetable.class_name || 'Class',
+              schoolName,
+            })}
+            style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#f0f9ff', color: '#0176d3', border: '1px solid #bae6fd', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            📄 Download PDF
+          </button>
+
           {!isPublished && (
             <>
               <button onClick={doPublish}
@@ -640,6 +814,7 @@ function CreateTimetableModal({ classes, onClose, onCreated }) {
 
 // ─── Main TimetablePage ───────────────────────────────────────────────────────
 export default function TimetablePage() {
+  const { user } = useAuth();
   const [timetables,  setTimetables]  = useState([]);
   const [classes,     setClasses]     = useState([]);
   const [teachers,    setTeachers]    = useState([]);
@@ -858,6 +1033,7 @@ export default function TimetablePage() {
                     subjects={subjects[selTT.class_id] || []}
                     teachers={teachers}
                     onUpdate={handleUpdate}
+                    schoolName={user?.school_name || ''}
                   />
                 )}
               </div>
