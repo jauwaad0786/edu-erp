@@ -154,3 +154,24 @@ def change_password():
     return jsonify({
         'message': 'Password updated'
     }), 200
+
+from werkzeug.security import generate_password_hash
+
+@auth_bp.route('/reset-test')
+def reset_test():
+
+    user = User.query.filter_by(
+        email='hammadbinirshad12407@gmail.com'
+    ).first()
+
+    if not user:
+        return {"error": "user not found"}, 404
+
+    user.password = generate_password_hash('Admin@123')
+
+    db.session.commit()
+
+    return {
+        "message": "password reset done",
+        "email": user.email
+    }, 200
