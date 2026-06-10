@@ -24,6 +24,8 @@ import ClassDetailPage     from './pages/ClassDetailPage';
 import TeacherProfile      from './pages/TeacherProfile';
 import HolidaysPage from './pages/HolidaysPage';
 import NotesPage    from './pages/NotesPage';
+import SubjectsPage   from './pages/SubjectsPage';
+import TimetablePage  from './pages/TimetablePage';
 
 export default function App() {
   return (
@@ -105,7 +107,6 @@ export default function App() {
               <NotesPage />
             </ProtectedRoute>
           } />
-          } />
           <Route path="/documents" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
               <DocumentsPage />
@@ -116,7 +117,18 @@ export default function App() {
               <ExamsPage />
             </ProtectedRoute>
           } />
+          <Route path="/timetable" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'TEACHER', 'STUDENT', 'PARENT']}>
+              <TimetablePage />
+            </ProtectedRoute>
+          } />
+          <Route path="/subjects" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'TEACHER']}>
+              <SubjectsPage />
+            </ProtectedRoute>
+          } />
 
+          {/* ── Super Admin only ── */}
           {/* ── Super Admin only ── */}
           <Route path="/schools" element={
             <ProtectedRoute roles={['SUPER_ADMIN']}>
