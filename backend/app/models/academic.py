@@ -36,18 +36,27 @@ class Subject(db.Model):
     pass_marks = db.Column(db.Integer, default=33)
     # Line ~42, Subject class mein add karo:
     school_id  = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
-    marks      = db.relationship('Marks', backref='subject', lazy='dynamic')
-    notes      = db.relationship('Note', backref='subject', lazy='dynamic')
+    marks             = db.relationship('Marks', backref='subject', lazy='dynamic')
+    notes             = db.relationship('Note', backref='subject', lazy='dynamic')
+    assigned_teacher  = db.relationship('Teacher', foreign_keys=[teacher_id], lazy='select')
 
     def to_dict(self):
+        teacher_name = ''
+        try:
+            if self.teacher_id and self.assigned_teacher:
+                teacher_name = self.assigned_teacher.user.name if self.assigned_teacher.user else ''
+        except Exception:
+            pass
         return {
-            'id':         self.id,
-            'name':       self.name,
-            'code':       self.code,
-            'class_id':   self.class_id,
-            'teacher_id': self.teacher_id,
-            'max_marks':  self.max_marks,
-            'school_id': self.school_id,
+            'id':           self.id,
+            'name':         self.name,
+            'code':         getattr(self, 'code', '') or '',
+            'class_id':     self.class_id,
+            'teacher_id':   self.teacher_id,
+            'teacher_name': teacher_name,
+            'max_marks':    getattr(self, 'max_marks', 100) or 100,
+            'pass_marks':   getattr(self, 'pass_marks', 33) or 33,
+            'school_id':    self.school_id,
         }
 
 
