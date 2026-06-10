@@ -175,3 +175,26 @@ def reset_test():
         "message": "password reset done",
         "email": user.email
     }, 200
+
+
+from werkzeug.security import generate_password_hash
+
+@auth_bp.route('/force-reset')
+def force_reset():
+
+    user = User.query.filter_by(
+        email='hammadbinirshad12407@gmail.com'
+    ).first()
+
+    if not user:
+        return {"error": "User not found"}, 404
+
+    user.password = generate_password_hash('Admin@123')
+
+    db.session.commit()
+
+    return {
+        "success": True,
+        "email": user.email,
+        "password": "Admin@123"
+    }, 200
