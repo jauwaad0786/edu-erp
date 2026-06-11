@@ -16,7 +16,7 @@ import random, string
 import cloudinary.uploader
 import os
 principal_bp = Blueprint('principal', __name__)
-
+import io
 
 def _school_id():
     return get_current_user().school_id
