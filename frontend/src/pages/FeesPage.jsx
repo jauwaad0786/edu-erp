@@ -74,7 +74,7 @@ export default function FeesPage() {
       api.get(`/principal/fees/records?${params}`),
       api.get('/principal/classes'),
     ])
-      ..then(([s, r, c]) => {
+      .then(([s, r, c]) => {
   // records — array ya nested object dono handle karo
         const rawR = r.data;
         setRecords(
