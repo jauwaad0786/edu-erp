@@ -2058,3 +2058,169 @@ def delete_subject(subj_id):
     db.session.delete(subj)
     db.session.commit()
     return jsonify({'message': 'Subject deleted'}), 200
+
+
+# ─── ID Card Routes ───────────────────────────────────────────────────────────
+# Yeh code principal.py ke BILKUL NEECHE add karo (last line ke baad)
+
+@principal_bp.route('/students/<int:student_id>/id-card', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def generate_student_id_card(student_id):
+    """
+    Generate and download ID card PDF for a single student.
+    GET /api/principal/students/<id>/id-card
+    """
+    from app.models.school import School
+    from app.utils.id_card_generator import generate_id_card_pdf
+
+    student = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    school = School.query.get(student.school_id)
+    cls    = Class.query.get(student.class_id) if student.class_id else None
+
+    student_dict = {
+        'id':           student.id,
+        'name':         student.user.name if student.user else '',
+        'roll_number':  student.roll_number  or '',
+        'admission_no': student.admission_no or '',
+        'session':      student.session      or '',
+        'dob':          str(student.dob)     if student.dob else '',
+        'blood_group':  student.blood_group  or '',
+        'gender':       student.gender       or '',
+        'father_name':  student.father_name  or student.parent_name or '',
+        'parent_phone': student.parent_phone or '',
+        'photo_url':    student.photo_url    or None,
+    }
+    school_dict = {
+        'name':    school.name     if school else '',
+        'city':    school.city     if school else '',
+        'address': school.address  if school else '',
+        'phone':   school.phone    if school else '',
+        'email':   school.email    if school else '',
+        'logo_url':school.logo_url if school else None,
+    }
+    cls_name = (f"{cls.name} - {cls.section}" if cls else '')
+
+    buf = generate_id_card_pdf(student_dict, school_dict, cls_name)
+    safe_name = (student.user.name or 'student').replace(' ', '_')
+    filename  = f"IDCard_{safe_name}_{student.roll_number or student_id}.pdf"
+
+    return send_file(
+        buf,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=filename
+    )
+
+
+@principal_bp.route('/id-cards/bulk', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def bulk_id_cards():
+    """
+    Generate ZIP of ID card PDFs for a class or entire school.
+    GET /api/principal/id-cards/bulk?class_id=1
+    """
+    import zipfile
+    from app.models.school import School
+    from app.utils.id_card_generator import generate_id_card_pdf
+
+    sid      = _school_id()
+    class_id = request.args.get('class_id')
+
+    school   = School.query.get(sid)
+    school_dict = {
+        'name':    school.name     if school else '',
+        'city':    school.city     if school else '',
+        'address': school.address  if school else '',
+        'phone':   school.phone    if school else '',
+        'email':   school.email    if school else '',
+        'logo_url':school.logo_url if school else None,
+    }
+
+    q = Student.query.filter_by(school_id=sid)
+    if class_id:
+        q = q.filter_by(class_id=class_id)
+    students = q.all()
+
+    if not students:
+        return jsonify({'error': 'Koi student nahi mila'}), 404
+
+    zip_buf = io.BytesIO()
+    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for s in students:
+            cls      = Class.query.get(s.class_id) if s.class_id else None
+            cls_name = f"{cls.name}-{cls.section}" if cls else 'No-Class'
+            cls_folder = cls_name.replace(' ', '_')
+
+            student_dict = {
+                'id':           s.id,
+                'name':         s.user.name if s.user else '',
+                'roll_number':  s.roll_number  or '',
+                'admission_no': s.admission_no or '',
+                'session':      s.session      or '',
+                'dob':          str(s.dob)     if s.dob else '',
+                'blood_group':  s.blood_group  or '',
+                'gender':       s.gender       or '',
+                'father_name':  s.father_name  or s.parent_name or '',
+                'parent_phone': s.parent_phone or '',
+                'photo_url':    s.photo_url    or None,
+            }
+
+            pdf_buf  = generate_id_card_pdf(student_dict, school_dict,
+                                            f"{cls.name} - {cls.section}" if cls else '')
+            safe_n   = (s.user.name or 'student').replace(' ', '_')
+            filename = f"{cls_folder}/Roll-{s.roll_number or s.id}/{safe_n}_IDCard.pdf"
+            zf.writestr(filename, pdf_buf.read())
+
+    zip_buf.seek(0)
+    label = f"IDCards_Class{class_id}" if class_id else "IDCards_All"
+    return send_file(
+        zip_buf,
+        mimetype='application/zip',
+        as_attachment=True,
+        download_name=f"{label}_{date.today()}.zip"
+    )
+
+
+@principal_bp.route('/id-cards/preview/<int:student_id>', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def preview_id_card_data(student_id):
+    """
+    Return JSON data for frontend live preview.
+    GET /api/principal/id-cards/preview/<student_id>
+    """
+    from app.models.school import School
+
+    student = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    school = School.query.get(student.school_id)
+    cls    = Class.query.get(student.class_id) if student.class_id else None
+
+    return jsonify({
+        'student': {
+            'id':           student.id,
+            'name':         student.user.name if student.user else '',
+            'roll_number':  student.roll_number  or '',
+            'admission_no': student.admission_no or '',
+            'session':      student.session      or '',
+            'dob':          str(student.dob)     if student.dob else '',
+            'blood_group':  student.blood_group  or '',
+            'gender':       student.gender       or '',
+            'father_name':  student.father_name  or student.parent_name or '',
+            'parent_phone': student.parent_phone or '',
+            'photo_url':    student.photo_url    or None,
+            'class_name':   f"{cls.name} - {cls.section}" if cls else '',
+        },
+        'school': {
+            'name':     school.name     if school else '',
+            'city':     school.city     if school else '',
+            'address':  school.address  if school else '',
+            'phone':    school.phone    if school else '',
+            'email':    school.email    if school else '',
+            'logo_url': school.logo_url if school else None,
+        }
+    }), 200
