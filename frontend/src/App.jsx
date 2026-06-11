@@ -26,6 +26,9 @@ import HolidaysPage from './pages/HolidaysPage';
 import NotesPage    from './pages/NotesPage';
 import SubjectsPage   from './pages/SubjectsPage';
 import TimetablePage  from './pages/TimetablePage';
+import IDCardPage from './pages/IDCardPage';
+// routes mein:
+
 
 export default function App() {
   return (
@@ -122,6 +125,12 @@ export default function App() {
               <TimetablePage />
             </ProtectedRoute>
           } />
+          <Route path="/id-cards" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
+              <IDCardPage />
+            </ProtectedRoute>
+          } />
+
           <Route path="/subjects" element={
             <ProtectedRoute roles={['PRINCIPAL', 'TEACHER']}>
               <SubjectsPage />
