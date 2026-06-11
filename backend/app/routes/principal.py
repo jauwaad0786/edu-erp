@@ -1915,8 +1915,6 @@ def delete_timetable(tt_id):
     tt = Timetable.query.get_or_404(tt_id)
     if tt.school_id != _school_id():
         return jsonify({'error': 'Unauthorized'}), 403
-    if tt.status == 'PUBLISHED':
-        return jsonify({'error': 'Published timetable delete nahi ho sakta'}), 400
     db.session.delete(tt)
     db.session.commit()
     return jsonify({'message': 'Deleted'}), 200
