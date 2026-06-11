@@ -57,6 +57,7 @@ const ROLE_MENUS = {
       items: [
         { icon: '📄', label: 'Documents',     path: '/documents' },
         { icon: '📤', label: 'Notes',         path: '/notes' },
+        { icon: '🪪', label: 'ID Cards',      path: '/id-cards' },
       ]
     },
   ],
