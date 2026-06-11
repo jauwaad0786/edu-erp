@@ -117,23 +117,18 @@ def me():
 @auth_bp.route('/refresh', methods=['POST'])
 @jwt_required(refresh=True)
 def refresh():
-
-    user_id = int(get_jwt_identity())
-
+    user_id = get_jwt_identity()   # string as-is, don't convert
     access_token = create_access_token(
-        identity=user_id
+        identity=str(user_id)      # always keep as string
     )
-
-    return jsonify({
-        'access_token': access_token
-    }), 200
+    return jsonify({'access_token': access_token}), 200
 
 
 @auth_bp.route('/change-password', methods=['PUT'])
 @jwt_required()
 def change_password():
 
-    user_id = int(get_jwt_identity())
+    user_id = get_jwt_identity()
 
     user = User.query.get(user_id)
 
