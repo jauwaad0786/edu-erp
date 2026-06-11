@@ -485,58 +485,197 @@ function TimetableGrid({ timetable, subjects, teachers, onUpdate, schoolName = '
   return (
     <div>
       {/* Timetable header bar */}
+      {/* ── Timetable Header Bar ── */}
       <div style={{
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        marginBottom: 14, gap: 12, flexWrap: 'wrap',
+        background: 'linear-gradient(135deg, #f8faff 0%, #f1f5ff 100%)',
+        border: '1.5px solid #e0e9ff',
+        borderRadius: 12,
+        padding: '14px 18px',
+        marginBottom: 16,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: 12,
+        boxShadow: '0 2px 8px rgba(1,118,211,0.06)',
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        {/* Left — info */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* Status badge */}
           <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 5,
             background: isPublished ? '#ecfdf5' : '#fffbeb',
-            color: isPublished ? '#10b981' : '#f59e0b',
-            border: `1px solid ${isPublished ? '#a7f3d0' : '#fde68a'}`,
-            borderRadius: 20, padding: '3px 10px', fontSize: 11, fontWeight: 700,
+            color: isPublished ? '#059669' : '#d97706',
+            border: '1.5px solid ' + (isPublished ? '#a7f3d0' : '#fde68a'),
+            borderRadius: 20, padding: '4px 12px',
+            fontSize: 11, fontWeight: 800, letterSpacing: 0.3,
           }}>
-            {isPublished ? '✅ Published' : '✏️ Draft'}
+            <span style={{
+              width: 7, height: 7, borderRadius: '50%',
+              background: isPublished ? '#10b981' : '#f59e0b',
+              display: 'inline-block',
+            }} />
+            {isPublished ? 'PUBLISHED' : 'DRAFT'}
           </span>
-          <span style={{ fontSize: 12, color: '#64748b' }}>
-            {timetable.title} · {timetable.session}
-          </span>
-          <span style={{ fontSize: 11, color: '#94a3b8' }}>
-            {periods.length} periods filled
-          </span>
+
+          {/* Title + meta */}
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+              {timetable.class_name || 'Timetable'} — {timetable.title}
+            </div>
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 1, display: 'flex', gap: 8 }}>
+              <span>📅 Session: {timetable.session}</span>
+              <span>·</span>
+              <span>📌 {periods.length} periods filled</span>
+            </div>
+          </div>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          {/* PDF Download — always visible */}
+
+        {/* Right — action buttons */}
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+
+          {/* Download PDF — always */}
           <button
-            onClick={() => downloadTimetablePDF({
-              timetable,
-              periods,
-              subjects,
-              teachers,
-              className: timetable.class_name || 'Class',
-              schoolName,
-            })}
-            style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#f0f9ff', color: '#0176d3', border: '1px solid #bae6fd', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
-            📄 Download PDF
+            onClick={function() {
+              downloadTimetablePDF({
+                timetable: timetable,
+                periods: periods,
+                subjects: subjects,
+                teachers: teachers,
+                className: timetable.class_name || 'Class',
+                schoolName: schoolName,
+              });
+            }}
+            title="Download PDF"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 5,
+              padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              background: 'white', color: '#0176d3',
+              border: '1.5px solid #bae6fd', cursor: 'pointer',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={function(e) { e.currentTarget.style.background = '#e8f4fd'; }}
+            onMouseLeave={function(e) { e.currentTarget.style.background = 'white'; }}
+          >
+            📄 <span>Download PDF</span>
           </button>
 
+          {/* Divider */}
+          <div style={{ width: 1, height: 28, background: '#e2e8f0' }} />
+
+          {/* DRAFT state buttons */}
           {!isPublished && (
             <>
-              <button onClick={doPublish}
-                style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 700, background: '#10b981', color: 'white', border: 'none', cursor: 'pointer' }}>
-                📢 Publish
+              {/* Save Changes (visual — grid auto-saves per cell) */}
+              <button
+                onClick={function() { onUpdate && onUpdate(); }}
+                title="Changes auto-saved. Click to refresh."
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: 'white', color: '#475569',
+                  border: '1.5px solid #e2e8f0', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={function(e) { e.currentTarget.style.background = '#f8fafc'; }}
+                onMouseLeave={function(e) { e.currentTarget.style.background = 'white'; }}
+              >
+                🔄 <span>Refresh</span>
               </button>
-              <button onClick={doDelete}
-                style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12, background: '#fef2f2', color: '#ef4444', border: '1px solid #fecaca', cursor: 'pointer' }}>
-                🗑
+
+              {/* Publish */}
+              <button
+                onClick={doPublish}
+                title="Publish timetable — students will see it"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 16px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: 'linear-gradient(135deg, #059669, #10b981)',
+                  color: 'white', border: 'none', cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(16,185,129,0.35)',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={function(e) { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={function(e) { e.currentTarget.style.opacity = '1'; }}
+              >
+                📢 <span>Publish</span>
+              </button>
+
+              {/* Delete */}
+              <button
+                onClick={doDelete}
+                title="Delete this timetable permanently"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: '#fff5f5', color: '#ef4444',
+                  border: '1.5px solid #fecaca', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={function(e) { e.currentTarget.style.background = '#fee2e2'; }}
+                onMouseLeave={function(e) { e.currentTarget.style.background = '#fff5f5'; }}
+              >
+                🗑 <span>Delete</span>
               </button>
             </>
           )}
+
+          {/* PUBLISHED state buttons */}
           {isPublished && (
-            <button onClick={doUnpublish}
-              style={{ padding: '6px 14px', borderRadius: 6, fontSize: 12, fontWeight: 600, background: '#fffbeb', color: '#f59e0b', border: '1px solid #fde68a', cursor: 'pointer' }}>
-              ↩ Unpublish
-            </button>
+            <>
+              {/* Unpublish → Edit mode mein le jaata hai */}
+              <button
+                onClick={doUnpublish}
+                title="Unpublish to edit timetable"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: '#fffbeb', color: '#d97706',
+                  border: '1.5px solid #fde68a', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={function(e) { e.currentTarget.style.background = '#fef3c7'; }}
+                onMouseLeave={function(e) { e.currentTarget.style.background = '#fffbeb'; }}
+              >
+                ✏️ <span>Edit (Unpublish)</span>
+              </button>
+
+              {/* Re-publish — visible after unpublish+edit workflow hint */}
+              <button
+                onClick={doPublish}
+                title="Re-publish updated timetable"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 5,
+                  padding: '7px 14px', borderRadius: 8, fontSize: 12, fontWeight: 700,
+                  background: 'linear-gradient(135deg, #0176d3, #0ea5e9)',
+                  color: 'white', border: 'none', cursor: 'pointer',
+                  boxShadow: '0 2px 6px rgba(1,118,211,0.3)',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={function(e) { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={function(e) { e.currentTarget.style.opacity = '1'; }}
+              >
+                📢 <span>Re-publish</span>
+              </button>
+
+              {/* Delete — published pe bhi allow karo */}
+              <button
+                onClick={doDelete}
+                title="Delete this timetable"
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '7px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                  background: '#fff5f5', color: '#ef4444',
+                  border: '1.5px solid #fecaca', cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
+                onMouseEnter={function(e) { e.currentTarget.style.background = '#fee2e2'; }}
+                onMouseLeave={function(e) { e.currentTarget.style.background = '#fff5f5'; }}
+              >
+                🗑 <span>Delete</span>
+              </button>
+            </>
           )}
         </div>
       </div>
