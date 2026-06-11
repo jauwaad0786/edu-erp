@@ -74,10 +74,25 @@ export default function FeesPage() {
       api.get(`/principal/fees/records?${params}`),
       api.get('/principal/classes'),
     ])
-      .then(([s, r, c]) => {
-        setSummary(s.data);
-        setRecords(r.data || []);
-        setClasses(c.data || []);
+      ..then(([s, r, c]) => {
+  // records — array ya nested object dono handle karo
+        const rawR = r.data;
+        setRecords(
+          Array.isArray(rawR)          ? rawR :
+          Array.isArray(rawR?.records) ? rawR.records :
+          Array.isArray(rawR?.data)    ? rawR.data : []
+        );
+      
+        // classes — same pattern
+        const rawC = c.data;
+        setClasses(
+          Array.isArray(rawC)          ? rawC :
+          Array.isArray(rawC?.classes) ? rawC.classes :
+          Array.isArray(rawC?.data)    ? rawC.data : []
+        );
+      
+        // summary — object expected
+        setSummary(s.data?.summary ?? s.data ?? null);
       })
       .catch(() => flash('❌ Data load karne mein error aaya', 'error'))
       .finally(() => setLoading(false));
