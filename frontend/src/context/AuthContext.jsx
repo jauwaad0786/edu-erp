@@ -7,17 +7,32 @@ export function AuthProvider({ children }) {
   const [user,    setUser]    = useState(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      api.get('/auth/me')
-        .then(res => setUser(res.data))
-        .catch(() => { localStorage.clear(); setUser(null); })
-        .finally(() => setLoading(false));
-    } else {
-      setLoading(false);
-    }
-  }, []);
+ useEffect(() => {
+  const token = localStorage.getItem('access_token');
+  if (!token) {
+    setLoading(false);
+    return;
+  }
+  api.get('/auth/me')
+    .then(res => {
+      if (res.data && res.data.id) {
+        setUser(res.data);
+      } else {
+        localStorage.clear();
+        setUser(null);
+      }
+    })
+    .catch(err => {
+      // 401 interceptor already handles refresh
+      // sirf 403 ya real failure pe clear karo
+      if (err.response?.status === 403 || err.response?.status === 404) {
+        localStorage.clear();
+        setUser(null);
+      }
+      // 401 pe kuch mat karo — interceptor refresh karega
+    })
+    .finally(() => setLoading(false));
+}, []);
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
