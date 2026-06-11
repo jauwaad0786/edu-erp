@@ -71,7 +71,7 @@ export default function FeesPage() {
 
     Promise.all([
       api.get('/principal/fees/summary'),
-      api.get(`/principal/fees/records?${params}`),
+      api.get('/principal/fees/records?' + params.toString()),
       api.get('/principal/classes'),
     ])
       .then(([s, r, c]) => {
