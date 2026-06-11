@@ -13,3 +13,4 @@ PyMySQL==1.1.1
 psycopg2-binary==2.9.9
 cloudinary
 flask-limiter==3.5.0
+qrcode[pil]
