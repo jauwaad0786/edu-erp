@@ -59,17 +59,21 @@ export default function AttendancePage() {
 
   /* ── load students for mark tab ── */
   async function loadMarkStudents(class_id) {
-    if (!class_id) { setMarkStudents([]); return; }
-    try {
-      const res = await api.get(`/principal/students?class_id=${class_id}`);
-      setMarkStudents((res.data || []).map(s => ({
-        ...s,
-        status: 'PRESENT',
-      })));
-    } catch {
-      flash('❌ Students load nahi hue', 'error');
-    }
+  if (!class_id) { setMarkStudents([]); return; }
+  try {
+    const res = await api.get(`/principal/students?class_id=${class_id}&per_page=100`);
+    // backend paginated object return karta hai { data: [...], total: X }
+    const raw = res.data;
+    const list = Array.isArray(raw) ? raw
+               : Array.isArray(raw?.data) ? raw.data
+               : [];
+    setMarkStudents(list.map(function(s) {
+      return Object.assign({}, s, { status: 'PRESENT' });
+    }));
+  } catch {
+    flash('❌ Students load nahi hue', 'error');
   }
+}
 
   function flash(text, type = 'success') {
     setMsg({ text, type });
@@ -527,12 +531,12 @@ export default function AttendancePage() {
                             justifyContent: 'center', fontWeight: 700,
                             fontSize: 13, flexShrink: 0,
                           }}>
-                            {s.name?.charAt(0)?.toUpperCase()}
+                            {(s.name || s.student_name || '?').charAt(0).toUpperCase()}
                           </div>
 
                           {/* info */}
                           <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                            <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name || s.student_name || 'Student'}</div>
                             <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>
                               Roll: {s.roll_number || '—'}
                             </div>
