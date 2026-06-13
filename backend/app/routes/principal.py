@@ -2224,3 +2224,114 @@ def preview_id_card_data(student_id):
             'logo_url': school.logo_url if school else None,
         }
     }), 200
+# ── Employee ID Card Route — principal.py ke ID Card section mein add karo ──
+
+@principal_bp.route('/teachers/<int:teacher_id>/id-card', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def generate_employee_id_card(teacher_id):
+    """
+    Generate Employee ID card PDF.
+    GET /api/principal/teachers/<id>/id-card
+    """
+    from app.models.school import School
+    from app.utils.id_card_generator import generate_id_card_pdf
+
+    t = Teacher.query.get_or_404(teacher_id)
+    if t.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    school = School.query.get(t.school_id)
+
+    employee_dict = {
+        'id':           t.id,
+        'name':         t.user.name        if t.user else '',
+        'employee_id':  t.employee_id      or '',
+        'designation':  t.designation      or '',
+        'department':   t.department       or '',
+        'phone':        t.user.phone       if t.user else '',
+        'joining_date': str(t.joining_date) if t.joining_date else '',
+        'photo_url':    t.photo_url        or None,
+        'session':      str(date.today().year),
+    }
+    school_dict = {
+        'name':     school.name     if school else '',
+        'city':     school.city     if school else '',
+        'address':  school.address  if school else '',
+        'phone':    school.phone    if school else '',
+        'email':    school.email    if school else '',
+        'logo_url': school.logo_url if school else None,
+    }
+
+    buf = generate_id_card_pdf(employee_dict, school_dict, card_type='employee')
+    safe_name = (t.user.name if t.user else 'employee').replace(' ', '_')
+    filename  = f"EmployeeIDCard_{safe_name}_{t.employee_id or teacher_id}.pdf"
+
+    return send_file(buf, mimetype='application/pdf', as_attachment=True, download_name=filename)
+
+
+@principal_bp.route('/students/<int:student_id>', methods=['PATCH'])
+@role_required('PRINCIPAL', 'TEACHER')
+def update_student(student_id):
+    """Edit student details from ID card management page."""
+    student = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json()
+
+    # Update user name if provided
+    if data.get('name') and student.user:
+        student.user.name = data['name']
+
+    # Update student fields
+    for field in ['roll_number', 'gender', 'dob', 'address', 'session',
+                  'blood_group', 'father_name', 'mother_name', 'parent_name',
+                  'parent_phone', 'parent_email']:
+        if field in data:
+            val = data[field]
+            if field == 'dob' and val:
+                try:
+                    val = date.fromisoformat(val)
+                except Exception:
+                    val = None
+            setattr(student, field, val)
+
+    db.session.commit()
+
+    # Return updated preview data
+    cls = Class.query.get(student.class_id) if student.class_id else None
+    return jsonify({
+        'id':           student.id,
+        'name':         student.user.name if student.user else '',
+        'roll_number':  student.roll_number  or '',
+        'admission_no': student.admission_no or '',
+        'session':      student.session      or '',
+        'blood_group':  student.blood_group  or '',
+        'gender':       student.gender       or '',
+        'father_name':  student.father_name  or '',
+        'parent_phone': student.parent_phone or '',
+        'class_name':   f"{cls.name} - {cls.section}" if cls else '',
+        'photo_url':    student.photo_url    or None,
+    }), 200
+
+
+@principal_bp.route('/students/<int:student_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_student(student_id):
+    """Delete a student."""
+    student = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    user = student.user
+    # Delete related records first
+    Attendance.query.filter_by(student_id=student_id).delete()
+    FeeRecord.query.filter_by(student_id=student_id).delete()
+    Marks.query.filter_by(student_id=student_id).delete()
+    db.session.flush()
+    db.session.delete(student)
+    db.session.flush()
+    if user:
+        db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': 'Student deleted'}), 200
