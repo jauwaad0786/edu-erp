@@ -2335,3 +2335,155 @@ def delete_student(student_id):
         db.session.delete(user)
     db.session.commit()
     return jsonify({'message': 'Student deleted'}), 200
+
+
+
+# ─── School Settings Routes ───────────────────────────────────────────────────
+# Yeh poora block principal.py ke BILKUL END mein paste karo
+# (delete_student route ke baad)
+
+import cloudinary.uploader  # already imported hai principal.py mein — skip karo agar duplicate ho
+
+
+@principal_bp.route('/school/settings', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def get_school_settings():
+    """
+    Apni school ki settings fetch karo.
+    GET /api/principal/school/settings
+    """
+    from app.models.school import School
+    school = School.query.get(_school_id())
+    if not school:
+        return jsonify({'error': 'School nahi mili'}), 404
+    return jsonify(school.to_dict()), 200
+
+
+@principal_bp.route('/school/settings', methods=['PATCH'])
+@role_required('PRINCIPAL')
+def update_school_settings():
+    """
+    School ki basic info update karo (text fields only).
+    PATCH /api/principal/school/settings
+    Body: { name, address, city, state, pincode, phone, email, current_session }
+    """
+    from app.models.school import School
+    school = School.query.get(_school_id())
+    if not school:
+        return jsonify({'error': 'School nahi mili'}), 404
+
+    data = request.get_json()
+    for field in ['name', 'address', 'city', 'state', 'pincode',
+                  'phone', 'email', 'current_session']:
+        if field in data:
+            setattr(school, field, data[field])
+
+    db.session.commit()
+    return jsonify(school.to_dict()), 200
+
+
+@principal_bp.route('/school/logo', methods=['POST', 'DELETE'])
+@role_required('PRINCIPAL')
+def school_logo():
+    """
+    Upload ya delete school logo.
+    POST /api/principal/school/logo  — multipart/form-data, field: 'logo'
+    DELETE /api/principal/school/logo
+    """
+    from app.models.school import School
+    school = School.query.get(_school_id())
+    if not school:
+        return jsonify({'error': 'School nahi mili'}), 404
+
+    if request.method == 'DELETE':
+        school.logo_url = None
+        db.session.commit()
+        return jsonify({'message': 'Logo deleted'}), 200
+
+    file = request.files.get('logo')
+    if not file:
+        return jsonify({'error': 'File nahi mila — field name: logo'}), 400
+
+    result = cloudinary.uploader.upload(
+        file,
+        folder='eduerp/schools',
+        public_id=f'school_{_school_id()}_logo',
+        overwrite=True,
+        resource_type='image',
+    )
+    school.logo_url = result['secure_url']
+    db.session.commit()
+    return jsonify({'logo_url': school.logo_url}), 200
+
+
+@principal_bp.route('/school/principal-signature', methods=['POST', 'DELETE'])
+@role_required('PRINCIPAL')
+def school_principal_signature():
+    """
+    Upload ya delete principal signature image.
+    POST /api/principal/school/principal-signature — field: 'signature'
+    DELETE /api/principal/school/principal-signature
+
+    Note: Sirf signature wala area crop hokar aata hai — white background
+    automatically transparent ho jaata hai PDF mein (mask='auto').
+    Teacher/Principal apna signature white paper pe likhkar photo le,
+    crop karke upload kare — sirf signature dikhega, page nahi.
+    """
+    from app.models.school import School
+    school = School.query.get(_school_id())
+    if not school:
+        return jsonify({'error': 'School nahi mili'}), 404
+
+    if request.method == 'DELETE':
+        school.principal_signature_url = None
+        db.session.commit()
+        return jsonify({'message': 'Principal signature deleted'}), 200
+
+    file = request.files.get('signature')
+    if not file:
+        return jsonify({'error': 'File nahi mila — field name: signature'}), 400
+
+    result = cloudinary.uploader.upload(
+        file,
+        folder='eduerp/schools',
+        public_id=f'school_{_school_id()}_principal_sig',
+        overwrite=True,
+        resource_type='image',
+    )
+    school.principal_signature_url = result['secure_url']
+    db.session.commit()
+    return jsonify({'principal_signature_url': school.principal_signature_url}), 200
+
+
+@principal_bp.route('/school/director-signature', methods=['POST', 'DELETE'])
+@role_required('PRINCIPAL')
+def school_director_signature():
+    """
+    Upload ya delete director/chairman signature image.
+    POST /api/principal/school/director-signature — field: 'signature'
+    DELETE /api/principal/school/director-signature
+    """
+    from app.models.school import School
+    school = School.query.get(_school_id())
+    if not school:
+        return jsonify({'error': 'School nahi mili'}), 404
+
+    if request.method == 'DELETE':
+        school.director_signature_url = None
+        db.session.commit()
+        return jsonify({'message': 'Director signature deleted'}), 200
+
+    file = request.files.get('signature')
+    if not file:
+        return jsonify({'error': 'File nahi mila — field name: signature'}), 400
+
+    result = cloudinary.uploader.upload(
+        file,
+        folder='eduerp/schools',
+        public_id=f'school_{_school_id()}_director_sig',
+        overwrite=True,
+        resource_type='image',
+    )
+    school.director_signature_url = result['secure_url']
+    db.session.commit()
+    return jsonify({'director_signature_url': school.director_signature_url}), 200
