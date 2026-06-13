@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { AuthProvider }    from './context/AuthContext';
 import ProtectedRoute      from './components/ProtectedRoute';
 import DocumentsPage from './pages/DocumentsPage';
+import SchoolSettings from './pages/SchoolSettings';
 
 // Pages
 import Landing             from './pages/Landing';
@@ -130,12 +131,18 @@ export default function App() {
               <IDCardPage />
             </ProtectedRoute>
           } />
+          
           <Route path="/id-cards/employees" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
               <IDCardPage />
             </ProtectedRoute>
           } />
           <Route path="/id-cards" element={<Navigate to="/id-cards/students" replace />} />
+          <Route path="/school-settings" element={
+          <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
+            <SchoolSettings />
+          </ProtectedRoute>
+        } />
 
           <Route path="/subjects" element={
             <ProtectedRoute roles={['PRINCIPAL', 'TEACHER']}>
