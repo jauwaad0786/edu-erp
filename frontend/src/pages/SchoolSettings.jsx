@@ -96,31 +96,39 @@ export default function SchoolSettings() {
   });
 
   // ── Fetch ──
+  // ── Fetch ──
   const load = () => {
     setLoading(true);
+  
     api.get('/principal/school/settings')
-  .then(r => {
-    console.log("SETTINGS API:", r.data);
-
-    setSchool(r.data);
-    setForm({
-      name: r.data.name || '',
-      address: r.data.address || '',
-      city: r.data.city || '',
-      state: r.data.state || '',
-      pincode: r.data.pincode || '',
-      phone: r.data.phone || '',
-      email: r.data.email || '',
-      current_session: r.data.current_session || '',
-    });
-  })
-  .catch(err => {
-    console.log("SETTINGS ERROR:", err);
-    toast.error('School data load nahi hua');
-  })
-  .finally(() => setLoading(false));
-
-  useEffect(() => { load(); }, []);
+      .then(r => {
+        console.log("SETTINGS API:", r.data);
+  
+        setSchool(r.data);
+  
+        setForm({
+          name: r.data.name || '',
+          address: r.data.address || '',
+          city: r.data.city || '',
+          state: r.data.state || '',
+          pincode: r.data.pincode || '',
+          phone: r.data.phone || '',
+          email: r.data.email || '',
+          current_session: r.data.current_session || '',
+        });
+      })
+      .catch(err => {
+        console.log("SETTINGS ERROR:", err);
+        toast.error('School data load nahi hua');
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  };
+  
+  useEffect(() => {
+    load();
+  }, []);
 
   // ── Save text info ──
   const saveInfo = async e => {
