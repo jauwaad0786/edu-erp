@@ -125,11 +125,17 @@ export default function App() {
               <TimetablePage />
             </ProtectedRoute>
           } />
-          <Route path="/id-cards" element={
+          <Route path="/id-cards/students" element={
             <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
               <IDCardPage />
             </ProtectedRoute>
           } />
+          <Route path="/id-cards/employees" element={
+            <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
+              <IDCardPage />
+            </ProtectedRoute>
+          } />
+          <Route path="/id-cards" element={<Navigate to="/id-cards/students" replace />} />
 
           <Route path="/subjects" element={
             <ProtectedRoute roles={['PRINCIPAL', 'TEACHER']}>
