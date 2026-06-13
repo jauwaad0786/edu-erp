@@ -230,8 +230,8 @@ def _draw_front(c, ox, oy, student, school, cls_name):
         ('Gender', student.get('gender') or '—'),
     ]
 
-    info_y  = name_y - 6*mm
-    row_gap = 4.5*mm
+    info_y  = name_y - 7*mm   # naam se zyada gap
+    row_gap = 5.8*mm           # label + value + breathing room
     lx = ox + 3*mm
     rx = ox + W / 2 + 1*mm
     col_w = W / 2 - 4*mm
@@ -240,11 +240,13 @@ def _draw_front(c, ox, oy, student, school, cls_name):
         col_x = lx if i % 2 == 0 else rx
         row_y = info_y - (i // 2) * row_gap
 
-        c.setFont('Helvetica', 5.2)
+        # Label
+        c.setFont('Helvetica', 4.8)
         c.setFillColor(GREY)
         c.drawString(col_x, row_y, label)
 
-        val_fs = _fit_text(c, str(val), 'Helvetica-Bold', 6.5, 5, col_w)
+        # Value — 3.2mm neeche label se
+        val_fs = _fit_text(c, str(val), 'Helvetica-Bold', 6.2, 4.5, col_w)
         c.setFont('Helvetica-Bold', val_fs)
         c.setFillColor(DGREY)
         c.drawString(col_x, row_y - 3.2*mm, str(val))
