@@ -61,6 +61,13 @@ const ROLE_MENUS = {
         { icon: '👔', label: 'Employee IDs',  path: '/id-cards/employees' },
       ]
     },
+    {
+      group: 'SETTINGS',
+      items: [
+        { icon: '⚙️', label: 'School Settings', path: '/school-settings' },
+      ]
+    },
+  
   ],
 
   TEACHER: [
