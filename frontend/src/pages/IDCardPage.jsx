@@ -1,115 +1,163 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar from '../components/Navbar';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
-// ── ID Card Live Preview Component ───────────────────────────────────────────
-function IDCardPreview({ student, school }) {
+// ── ID Card Live Preview ──────────────────────────────────────────────────────
+function IDCardPreview({ student, school, type = 'student' }) {
   if (!student) return null;
+  const s = student || {};
+  const sname = school || {};
 
-  const sname  = school  || {};
-  const s      = student || {};
-
-  return (
-    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
-
-      {/* FRONT */}
-      <div style={{ width: 200 }}>
-        <div style={{
-          fontSize: 10, fontWeight: 700, color: '#64748b',
-          textAlign: 'center', marginBottom: 6, letterSpacing: 1,
-        }}>FRONT SIDE</div>
-        <div style={{
-          width: 200, borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(1,118,211,0.18), 0 2px 6px rgba(0,0,0,0.08)',
-          overflow: 'hidden', border: '1.5px solid #bae6fd',
-          fontFamily: 'Arial, sans-serif',
-          background: '#fff',
-        }}>
-          {/* Header */}
+  if (type === 'employee') {
+    return (
+      <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+        {/* EMPLOYEE FRONT */}
+        <div style={{ width: 200 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textAlign: 'center', marginBottom: 6, letterSpacing: 1 }}>FRONT SIDE</div>
           <div style={{
-            background: 'linear-gradient(135deg, #032d60 0%, #0176d3 100%)',
-            padding: '10px 10px 0',
-            display: 'flex', alignItems: 'center', gap: 7,
+            width: 200, borderRadius: 10,
+            boxShadow: '0 8px 24px rgba(3,45,96,0.18)',
+            overflow: 'hidden', border: '1.5px solid #bae6fd',
+            fontFamily: 'Arial, sans-serif', background: '#fff',
           }}>
-            {sname.logo_url
-              ? <img src={sname.logo_url} alt="logo"
-                  style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'contain', background: '#fff', padding: 2 }} />
-              : <div style={{
-                  width: 28, height: 28, borderRadius: '50%',
-                  background: '#1e40af', display: 'flex', alignItems: 'center',
-                  justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0,
-                }}>EDU</div>
-            }
-            <div style={{ flex: 1, overflow: 'hidden' }}>
-              <div style={{
-                fontSize: 8.5, fontWeight: 800, color: '#fff',
-                whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-                letterSpacing: 0.3, textTransform: 'uppercase',
-              }}>{sname.name || 'School Name'}</div>
-              <div style={{ fontSize: 6.5, color: '#93c5fd', marginTop: 1 }}>
-                {sname.city || sname.address || ''}
+            <div style={{ background: 'linear-gradient(135deg,#032d60,#0176d3)', padding: '10px 10px 0', display: 'flex', alignItems: 'center', gap: 7 }}>
+              {sname.logo_url
+                ? <img src={sname.logo_url} alt="logo" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'contain', background: '#fff', padding: 2 }} />
+                : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1e40af', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>EDU</div>
+              }
+              <div style={{ flex: 1, overflow: 'hidden' }}>
+                <div style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'uppercase' }}>{sname.name || 'School Name'}</div>
+                <div style={{ fontSize: 6.5, color: '#93c5fd', marginTop: 1 }}>{sname.city || ''}</div>
+              </div>
+              <div style={{ fontSize: 5.5, fontWeight: 800, color: '#fbbf24', textAlign: 'right', lineHeight: 1.2 }}>EMPLOYEE<br/>ID CARD</div>
+            </div>
+            <div style={{ height: 3, background: 'linear-gradient(90deg,#f0a500,#fbbf24)' }} />
+            <div style={{ padding: '10px 10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#e8f4fd', border: '2.5px solid #0176d3', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
+                {s.photo_url
+                  ? <img src={s.photo_url} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : <span style={{ fontSize: 20, color: '#0176d3' }}>👤</span>
+                }
+              </div>
+              <div style={{ fontSize: 10, fontWeight: 800, color: '#032d60', textTransform: 'uppercase', letterSpacing: 0.3, textAlign: 'center' }}>{s.name || 'Employee Name'}</div>
+              <div style={{ fontSize: 7, color: '#0176d3', fontWeight: 700, marginTop: 2 }}>{s.designation || 'Designation'}</div>
+            </div>
+            <div style={{ height: 1, background: '#e0e9ff', margin: '0 10px' }} />
+            <div style={{ padding: '7px 10px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 4px' }}>
+              {[
+                ['Emp. ID',    s.employee_id  || '—'],
+                ['Dept.',      (s.department  || '—').slice(0,12)],
+                ['Joining',    (s.joining_date|| '—').slice(0,10)],
+                ['Mobile',     s.phone        || '—'],
+              ].map(function([label, val]) {
+                return (
+                  <div key={label}>
+                    <div style={{ fontSize: 5.5, color: '#94a3b8', fontWeight: 600 }}>{label}</div>
+                    <div style={{ fontSize: 6.5, color: '#0f172a', fontWeight: 700, lineHeight: 1.2 }}>{val}</div>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ background: '#032d60', padding: '4px 8px', fontSize: 5.5, color: '#93c5fd', textAlign: 'center' }}>
+              {sname.name || ''} &nbsp;|&nbsp; {sname.phone || ''}
+            </div>
+          </div>
+        </div>
+        {/* EMPLOYEE BACK — same QR layout */}
+        <div style={{ width: 200 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textAlign: 'center', marginBottom: 6, letterSpacing: 1 }}>BACK SIDE</div>
+          <div style={{ width: 200, borderRadius: 10, boxShadow: '0 8px 24px rgba(3,45,96,0.18)', overflow: 'hidden', border: '1.5px solid #bae6fd', fontFamily: 'Arial, sans-serif', background: '#fff' }}>
+            <div style={{ background: 'linear-gradient(135deg,#032d60,#0176d3)', padding: '8px 10px' }}>
+              <div style={{ fontSize: 8, fontWeight: 800, color: '#fff', textAlign: 'center' }}>EMPLOYEE IDENTITY CARD</div>
+              <div style={{ fontSize: 6, color: '#93c5fd', textAlign: 'center', marginTop: 1 }}>{sname.name || ''}</div>
+            </div>
+            <div style={{ height: 2, background: 'linear-gradient(90deg,#f0a500,#fbbf24)' }} />
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
+              <div style={{ width: 55, height: 55, background: '#f1f5f9', border: '1.5px solid #bae6fd', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+                <div style={{ fontSize: 18 }}>⬛</div>
+                <div style={{ fontSize: 5.5, color: '#64748b', fontWeight: 600 }}>QR CODE</div>
               </div>
             </div>
-            <div style={{
-              fontSize: 5.5, fontWeight: 800, color: '#fbbf24',
-              textAlign: 'right', lineHeight: 1.2,
-            }}>STUDENT<br/>ID CARD</div>
+            <div style={{ fontSize: 6, fontWeight: 700, color: '#0176d3', textAlign: 'center', marginBottom: 6 }}>SCAN TO VERIFY</div>
+            <div style={{ margin: '0 8px 6px', background: '#f1f5f9', borderRadius: 4, padding: '5px 7px', fontSize: 5.5, color: '#475569' }}>
+              <div style={{ fontWeight: 700, color: '#032d60', fontSize: 6 }}>{sname.name || ''}</div>
+              <div>Ph: {sname.phone || ''}</div>
+            </div>
+            <div style={{ margin: '0 8px 6px' }}>
+              <div style={{ fontSize: 5.5, fontWeight: 800, color: '#0176d3', marginBottom: 3 }}>TERMS &amp; CONDITIONS</div>
+              {['Card must be carried at all times.','Lost card must be reported immediately.','This card is property of the school.'].map((t, i) => (
+                <div key={i} style={{ fontSize: 5, color: '#475569', marginBottom: 1.5 }}>• {t}</div>
+              ))}
+            </div>
+            <div style={{ background: '#032d60', padding: '4px 8px', fontSize: 5.5, color: '#fbbf24', textAlign: 'center', fontWeight: 700 }}>
+              Valid: {s.session || new Date().getFullYear()}
+            </div>
           </div>
-          {/* Gold stripe */}
-          <div style={{ height: 3, background: 'linear-gradient(90deg,#f0a500,#fbbf24)' }} />
+        </div>
+      </div>
+    );
+  }
 
-          {/* Photo + Name */}
+  // ── STUDENT CARD ──
+  return (
+    <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
+      {/* FRONT */}
+      <div style={{ width: 200 }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textAlign: 'center', marginBottom: 6, letterSpacing: 1 }}>FRONT SIDE</div>
+        <div style={{
+          width: 200, borderRadius: 10,
+          boxShadow: '0 8px 24px rgba(1,118,211,0.18)',
+          overflow: 'hidden', border: '1.5px solid #bae6fd',
+          fontFamily: 'Arial, sans-serif', background: '#fff',
+        }}>
+          <div style={{ background: 'linear-gradient(135deg,#032d60,#0176d3)', padding: '10px 10px 0', display: 'flex', alignItems: 'center', gap: 7 }}>
+            {sname.logo_url
+              ? <img src={sname.logo_url} alt="logo" style={{ width: 28, height: 28, borderRadius: 4, objectFit: 'contain', background: '#fff', padding: 2 }} />
+              : <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1e40af', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>EDU</div>
+            }
+            <div style={{ flex: 1, overflow: 'hidden' }}>
+              <div style={{ fontSize: 8.5, fontWeight: 800, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', textTransform: 'uppercase' }}>{sname.name || 'School Name'}</div>
+              <div style={{ fontSize: 6.5, color: '#93c5fd', marginTop: 1 }}>{sname.city || ''}</div>
+            </div>
+            <div style={{ fontSize: 5.5, fontWeight: 800, color: '#fbbf24', textAlign: 'right', lineHeight: 1.2 }}>STUDENT<br/>ID CARD</div>
+          </div>
+          <div style={{ height: 3, background: 'linear-gradient(90deg,#f0a500,#fbbf24)' }} />
           <div style={{ padding: '10px 10px 6px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <div style={{
-              width: 50, height: 50, borderRadius: '50%',
-              background: '#e8f4fd', border: '2.5px solid #0176d3',
-              overflow: 'hidden', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', marginBottom: 6,
-            }}>
+            <div style={{ width: 50, height: 50, borderRadius: '50%', background: '#e8f4fd', border: '2.5px solid #0176d3', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
               {s.photo_url
-                ? <img src={s.photo_url} alt="photo"
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ? <img src={s.photo_url} alt="photo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 : <span style={{ fontSize: 20, color: '#0176d3' }}>👤</span>
               }
             </div>
-            <div style={{
-              fontSize: 10, fontWeight: 800, color: '#032d60',
-              textTransform: 'uppercase', letterSpacing: 0.3,
-              textAlign: 'center', lineHeight: 1.2,
-            }}>{s.name || 'Student Name'}</div>
+            <div style={{ fontSize: 10, fontWeight: 800, color: '#032d60', textTransform: 'uppercase', letterSpacing: 0.3, textAlign: 'center', lineHeight: 1.2, maxWidth: 170, wordBreak: 'break-word' }}>
+              {s.name || 'Student Name'}
+            </div>
           </div>
-
-          {/* Divider */}
           <div style={{ height: 1, background: '#e0e9ff', margin: '0 10px' }} />
-
-          {/* Info Grid */}
-          <div style={{ padding: '7px 10px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '3px 4px' }}>
+          {/* Info Grid — NO Adm. No., neat 2-col layout */}
+          <div style={{ padding: '7px 10px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 6px' }}>
             {[
               ['Roll No.',  s.roll_number  || '—'],
               ['Blood Gr.', s.blood_group  || '—'],
-              ['Adm. No.',  s.admission_no || '—'],
-              ['Father',    (s.father_name || '—').slice(0,12)],
-              ['Class',     s.class_name   || '—'],
+              ['Father',    (s.father_name || '—').slice(0,14)],
+              ['Class',     (s.class_name  || '—').slice(0,12)],
               ['Mobile',    s.parent_phone || '—'],
               ['Session',   s.session      || '—'],
-              ['DOB',       (s.dob || '—').slice(0,10)],
+              ['DOB',       (s.dob         || '—').slice(0,10)],
+              ['Gender',    s.gender       || '—'],
             ].map(function([label, val]) {
               return (
-                <div key={label}>
-                  <div style={{ fontSize: 5.5, color: '#94a3b8', fontWeight: 600 }}>{label}</div>
-                  <div style={{ fontSize: 6.5, color: '#0f172a', fontWeight: 700, lineHeight: 1.2 }}>{val}</div>
+                <div key={label} style={{ minWidth: 0 }}>
+                  <div style={{ fontSize: 5.5, color: '#94a3b8', fontWeight: 600, lineHeight: 1.2 }}>{label}</div>
+                  <div style={{ fontSize: 6.5, color: '#0f172a', fontWeight: 700, lineHeight: 1.2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{val}</div>
                 </div>
               );
             })}
           </div>
-
-          {/* Footer */}
-          <div style={{
-            background: '#032d60', padding: '4px 8px',
-            fontSize: 5.5, color: '#93c5fd', textAlign: 'center',
-          }}>
+          <div style={{ background: '#032d60', padding: '4px 8px', fontSize: 5.5, color: '#93c5fd', textAlign: 'center' }}>
             If found, return to school &nbsp;|&nbsp; {sname.phone || ''}
           </div>
         </div>
@@ -117,75 +165,35 @@ function IDCardPreview({ student, school }) {
 
       {/* BACK */}
       <div style={{ width: 200 }}>
-        <div style={{
-          fontSize: 10, fontWeight: 700, color: '#64748b',
-          textAlign: 'center', marginBottom: 6, letterSpacing: 1,
-        }}>BACK SIDE</div>
-        <div style={{
-          width: 200, borderRadius: 10,
-          boxShadow: '0 8px 24px rgba(1,118,211,0.18), 0 2px 6px rgba(0,0,0,0.08)',
-          overflow: 'hidden', border: '1.5px solid #bae6fd',
-          fontFamily: 'Arial, sans-serif', background: '#fff',
-        }}>
-          {/* Header */}
-          <div style={{ background: 'linear-gradient(135deg, #032d60, #0176d3)', padding: '8px 10px' }}>
-            <div style={{ fontSize: 8, fontWeight: 800, color: '#fff', textAlign: 'center', letterSpacing: 0.5 }}>
-              STUDENT IDENTITY CARD
-            </div>
-            <div style={{ fontSize: 6, color: '#93c5fd', textAlign: 'center', marginTop: 1 }}>
-              {sname.name || ''}
-            </div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#64748b', textAlign: 'center', marginBottom: 6, letterSpacing: 1 }}>BACK SIDE</div>
+        <div style={{ width: 200, borderRadius: 10, boxShadow: '0 8px 24px rgba(1,118,211,0.18)', overflow: 'hidden', border: '1.5px solid #bae6fd', fontFamily: 'Arial, sans-serif', background: '#fff' }}>
+          <div style={{ background: 'linear-gradient(135deg,#032d60,#0176d3)', padding: '8px 10px' }}>
+            <div style={{ fontSize: 8, fontWeight: 800, color: '#fff', textAlign: 'center' }}>STUDENT IDENTITY CARD</div>
+            <div style={{ fontSize: 6, color: '#93c5fd', textAlign: 'center', marginTop: 1 }}>{sname.name || ''}</div>
           </div>
           <div style={{ height: 2, background: 'linear-gradient(90deg,#f0a500,#fbbf24)' }} />
-
-          {/* QR placeholder */}
           <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 4px' }}>
-            <div style={{
-              width: 55, height: 55, background: '#f1f5f9',
-              border: '1.5px solid #bae6fd', borderRadius: 4,
-              display: 'flex', flexDirection: 'column', alignItems: 'center',
-              justifyContent: 'center', gap: 2,
-            }}>
+            <div style={{ width: 55, height: 55, background: '#f1f5f9', border: '1.5px solid #bae6fd', borderRadius: 4, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
               <div style={{ fontSize: 18 }}>⬛</div>
               <div style={{ fontSize: 5.5, color: '#64748b', fontWeight: 600 }}>QR CODE</div>
             </div>
           </div>
-          <div style={{ fontSize: 6, fontWeight: 700, color: '#0176d3', textAlign: 'center', marginBottom: 6 }}>
-            SCAN TO VERIFY
-          </div>
-
-          {/* School info */}
-          <div style={{
-            margin: '0 8px 6px', background: '#f1f5f9',
-            borderRadius: 4, padding: '5px 7px',
-            fontSize: 5.5, color: '#475569',
-          }}>
+          <div style={{ fontSize: 6, fontWeight: 700, color: '#0176d3', textAlign: 'center', marginBottom: 6 }}>SCAN TO VERIFY</div>
+          <div style={{ margin: '0 8px 6px', background: '#f1f5f9', borderRadius: 4, padding: '5px 7px', fontSize: 5.5, color: '#475569' }}>
             <div style={{ fontWeight: 700, color: '#032d60', fontSize: 6 }}>{sname.name || ''}</div>
             <div>{sname.address || sname.city || ''}</div>
-            <div>Ph: {sname.phone || ''} &nbsp; {sname.email || ''}</div>
+            <div>Ph: {sname.phone || ''}</div>
           </div>
-
-          {/* Terms */}
           <div style={{ margin: '0 8px 6px' }}>
-            <div style={{ fontSize: 5.5, fontWeight: 800, color: '#0176d3', marginBottom: 3 }}>
-              TERMS &amp; CONDITIONS
-            </div>
-            {[
-              'Card must be carried at all times.',
-              'Lost card must be reported immediately.',
-              'This card is property of the school.',
-            ].map(function(t, i) {
-              return <div key={i} style={{ fontSize: 5, color: '#475569', marginBottom: 1.5 }}>• {t}</div>;
-            })}
+            <div style={{ fontSize: 5.5, fontWeight: 800, color: '#0176d3', marginBottom: 3 }}>TERMS &amp; CONDITIONS</div>
+            {['Card must be carried at all times.','Lost card must be reported immediately.','This card is property of the school.','Misuse will lead to disciplinary action.'].map((t, i) => (
+              <div key={i} style={{ fontSize: 5, color: '#475569', marginBottom: 1.5 }}>• {t}</div>
+            ))}
           </div>
-
-          {/* Signature */}
           <div style={{ margin: '0 8px', borderTop: '0.5px solid #cbd5e1', paddingTop: 4, paddingBottom: 4 }}>
             <div style={{ width: 50, borderBottom: '0.5px solid #94a3b8', marginBottom: 2 }} />
             <div style={{ fontSize: 5.5, fontWeight: 700, color: '#032d60' }}>Principal Signature</div>
           </div>
-
-          {/* Footer */}
           <div style={{ background: '#032d60', padding: '4px 8px', fontSize: 5.5, color: '#fbbf24', textAlign: 'center', fontWeight: 700 }}>
             Valid For Session: {s.session || '2024-25'}
           </div>
@@ -195,18 +203,254 @@ function IDCardPreview({ student, school }) {
   );
 }
 
+// ── Edit Modal ────────────────────────────────────────────────────────────────
+function EditStudentModal({ student, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:         student.name         || '',
+    roll_number:  student.roll_number  || '',
+    father_name:  student.father_name  || '',
+    parent_phone: student.parent_phone || '',
+    blood_group:  student.blood_group  || '',
+    gender:       student.gender       || '',
+    dob:          student.dob          || '',
+    session:      student.session      || '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState(student.photo_url || null);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch('/principal/students/' + student.id, form);
+      toast.success('Student updated!');
+      onSaved();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Save nahi hua');
+    }
+    setSaving(false);
+  }
+
+  async function uploadPhoto(file) {
+    setPhotoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('photo', file);
+      const res = await api.post('/principal/students/' + student.id + '/photo', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setPhotoUrl(res.data.photo_url);
+      toast.success('Photo upload ho gayi!');
+    } catch { toast.error('Photo upload nahi hui'); }
+    setPhotoUploading(false);
+  }
+
+  async function deletePhoto() {
+    try {
+      await api.delete('/principal/students/' + student.id + '/photo');
+      setPhotoUrl(null);
+      toast.success('Photo delete ho gayi');
+    } catch { toast.error('Photo delete nahi hui'); }
+  }
+
+  function f(field, val) { setForm(p => ({ ...p, [field]: val })); }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: '28px 28px', width: 480, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>✏️ Edit Student</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+        </div>
+
+        {/* Photo Section */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, padding: '12px 14px', background: '#f8faff', borderRadius: 10 }}>
+          <div style={{ width: 64, height: 72, borderRadius: 8, overflow: 'hidden', background: '#e8f4fd', border: '2px solid #0176d3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {photoUrl
+              ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 28, color: '#0176d3' }}>👤</span>
+            }
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#032d60', marginBottom: 8 }}>Student Photo</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, background: '#e8f4fd', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#0176d3' }}>
+                📷 {photoUrl ? 'Change' : 'Upload'}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => e.target.files[0] && uploadPhoto(e.target.files[0])} />
+              </label>
+              {photoUrl && (
+                <button onClick={deletePhoto} style={{ background: '#fef1ee', border: 'none', color: '#dc2626', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
+              )}
+              {photoUploading && <span style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center' }}>Uploading...</span>}
+            </div>
+          </div>
+        </div>
+
+        {/* Form Fields */}
+        {[
+          { label: 'Full Name', key: 'name' },
+          { label: 'Roll Number', key: 'roll_number' },
+          { label: 'Father Name', key: 'father_name' },
+          { label: 'Mobile (Parent)', key: 'parent_phone' },
+          { label: 'Blood Group', key: 'blood_group' },
+          { label: 'Gender', key: 'gender' },
+          { label: 'Date of Birth', key: 'dob', type: 'date' },
+          { label: 'Session', key: 'session' },
+        ].map(({ label, key, type }) => (
+          <div key={key} style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>{label}</label>
+            <input
+              type={type || 'text'}
+              value={form[key]}
+              onChange={e => f(key, e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, boxSizing: 'border-box', outline: 'none' }}
+              onFocus={e => e.target.style.borderColor = '#0176d3'}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+        ))}
+
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, color: '#475569' }}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0176d3', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            {saving ? '⏳ Saving...' : '✅ Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Employee Edit Modal ───────────────────────────────────────────────────────
+function EditEmployeeModal({ employee, onClose, onSaved }) {
+  const [form, setForm] = useState({
+    name:        employee.name        || '',
+    employee_id: employee.employee_id || '',
+    department:  employee.department  || '',
+    designation: employee.designation || '',
+    phone:       employee.phone       || '',
+    joining_date:employee.joining_date|| '',
+  });
+  const [saving, setSaving] = useState(false);
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoUrl, setPhotoUrl] = useState(employee.photo_url || null);
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api.patch('/principal/teachers/' + employee.id, form);
+      toast.success('Employee updated!');
+      onSaved();
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Save nahi hua');
+    }
+    setSaving(false);
+  }
+
+  async function uploadPhoto(file) {
+    setPhotoUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('photo', file);
+      const res = await api.post('/principal/teachers/' + employee.id + '/photo', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setPhotoUrl(res.data.photo_url);
+      toast.success('Photo upload ho gayi!');
+    } catch { toast.error('Photo upload nahi hui'); }
+    setPhotoUploading(false);
+  }
+
+  async function deletePhoto() {
+    try {
+      await api.delete('/principal/teachers/' + employee.id + '/photo');
+      setPhotoUrl(null);
+      toast.success('Photo delete ho gayi');
+    } catch { toast.error('Photo delete nahi hui'); }
+  }
+
+  function f(field, val) { setForm(p => ({ ...p, [field]: val })); }
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div style={{ background: '#fff', borderRadius: 16, padding: '28px 28px', width: 480, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>✏️ Edit Employee</div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+        </div>
+        {/* Photo */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 20, padding: '12px 14px', background: '#f8faff', borderRadius: 10 }}>
+          <div style={{ width: 64, height: 72, borderRadius: 8, overflow: 'hidden', background: '#e8f4fd', border: '2px solid #0176d3', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {photoUrl
+              ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <span style={{ fontSize: 28, color: '#0176d3' }}>👤</span>
+            }
+          </div>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: '#032d60', marginBottom: 8 }}>Employee Photo</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, background: '#e8f4fd', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#0176d3' }}>
+                📷 {photoUrl ? 'Change' : 'Upload'}
+                <input type="file" accept="image/*" style={{ display: 'none' }} onChange={e => e.target.files[0] && uploadPhoto(e.target.files[0])} />
+              </label>
+              {photoUrl && (
+                <button onClick={deletePhoto} style={{ background: '#fef1ee', border: 'none', color: '#dc2626', padding: '6px 12px', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>🗑 Delete</button>
+              )}
+              {photoUploading && <span style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center' }}>Uploading...</span>}
+            </div>
+          </div>
+        </div>
+        {[
+          { label: 'Full Name', key: 'name' },
+          { label: 'Employee ID', key: 'employee_id' },
+          { label: 'Department', key: 'department' },
+          { label: 'Designation', key: 'designation' },
+          { label: 'Mobile', key: 'phone' },
+          { label: 'Joining Date', key: 'joining_date', type: 'date' },
+        ].map(({ label, key, type }) => (
+          <div key={key} style={{ marginBottom: 14 }}>
+            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#475569', marginBottom: 4 }}>{label}</label>
+            <input
+              type={type || 'text'}
+              value={form[key]}
+              onChange={e => f(key, e.target.value)}
+              style={{ width: '100%', padding: '9px 12px', fontSize: 13, border: '1px solid #e2e8f0', borderRadius: 8, boxSizing: 'border-box', outline: 'none' }}
+              onFocus={e => e.target.style.borderColor = '#0176d3'}
+              onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+            />
+          </div>
+        ))}
+        <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+          <button onClick={onClose} style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, color: '#475569' }}>Cancel</button>
+          <button onClick={save} disabled={saving} style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#0176d3', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            {saving ? '⏳ Saving...' : '✅ Save Changes'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 export default function IDCardPage() {
-  const [classes,    setClasses]    = useState([]);
-  const [students,   setStudents]   = useState([]);
-  const [selClass,   setSelClass]   = useState('');
-  const [selStudent, setSelStudent] = useState('');
-  const [preview,    setPreview]    = useState(null);  // { student, school }
-  const [loading,    setLoading]    = useState(false);
-  const [bulkLoading,setBulkLoading]= useState(false);
-  const [search,     setSearch]     = useState('');
+  const { type = 'students' } = useParams();      // 'students' | 'employees'
+  const navigate = useNavigate();
+  const isEmployee = type === 'employees';
 
-  // Load classes on mount
+  const [classes,     setClasses]     = useState([]);
+  const [items,       setItems]       = useState([]);   // students or employees
+  const [selClass,    setSelClass]    = useState('');
+  const [selId,       setSelId]       = useState('');
+  const [preview,     setPreview]     = useState(null);
+  const [loading,     setLoading]     = useState(false);
+  const [bulkLoading, setBulkLoading] = useState(false);
+  const [search,      setSearch]      = useState('');
+  const [editTarget,  setEditTarget]  = useState(null);  // student/employee object for edit modal
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // id to delete
+
+  // Load classes
   useEffect(function() {
     api.get('/principal/classes').then(function(r) {
       var raw = r.data;
@@ -214,80 +458,131 @@ export default function IDCardPage() {
     }).catch(function() {});
   }, []);
 
-  // Load students when class changes
+  // Load items (students or employees)
   useEffect(function() {
-    if (!selClass) { setStudents([]); setSelStudent(''); setPreview(null); return; }
-    setLoading(true);
-    api.get('/principal/students?class_id=' + selClass + '&per_page=100')
-      .then(function(r) {
+    if (isEmployee) {
+      setLoading(true);
+      api.get('/principal/teachers').then(function(r) {
         var raw = r.data;
-        var list = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);
-        setStudents(list);
-        setSelStudent('');
+        var list = Array.isArray(raw) ? raw : (raw.data || []);
+        setItems(list);
+        setSelId('');
         setPreview(null);
-      })
-      .catch(function() { toast.error('Students load nahi hue'); })
-      .finally(function() { setLoading(false); });
-  }, [selClass]);
+      }).catch(function() {
+        toast.error('Employees load nahi hue');
+      }).finally(function() { setLoading(false); });
+    } else {
+      if (!selClass) { setItems([]); setSelId(''); setPreview(null); return; }
+      setLoading(true);
+      api.get('/principal/students?class_id=' + selClass + '&per_page=100')
+        .then(function(r) {
+          var raw = r.data;
+          var list = Array.isArray(raw) ? raw : (Array.isArray(raw.data) ? raw.data : []);
+          setItems(list);
+          setSelId('');
+          setPreview(null);
+        }).catch(function() { toast.error('Students load nahi hue'); })
+        .finally(function() { setLoading(false); });
+    }
+  }, [selClass, isEmployee]);
 
-  // Load preview when student selected
-  var loadPreview = useCallback(function(sid) {
-    if (!sid) { setPreview(null); return; }
-    api.get('/principal/id-cards/preview/' + sid)
-      .then(function(r) { setPreview(r.data); })
-      .catch(function() { toast.error('Preview load nahi hua'); });
+  // Load preview
+  var loadPreview = useCallback(function(id, itemType) {
+    if (!id) { setPreview(null); return; }
+    if (itemType === 'employee') {
+      api.get('/principal/teachers/' + id + '/profile').then(function(r) {
+        var info = r.data.info || {};
+        setPreview({
+          student: {
+            id:           info.id,
+            name:         info.name,
+            employee_id:  info.employee_id,
+            designation:  info.designation,
+            department:   info.department,
+            phone:        info.phone,
+            joining_date: info.joining_date,
+            photo_url:    info.photo_url,
+            session:      new Date().getFullYear() + '-' + (new Date().getFullYear()+1),
+          },
+          school: {},
+          isEmployee: true,
+        });
+      }).catch(function() { toast.error('Preview load nahi hua'); });
+    } else {
+      api.get('/principal/id-cards/preview/' + id).then(function(r) {
+        setPreview({ ...r.data, isEmployee: false });
+      }).catch(function() { toast.error('Preview load nahi hua'); });
+    }
   }, []);
 
-  // Single download
-  function downloadSingle(studentId, studentName) {
-    var name = studentName || 'student';
+  // Download single
+  function downloadSingle(id, name) {
     toast.loading('PDF ban raha hai...', { id: 'dl' });
-    api.get('/principal/students/' + studentId + '/id-card', { responseType: 'blob' })
-      .then(function(r) {
-        var url  = window.URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
-        var link = document.createElement('a');
-        link.href = url;
-        link.setAttribute('download', 'IDCard_' + name.replace(/ /g, '_') + '.pdf');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        toast.success('ID Card download ho gayi!', { id: 'dl' });
-      })
-      .catch(function() { toast.error('Download failed', { id: 'dl' }); });
+    var endpoint = isEmployee
+      ? '/principal/teachers/' + id + '/id-card'
+      : '/principal/students/' + id + '/id-card';
+    api.get(endpoint, { responseType: 'blob' }).then(function(r) {
+      var url = window.URL.createObjectURL(new Blob([r.data], { type: 'application/pdf' }));
+      var link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', 'IDCard_' + (name || 'card').replace(/ /g, '_') + '.pdf');
+      document.body.appendChild(link); link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('ID Card download ho gayi!', { id: 'dl' });
+    }).catch(function() { toast.error('Download failed', { id: 'dl' }); });
   }
 
   // Bulk download
   function downloadBulk() {
-    if (!selClass) { toast.error('Pehle class select karo'); return; }
+    if (!isEmployee && !selClass) { toast.error('Pehle class select karo'); return; }
     setBulkLoading(true);
     toast.loading('ZIP ban raha hai...', { id: 'bulk' });
-    api.get('/principal/id-cards/bulk?class_id=' + selClass, { responseType: 'blob' })
-      .then(function(r) {
-        var url  = window.URL.createObjectURL(new Blob([r.data], { type: 'application/zip' }));
-        var link = document.createElement('a');
-        link.href = url;
-        var cls  = classes.find(function(c) { return String(c.id) === String(selClass); });
-        link.setAttribute('download', 'IDCards_' + (cls ? cls.name + '_' + cls.section : 'Class') + '.zip');
-        document.body.appendChild(link);
-        link.click();
-        link.parentNode.removeChild(link);
-        window.URL.revokeObjectURL(url);
-        toast.success('ZIP download ho gaya!', { id: 'bulk' });
-      })
-      .catch(function() { toast.error('Bulk download failed', { id: 'bulk' }); })
-      .finally(function() { setBulkLoading(false); });
+    var endpoint = isEmployee
+      ? '/principal/id-cards/bulk?type=employee'
+      : '/principal/id-cards/bulk?class_id=' + selClass;
+    api.get(endpoint, { responseType: 'blob' }).then(function(r) {
+      var url = window.URL.createObjectURL(new Blob([r.data], { type: 'application/zip' }));
+      var link = document.createElement('a');
+      link.href = url;
+      var label = isEmployee ? 'Employees' : ('Class' + selClass);
+      link.setAttribute('download', 'IDCards_' + label + '.zip');
+      document.body.appendChild(link); link.click();
+      link.parentNode.removeChild(link);
+      window.URL.revokeObjectURL(url);
+      toast.success('ZIP download ho gaya!', { id: 'bulk' });
+    }).catch(function() { toast.error('Bulk download failed', { id: 'bulk' }); })
+    .finally(function() { setBulkLoading(false); });
   }
 
-  var filtered = students.filter(function(s) {
+  // Delete
+  async function doDelete(id) {
+    try {
+      if (isEmployee) {
+        await api.delete('/principal/teachers/' + id);
+      } else {
+        await api.delete('/principal/students/' + id);
+      }
+      toast.success('Deleted!');
+      setItems(prev => prev.filter(x => x.id !== id));
+      if (String(selId) === String(id)) { setSelId(''); setPreview(null); }
+    } catch (e) {
+      toast.error(e.response?.data?.error || 'Delete nahi hua');
+    }
+    setDeleteConfirm(null);
+  }
+
+  var filtered = items.filter(function(s) {
     if (!search) return true;
     var q = search.toLowerCase();
-    return (s.name || '').toLowerCase().includes(q)
-      || (s.roll_number || '').toLowerCase().includes(q)
-      || (s.admission_no || '').toLowerCase().includes(q);
+    var nm = (s.name || (s.user && s.user.name) || '').toLowerCase();
+    return nm.includes(q)
+      || (s.roll_number  || '').toLowerCase().includes(q)
+      || (s.employee_id  || '').toLowerCase().includes(q);
   });
 
   var selCls = classes.find(function(c) { return String(c.id) === String(selClass); });
+  var pageTitle = isEmployee ? '👔 Employee ID Card Management' : '🪪 Student ID Card Management';
 
   return (
     <div className="app-shell">
@@ -296,213 +591,185 @@ export default function IDCardPage() {
         <Navbar title="ID Card Management" />
         <div className="page-body">
 
-          {/* Page Header */}
+          {/* Header */}
           <div className="page-header">
             <div>
-              <h2 className="page-title">🪪 Student ID Card Management</h2>
+              <h2 className="page-title">{pageTitle}</h2>
               <p className="page-subtitle">
-                Class-wise ID cards generate, preview aur download karo — single ya bulk ZIP
+                {isEmployee ? 'Employee ID cards generate karo' : 'Student ID cards generate, preview aur download karo'}
               </p>
             </div>
           </div>
 
-          {/* ── Top Controls ── */}
+          {/* Tab Toggle */}
+          <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+            {[
+              { label: '🎒 Student ID Cards', path: '/id-cards/students' },
+              { label: '👔 Employee ID Cards', path: '/id-cards/employees' },
+            ].map(function(tab) {
+              var active = ('/' + type === tab.path.replace('/id-cards','')) || tab.path === '/id-cards/' + type;
+              // simpler check:
+              var isActive = isEmployee ? tab.path.includes('employees') : tab.path.includes('students');
+              return (
+                <button key={tab.path}
+                  onClick={function() { navigate(tab.path); }}
+                  style={{
+                    padding: '9px 18px', borderRadius: 8, border: '2px solid',
+                    borderColor: isActive ? '#0176d3' : '#e2e8f0',
+                    background: isActive ? '#e8f4fd' : '#fff',
+                    color: isActive ? '#0176d3' : '#64748b',
+                    fontSize: 13, fontWeight: 700, cursor: 'pointer', transition: 'all 0.15s',
+                  }}>
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Controls */}
           <div className="card mb-6">
             <div className="card-body" style={{ padding: '16px 20px' }}>
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
 
-                {/* Class Select */}
-                <div className="form-group" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
-                  <label className="form-label">📚 Class Select Karo</label>
-                  <select
-                    className="form-select"
-                    value={selClass}
-                    onChange={function(e) { setSelClass(e.target.value); }}
-                  >
-                    <option value="">— Class Choose Karo —</option>
-                    {classes.map(function(c) {
-                      return (
-                        <option key={c.id} value={c.id}>
-                          {c.name} — {c.section}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </div>
+                {/* Class Select — only for students */}
+                {!isEmployee && (
+                  <div className="form-group" style={{ flex: 1, minWidth: 180, marginBottom: 0 }}>
+                    <label className="form-label">📚 Class Select Karo</label>
+                    <select className="form-select" value={selClass} onChange={function(e) { setSelClass(e.target.value); }}>
+                      <option value="">— Class Choose Karo —</option>
+                      {classes.map(function(c) {
+                        return <option key={c.id} value={c.id}>{c.name} — {c.section}</option>;
+                      })}
+                    </select>
+                  </div>
+                )}
 
                 {/* Search */}
                 <div className="form-group" style={{ flex: 1, minWidth: 200, marginBottom: 0 }}>
-                  <label className="form-label">🔍 Student Search</label>
-                  <input
-                    className="form-input"
-                    placeholder="Name / Roll No. / Adm. No..."
+                  <label className="form-label">🔍 Search</label>
+                  <input className="form-input"
+                    placeholder={isEmployee ? 'Name / Employee ID...' : 'Name / Roll No...'}
                     value={search}
-                    onChange={function(e) { setSearch(e.target.value); }}
-                  />
+                    onChange={function(e) { setSearch(e.target.value); }} />
                 </div>
 
                 {/* Bulk Download */}
-                {selClass && students.length > 0 && (
-                  <button
-                    className="btn btn-primary"
-                    onClick={downloadBulk}
-                    disabled={bulkLoading}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end' }}
-                  >
+                {items.length > 0 && (
+                  <button className="btn btn-primary" onClick={downloadBulk} disabled={bulkLoading}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, alignSelf: 'flex-end' }}>
                     {bulkLoading ? '⏳ Generating...' : '📦 Download All as ZIP'}
                   </button>
                 )}
               </div>
 
-              {/* Class info bar */}
-              {selCls && (
-                <div style={{
-                  marginTop: 12, padding: '8px 12px',
-                  background: '#e8f4fd', borderRadius: 6,
-                  display: 'flex', alignItems: 'center', gap: 10,
-                  fontSize: 12, color: '#0176d3', fontWeight: 600,
-                }}>
+              {selCls && !isEmployee && (
+                <div style={{ marginTop: 12, padding: '8px 12px', background: '#e8f4fd', borderRadius: 6, display: 'flex', alignItems: 'center', gap: 10, fontSize: 12, color: '#0176d3', fontWeight: 600 }}>
                   <span>📋 {selCls.name} — Section {selCls.section}</span>
                   <span style={{ color: '#94a3b8' }}>|</span>
-                  <span>{students.length} students</span>
-                  {students.length > 0 && (
-                    <>
-                      <span style={{ color: '#94a3b8' }}>|</span>
-                      <span>Session: {selCls.session}</span>
-                    </>
-                  )}
+                  <span>{items.length} students</span>
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── Main Layout: Table + Preview ── */}
+          {/* Main Grid */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 440px', gap: 16, alignItems: 'start' }}>
 
-            {/* Student Table */}
+            {/* Table */}
             <div className="card">
               <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <h4>Students ({filtered.length})</h4>
-                {selStudent && (
-                  <span style={{
-                    fontSize: 11, background: '#e8f4fd', color: '#0176d3',
-                    padding: '3px 10px', borderRadius: 100, fontWeight: 700,
-                  }}>
-                    1 student selected
-                  </span>
-                )}
+                <h4>{isEmployee ? 'Employees' : 'Students'} ({filtered.length})</h4>
               </div>
               <div className="table-container">
                 {loading ? (
-                  <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Loading students...</div>
-                ) : !selClass ? (
+                  <div style={{ padding: 40, textAlign: 'center', color: '#94a3b8' }}>Loading...</div>
+                ) : !isEmployee && !selClass ? (
                   <div className="empty-state">
                     <div className="empty-state-icon">📚</div>
                     <p>Pehle upar se class select karo</p>
                   </div>
                 ) : filtered.length === 0 ? (
                   <div className="empty-state">
-                    <div className="empty-state-icon">🎒</div>
-                    <p>Koi student nahi mila</p>
+                    <div className="empty-state-icon">{isEmployee ? '👔' : '🎒'}</div>
+                    <p>Koi {isEmployee ? 'employee' : 'student'} nahi mila</p>
                   </div>
                 ) : (
                   <table>
                     <thead>
                       <tr>
                         <th>#</th>
-                        <th>Student</th>
-                        <th>Roll No.</th>
-                        <th>Adm. No.</th>
-                        <th>Father</th>
-                        <th>Blood Gr.</th>
+                        <th>{isEmployee ? 'Employee' : 'Student'}</th>
+                        <th>{isEmployee ? 'Emp. ID' : 'Roll No.'}</th>
+                        <th>{isEmployee ? 'Designation' : 'Father'}</th>
+                        <th>{isEmployee ? 'Dept.' : 'Blood Gr.'}</th>
                         <th>Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {filtered.map(function(s, i) {
-                        var isSelected = String(selStudent) === String(s.id);
+                        var isSelected = String(selId) === String(s.id);
+                        var displayName  = s.name || (s.user && s.user.name) || '—';
+                        var displayId    = isEmployee ? (s.employee_id || '—') : (s.roll_number || '—');
+                        var displayCol3  = isEmployee ? (s.designation || '—') : (s.father_name || s.parent_name || '—');
+                        var displayCol4  = isEmployee ? (s.department || '—') : (s.blood_group || '—');
+                        var photoUrl     = s.photo_url || null;
+
                         return (
-                          <tr
-                            key={s.id}
-                            style={{
-                              background: isSelected ? '#eff6ff' : 'transparent',
-                              cursor: 'pointer',
-                              transition: 'background 0.1s',
-                            }}
+                          <tr key={s.id}
+                            style={{ background: isSelected ? '#eff6ff' : 'transparent', cursor: 'pointer' }}
                             onClick={function() {
-                              setSelStudent(s.id);
-                              loadPreview(s.id);
-                            }}
-                          >
+                              setSelId(s.id);
+                              loadPreview(s.id, isEmployee ? 'employee' : 'student');
+                            }}>
                             <td style={{ color: '#94a3b8', fontSize: 12 }}>{i + 1}</td>
                             <td>
                               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <div style={{
-                                  width: 30, height: 30, borderRadius: '50%',
-                                  background: '#e8f4fd', overflow: 'hidden',
-                                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                  flexShrink: 0,
-                                }}>
-                                  {s.photo_url
-                                    ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                <div style={{ width: 30, height: 30, borderRadius: '50%', background: '#e8f4fd', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                  {photoUrl
+                                    ? <img src={photoUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     : <span style={{ fontSize: 14 }}>👤</span>
                                   }
                                 </div>
                                 <div>
-                                  <div style={{ fontSize: 13, fontWeight: 600 }}>{s.name}</div>
+                                  <div style={{ fontSize: 13, fontWeight: 600 }}>{displayName}</div>
                                   <div style={{ fontSize: 11, color: '#94a3b8' }}>{s.gender || ''}</div>
                                 </div>
                               </div>
                             </td>
                             <td>
-                              <span style={{
-                                background: '#eff6ff', color: '#0176d3',
-                                padding: '2px 8px', borderRadius: 4,
-                                fontSize: 11, fontWeight: 700,
-                              }}>{s.roll_number || '—'}</span>
+                              <span style={{ background: '#eff6ff', color: '#0176d3', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{displayId}</span>
                             </td>
-                            <td style={{ fontSize: 11, color: '#64748b', fontFamily: 'monospace' }}>
-                              {s.admission_no || '—'}
-                            </td>
-                            <td style={{ fontSize: 12 }}>{s.father_name || s.parent_name || '—'}</td>
+                            <td style={{ fontSize: 12 }}>{displayCol3}</td>
                             <td>
-                              {s.blood_group
-                                ? <span style={{
-                                    background: '#fef1ee', color: '#ba0517',
-                                    padding: '2px 8px', borderRadius: 4,
-                                    fontSize: 11, fontWeight: 700,
-                                  }}>{s.blood_group}</span>
+                              {displayCol4 !== '—'
+                                ? <span style={{ background: '#fef1ee', color: '#ba0517', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700 }}>{displayCol4}</span>
                                 : <span style={{ color: '#cbd5e1' }}>—</span>
                               }
                             </td>
                             <td>
-                              <div style={{ display: 'flex', gap: 6 }} onClick={function(e) { e.stopPropagation(); }}>
+                              <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }} onClick={function(e) { e.stopPropagation(); }}>
+                                {/* Edit */}
+                                <button onClick={function() { setEditTarget(s); }}
+                                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  ✏️ Edit
+                                </button>
                                 {/* Preview */}
-                                <button
-                                  onClick={function() {
-                                    setSelStudent(s.id);
-                                    loadPreview(s.id);
+                                <button onClick={function() {
+                                    setSelId(s.id);
+                                    loadPreview(s.id, isEmployee ? 'employee' : 'student');
                                   }}
-                                  style={{
-                                    background: '#f1f5f9', color: '#475569',
-                                    border: 'none', borderRadius: 4,
-                                    padding: '4px 9px', fontSize: 11,
-                                    fontWeight: 600, cursor: 'pointer',
-                                  }}
-                                >
+                                  style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                   👁 Preview
                                 </button>
                                 {/* Download */}
-                                <button
-                                  onClick={function() { downloadSingle(s.id, s.name); }}
-                                  style={{
-                                    background: '#e8f4fd', color: '#0176d3',
-                                    border: 'none', borderRadius: 4,
-                                    padding: '4px 9px', fontSize: 11,
-                                    fontWeight: 700, cursor: 'pointer',
-                                  }}
-                                >
+                                <button onClick={function() { downloadSingle(s.id, displayName); }}
+                                  style={{ background: '#e8f4fd', color: '#0176d3', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                                   📄 Download
+                                </button>
+                                {/* Delete */}
+                                <button onClick={function() { setDeleteConfirm(s.id); }}
+                                  style={{ background: '#fef1ee', color: '#dc2626', border: 'none', borderRadius: 4, padding: '4px 8px', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                  🗑
                                 </button>
                               </div>
                             </td>
@@ -515,111 +782,100 @@ export default function IDCardPage() {
               </div>
             </div>
 
-            {/* Live Preview Panel */}
+            {/* Preview Panel */}
             <div style={{ position: 'sticky', top: 80 }}>
               <div className="card">
-                <div className="card-header">
-                  <h4>🪪 Live Preview</h4>
-                </div>
+                <div className="card-header"><h4>🪪 Live Preview</h4></div>
                 <div className="card-body" style={{ padding: '20px 16px' }}>
                   {!preview ? (
-                    <div style={{
-                      padding: '32px 16px', textAlign: 'center',
-                      color: '#94a3b8',
-                    }}>
+                    <div style={{ padding: '32px 16px', textAlign: 'center', color: '#94a3b8' }}>
                       <div style={{ fontSize: 36, marginBottom: 10 }}>🪪</div>
                       <div style={{ fontWeight: 600, color: '#475569', fontSize: 13 }}>
-                        Student select karo
+                        {isEmployee ? 'Employee' : 'Student'} select karo
                       </div>
-                      <div style={{ fontSize: 12, marginTop: 4 }}>
-                        Table mein kisi bhi student pe click karo preview dekhne ke liye
-                      </div>
+                      <div style={{ fontSize: 12, marginTop: 4 }}>Table mein kisi bhi row pe click karo</div>
                     </div>
                   ) : (
                     <>
                       <IDCardPreview
                         student={preview.student}
                         school={preview.school}
+                        type={preview.isEmployee ? 'employee' : 'student'}
                       />
-                      {/* Download button below preview */}
                       <div style={{ marginTop: 20, display: 'flex', gap: 8, justifyContent: 'center' }}>
-                        <button
-                          className="btn btn-primary"
-                          onClick={function() {
-                            downloadSingle(preview.student.id, preview.student.name);
-                          }}
-                          style={{ display: 'flex', alignItems: 'center', gap: 6 }}
-                        >
+                        <button className="btn btn-primary"
+                          onClick={function() { downloadSingle(preview.student.id, preview.student.name); }}
+                          style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                           📥 Download PDF
                         </button>
-                      </div>
-
-                      {/* Student quick info */}
-                      <div style={{
-                        marginTop: 14, padding: '10px 12px',
-                        background: '#f8faff', borderRadius: 8,
-                        border: '1px solid #e0e9ff', fontSize: 11,
-                      }}>
-                        <div style={{ fontWeight: 700, color: '#032d60', marginBottom: 6, fontSize: 12 }}>
-                          📋 Student Details
-                        </div>
-                        {[
-                          ['Name',    preview.student.name],
-                          ['Class',   preview.student.class_name],
-                          ['Roll No.',preview.student.roll_number],
-                          ['Adm. No.',preview.student.admission_no],
-                          ['Session', preview.student.session],
-                          ['DOB',     preview.student.dob],
-                        ].map(function(row) {
-                          return (
-                            <div key={row[0]} style={{
-                              display: 'flex', justifyContent: 'space-between',
-                              marginBottom: 3, color: '#475569',
-                            }}>
-                              <span style={{ color: '#94a3b8' }}>{row[0]}</span>
-                              <strong style={{ color: '#0f172a' }}>{row[1] || '—'}</strong>
-                            </div>
-                          );
-                        })}
+                        <button onClick={function() { setEditTarget(preview.student); }}
+                          style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 8, padding: '10px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                          ✏️ Edit
+                        </button>
                       </div>
                     </>
                   )}
                 </div>
               </div>
-
-              {/* Bulk info card */}
-              {selClass && students.length > 0 && (
-                <div className="card" style={{ marginTop: 12 }}>
-                  <div className="card-body" style={{ padding: '14px 16px' }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#032d60', marginBottom: 8 }}>
-                      📦 Bulk Download Info
-                    </div>
-                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 10, lineHeight: 1.6 }}>
-                      <strong>{students.length}</strong> students ke liye ZIP download hogi.<br/>
-                      Folder structure:<br/>
-                      <code style={{ fontSize: 10, background: '#f1f5f9', padding: '2px 6px', borderRadius: 3 }}>
-                        ClassName/Roll-1/Name_IDCard.pdf
-                      </code>
-                    </div>
-                    <button
-                      className="btn btn-primary"
-                      onClick={downloadBulk}
-                      disabled={bulkLoading}
-                      style={{ width: '100%', justifyContent: 'center', display: 'flex', gap: 6, alignItems: 'center' }}
-                    >
-                      {bulkLoading
-                        ? '⏳ Generating ZIP...'
-                        : '📦 Download Class ZIP (' + students.length + ' cards)'
-                      }
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
-
           </div>
         </div>
       </div>
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) setDeleteConfirm(null); }}>
+          <div style={{ background: '#fff', borderRadius: 16, padding: '28px 28px', width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.2)' }}>
+            <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', marginBottom: 10 }}>🗑 Delete Confirm</div>
+            <p style={{ fontSize: 13, color: '#475569', marginBottom: 20 }}>
+              Kya aap sure hain? Yeh action undo nahi ho sakta.
+            </p>
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+              <button onClick={function() { setDeleteConfirm(null); }}
+                style={{ padding: '9px 18px', borderRadius: 8, border: '1px solid #e2e8f0', background: '#fff', cursor: 'pointer', fontSize: 13, color: '#475569' }}>
+                Cancel
+              </button>
+              <button onClick={function() { doDelete(deleteConfirm); }}
+                style={{ padding: '9px 20px', borderRadius: 8, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                Haan, Delete Karo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editTarget && !isEmployee && (
+        <EditStudentModal
+          student={editTarget}
+          onClose={function() { setEditTarget(null); }}
+          onSaved={function() {
+            setEditTarget(null);
+            // Reload list
+            if (selClass) {
+              api.get('/principal/students?class_id=' + selClass + '&per_page=100').then(function(r) {
+                var raw = r.data;
+                setItems(Array.isArray(raw) ? raw : (raw.data || []));
+              }).catch(function(){});
+            }
+            if (selId) loadPreview(selId, 'student');
+          }}
+        />
+      )}
+      {editTarget && isEmployee && (
+        <EditEmployeeModal
+          employee={editTarget}
+          onClose={function() { setEditTarget(null); }}
+          onSaved={function() {
+            setEditTarget(null);
+            api.get('/principal/teachers').then(function(r) {
+              setItems(Array.isArray(r.data) ? r.data : (r.data.data || []));
+            }).catch(function(){});
+            if (selId) loadPreview(selId, 'employee');
+          }}
+        />
+      )}
     </div>
   );
 }
