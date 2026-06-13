@@ -21,6 +21,8 @@ const BREADCRUMB_MAP = {
   '/results':    'Results',
   '/schools':    'Schools',
   '/users':      'Users',
+  '/id-cards/students':  'Student ID Cards',   // ← ADD
+  '/id-cards/employees': 'Employee ID Cards',  // ← ADD
 };
 
 export default function Navbar({ title }) {
