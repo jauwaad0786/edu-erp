@@ -1,6 +1,6 @@
 """
 id_card_generator.py — FIXED VERSION
-Changes:
+Changes: 
 1. Adm. No. REMOVED from front card
 2. Name overlap fix — proper Y positioning + font fit
 3. QR code — vCard/plain text format Google Lens can scan
