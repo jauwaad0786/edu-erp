@@ -23,6 +23,7 @@ const BREADCRUMB_MAP = {
   '/users':      'Users',
   '/id-cards/students':  'Student ID Cards',   // ← ADD
   '/id-cards/employees': 'Employee ID Cards',  // ← ADD
+  '/school-settings': 'School Settings',
 };
 
 export default function Navbar({ title }) {
