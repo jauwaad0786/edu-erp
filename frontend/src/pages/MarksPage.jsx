@@ -334,9 +334,31 @@ export default function MarksPage() {
                     placeholder="🔍 Search student / roll no"
                     value={search} onChange={e => setSearch(e.target.value)}
                   />
-                  <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSave}>
-                    {saving ? 'Saving…' : '💾 Save Marks'}
-                  </button>
+                  {roster.is_locked ? (
+                    <span style={{
+                      padding: '6px 16px', borderRadius: 8, fontSize: 12,
+                      background: '#fef3c7', color: '#d97706', fontWeight: 700,
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>🔒 Marks Locked</span>
+                  ) : (
+                    <>
+                      <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSave}>
+                        {saving ? 'Saving…' : '💾 Save Marks'}
+                      </button>
+                      <button
+                        className="btn btn-sm"
+                        style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fcd34d', fontWeight: 700 }}
+                        onClick={async () => {
+                          if (!window.confirm('Marks lock karne ke baad edit nahi hoga. Confirm?')) return;
+                          try {
+                            await api.post('/marks/lock', { class_id: classId, exam_id: examId, subject_id: subjectId });
+                            toast.success('Marks locked!');
+                            loadRoster();
+                          } catch { toast.error('Lock nahi hua'); }
+                        }}
+                      >🔒 Lock Marks</button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -384,15 +406,17 @@ export default function MarksPage() {
                                 type="number" className="form-input"
                                 style={{ width: 90, padding: '6px 10px' }}
                                 min={0} max={roster.max_marks}
-                                disabled={r.is_absent}
+                                disabled={r.is_absent || roster.is_locked}
                                 value={r.marks_obtained !== null && r.marks_obtained !== undefined ? r.marks_obtained : ''}
                                 onChange={e => updateRow(r.student_id, 'marks_obtained', e.target.value)}
                                 placeholder="—"
                               />
                             </td>
                             <td>
+                              
                               <input
                                 type="checkbox" checked={!!r.is_absent}
+                                disabled={roster.is_locked}
                                 onChange={e => updateRow(r.student_id, 'is_absent', e.target.checked)}
                               />
                             </td>
