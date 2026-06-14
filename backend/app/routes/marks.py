@@ -12,6 +12,112 @@ def _school_id():
     return get_current_user().school_id
 
 
+# ─── Grid View (ALL subjects at once) ────────────────────────────────────────
+
+@marks_bp.route('/grid', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def get_marks_grid():
+    """
+    Return all students + all subjects for a class+exam in ONE call.
+    Frontend grid ban sake: rows=students, cols=subjects
+    Query params: class_id, exam_id
+    """
+    sid      = _school_id()
+    class_id = request.args.get('class_id', type=int)
+    exam_id  = request.args.get('exam_id',  type=int)
+
+    if not class_id or not exam_id:
+        return jsonify({'error': 'class_id aur exam_id required hain'}), 400
+
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # All subjects for this class
+    subjects = Subject.query.filter_by(class_id=class_id).all()
+
+    # Per-subject max/pass marks — prefer ExamTimetable, fallback to Subject
+    subject_meta = []
+    for s in subjects:
+        tt = ExamTimetable.query.filter_by(
+            exam_id=exam_id, class_id=class_id, subject_id=s.id
+        ).first()
+        subject_meta.append({
+            'id':          s.id,
+            'name':        s.name,
+            'max_marks':   float(tt.max_marks  if tt else (s.max_marks  or 100)),
+            'pass_marks':  float(tt.pass_marks if tt else (s.pass_marks or 33)),
+        })
+
+    # All students in class
+    students = Student.query.filter_by(
+        class_id=class_id, school_id=sid
+    ).order_by(Student.roll_number).all()
+
+    # All existing marks for this class+exam — single query
+    existing = {}
+    all_marks = Marks.query.filter_by(
+        exam_id=exam_id, class_id=class_id
+    ).all()
+    for m in all_marks:
+        existing[(m.student_id, m.subject_id)] = m
+
+    # Build grid rows
+    rows = []
+    for s in students:
+        cells = {}
+        total_obtained = 0
+        total_max      = 0
+        for subj in subject_meta:
+            m = existing.get((s.id, subj['id']))
+            mo = float(m.marks_obtained) if m and m.marks_obtained is not None else None
+            cells[str(subj['id'])] = {
+                'marks_obtained': mo,
+                'is_absent':      bool(m.is_absent)  if m else False,
+                'is_locked':      bool(m.is_locked)  if m else False,
+                'grade':          m.grade             if m else None,
+                'remarks':        m.remarks           if m else '',
+            }
+            if mo is not None and not (m and m.is_absent):
+                total_obtained += mo
+                total_max      += subj['max_marks']
+
+        pct = round(total_obtained / total_max * 100, 1) if total_max else 0
+        rows.append({
+            'student_id':      s.id,
+            'name':            s.user.name if s.user else '',
+            'roll_number':     s.roll_number or '',
+            'cells':           cells,
+            'total_obtained':  total_obtained,
+            'total_max':       total_max,
+            'percentage':      pct,
+            'overall_grade':   _grade(total_obtained, total_max) if total_max else '—',
+        })
+
+    # Sort by percentage desc (topper first)
+    rows.sort(key=lambda r: -r['percentage'])
+
+    # Is entire grid locked?
+    all_locked = all(
+        cells.get('is_locked', False)
+        for row in rows
+        for cells in row['cells'].values()
+    ) if rows and any(row['cells'] for row in rows) else False
+
+    return jsonify({
+        'class':       cls.to_dict(),
+        'exam':        exam.to_dict(),
+        'subjects':    subject_meta,
+        'rows':        rows,
+        'is_locked':   all_locked,
+        'is_published': exam.is_published,
+    }), 200
+
+
 def _grade(marks, max_marks):
     pct = marks / max_marks * 100 if max_marks else 0
     if pct >= 90: return 'A+'
@@ -151,6 +257,8 @@ def save_marks():
         record = Marks.query.filter_by(
             student_id=student.id, subject_id=subject_id, exam_id=exam_id
         ).first()
+        if record and getattr(record, 'is_locked', False):
+            continue  # locked rows skip
         if not record:
             record = Marks(
                 student_id=student.id, subject_id=subject_id, exam_id=exam_id,
@@ -316,3 +424,178 @@ def lock_marks():
     ).update({'is_locked': True})
     db.session.commit()
     return jsonify({'message': f'{updated} marks locked'}), 200
+
+
+@marks_bp.route('/grid/save', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def save_grid_marks():
+    """
+    Grid se bulk save — ek call mein saare subjects ke marks save.
+    Body: {
+      class_id, exam_id,
+      entries: [{
+        student_id,
+        subjects: [{subject_id, marks_obtained, max_marks, is_absent, remarks}]
+      }]
+    }
+    """
+    sid  = _school_id()
+    data = request.get_json() or {}
+
+    class_id = data.get('class_id')
+    exam_id  = data.get('exam_id')
+    entries  = data.get('entries', [])
+
+    if not class_id or not exam_id:
+        return jsonify({'error': 'class_id aur exam_id required'}), 400
+
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    user  = get_current_user()
+    saved = 0
+
+    for entry in entries:
+        student = Student.query.get(entry.get('student_id'))
+        if not student or student.school_id != sid or student.class_id != class_id:
+            continue
+
+        for subj_entry in entry.get('subjects', []):
+            subject_id     = subj_entry.get('subject_id')
+            is_absent      = bool(subj_entry.get('is_absent'))
+            raw_marks      = subj_entry.get('marks_obtained')
+            max_marks      = float(subj_entry.get('max_marks') or 100)
+
+            # Skip empty cells (teacher ne kuch enter hi nahi kiya)
+            if raw_marks is None or raw_marks == '':
+                if not is_absent:
+                    continue
+
+            marks_obtained = 0.0 if is_absent else float(raw_marks or 0)
+            marks_obtained = max(0, min(marks_obtained, max_marks))
+
+            subject = Subject.query.get(subject_id)
+            if not subject:
+                continue
+
+            record = Marks.query.filter_by(
+                student_id=student.id,
+                subject_id=subject_id,
+                exam_id=exam_id
+            ).first()
+
+            if record and getattr(record, 'is_locked', False):
+                continue  # locked skip
+
+            if not record:
+                record = Marks(
+                    student_id=student.id,
+                    subject_id=subject_id,
+                    exam_id=exam_id,
+                    class_id=class_id,
+                    school_id=sid,
+                )
+                db.session.add(record)
+
+            record.marks_obtained = marks_obtained
+            record.max_marks      = max_marks
+            record.is_absent      = is_absent
+            record.remarks        = subj_entry.get('remarks', '')
+            record.grade          = 'AB' if is_absent else _grade(marks_obtained, max_marks)
+            record.entered_by     = user.id
+            record.exam_type      = exam.exam_name
+
+            saved += 1
+
+    db.session.commit()
+    return jsonify({'message': f'{saved} marks saved'}), 200
+
+
+@marks_bp.route('/publish', methods=['POST'])
+@role_required('PRINCIPAL')
+def publish_results():
+    """
+    Principal results publish kare — tab student/parent dashboard update ho.
+    Body: { exam_id, class_id (optional — sirf ek class publish karna ho) }
+    After publish: exam.is_published = True, exam.status = PUBLISHED
+    Students/Parents /student/marks endpoint se published marks dekh sakte hain.
+    """
+    sid  = _school_id()
+    data = request.get_json() or {}
+    exam_id  = data.get('exam_id')
+    class_id = data.get('class_id')  # optional
+
+    if not exam_id:
+        return jsonify({'error': 'exam_id required'}), 400
+
+    exam = ExamSchedule.query.get_or_404(exam_id)
+    if exam.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    # Check karo ki saare marks enter hue hain
+    q = Marks.query.filter_by(exam_id=exam_id, school_id=sid)
+    if class_id:
+        q = q.filter_by(class_id=class_id)
+    total_marks = q.count()
+
+    if total_marks == 0:
+        return jsonify({'error': 'Koi marks enter nahi hue — pehle marks save karo'}), 400
+
+    from datetime import datetime
+    exam.is_published = True
+    exam.status       = 'PUBLISHED'
+    exam.published_at = datetime.utcnow()
+    exam.published_by = get_current_user().id
+    db.session.commit()
+
+    return jsonify({
+        'message':      'Results published successfully',
+        'exam_id':      exam_id,
+        'published_at': exam.published_at.isoformat(),
+        'total_marks_published': total_marks,
+    }), 200
+
+
+@marks_bp.route('/student/<int:student_id>/summary', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def student_marks_summary(student_id):
+    """Principal/Teacher kisi bhi student ke marks dekh sake."""
+    sid     = _school_id()
+    student = Student.query.get_or_404(student_id)
+    if student.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    from collections import defaultdict
+    all_marks = Marks.query.filter_by(student_id=student_id).all()
+
+    exam_map = defaultdict(list)
+    for m in all_marks:
+        exam_map[m.exam_type].append({
+            'subject':        m.subject.name if m.subject else 'N/A',
+            'marks_obtained': m.marks_obtained or 0,
+            'max_marks':      m.max_marks or 100,
+            'grade':          m.grade or '—',
+            'is_absent':      bool(m.is_absent),
+            'percentage':     round(m.marks_obtained / m.max_marks * 100, 1)
+                              if m.max_marks else 0,
+        })
+
+    result = []
+    for exam_type, subjects in exam_map.items():
+        total_obt = sum(s['marks_obtained'] for s in subjects if not s['is_absent'])
+        total_max = sum(s['max_marks']      for s in subjects if not s['is_absent'])
+        avg_pct   = round(total_obt / total_max * 100, 1) if total_max else 0
+        result.append({
+            'exam_type':      exam_type,
+            'subjects':       subjects,
+            'total_obtained': total_obt,
+            'total_max':      total_max,
+            'avg_pct':        avg_pct,
+        })
+
+    return jsonify(result), 200
