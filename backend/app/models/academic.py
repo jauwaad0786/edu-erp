@@ -161,24 +161,50 @@ class Marks(db.Model):
     id             = db.Column(db.Integer, primary_key=True)
     student_id     = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False)
     subject_id     = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False)
+
+    # NEW: proper link to ExamSchedule (replaces relying only on exam_type string match)
+    exam_id        = db.Column(db.Integer, db.ForeignKey('exam_schedules.id'), nullable=True)
+
+    # NEW: denormalized for fast tenant-scoped + topper-aggregation queries
+    class_id       = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
+    school_id      = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=True)
+
+    # kept for backward compat with existing result-card lookup (Marks.exam_type == exam.exam_name)
     exam_type      = db.Column(db.String(50))
+
     marks_obtained = db.Column(db.Float, default=0)
     max_marks      = db.Column(db.Float, default=100)
     grade          = db.Column(db.String(5))
+
+    # NEW: explicit absent flag (so 0 marks vs "did not appear" aren't confused in analytics)
+    is_absent      = db.Column(db.Boolean, default=False)
+
     remarks        = db.Column(db.String(200))
     entered_by     = db.Column(db.Integer, db.ForeignKey('users.id'))
     entered_at     = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at     = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    # NEW: one mark entry per student+subject+exam (prevents duplicate rows on re-save)
+    __table_args__ = (
+        db.UniqueConstraint('student_id', 'subject_id', 'exam_id', name='uq_marks_student_subject_exam'),
+    )
 
     def to_dict(self):
+        pct = round(self.marks_obtained / self.max_marks * 100, 2) if self.max_marks else 0
         return {
             'id':             self.id,
             'student_id':     self.student_id,
             'subject_id':     self.subject_id,
             'subject_name':   self.subject.name if self.subject else 'N/A',
+            'exam_id':        self.exam_id,
+            'class_id':       self.class_id,
             'exam_type':      self.exam_type,
             'marks_obtained': self.marks_obtained,
             'max_marks':      self.max_marks,
+            'percentage':     pct,
             'grade':          self.grade,
+            'is_absent':      self.is_absent,
+            'remarks':        self.remarks or '',
         }
 
 
