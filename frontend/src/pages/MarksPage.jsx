@@ -125,20 +125,19 @@ export default function MarksPage() {
     api.get(`/marks/grid?class_id=${classId}&exam_id=${examId}`)
       .then(res => {
         setGrid(res.data);
-        /* init cells from saved data */
         const c = {};
         (res.data.rows || []).forEach(row => {
           Object.entries(row.cells).forEach(([sid, cell]) => {
             c[`${row.student_id}-${sid}`] = {
-              marks_obtained: cell.marks_obtained,
-              is_absent:      cell.is_absent,
+              marks_obtained: (cell.marks_obtained !== null && cell.marks_obtained !== undefined)
+                              ? Number(cell.marks_obtained) : null,
+              is_absent:      !!cell.is_absent,
               remarks:        cell.remarks || '',
-              is_locked:      cell.is_locked,
+              is_locked:      !!cell.is_locked,
             };
           });
         });
         setCells(c);
-        setMaxEdits({});
       })
       .catch(() => toast.error('Grid load nahi hua'))
       .finally(() => setLoadingGrid(false));
@@ -333,15 +332,22 @@ export default function MarksPage() {
                         {isPublished ? '✅ Published' : isGridLocked ? '🔒 Locked' : '📝 Draft'}
                       </span>
                     </div>
-                    {!isPublished && (
+                    {isPublished ? (
+                      <div style={{ marginTop:6, padding:'6px 12px', borderRadius:8,
+                        background:'#dcfce7', color:'#16a34a', fontWeight:700, fontSize:12,
+                        textAlign:'center' }}>
+                        ✅ Already Published
+                      </div>
+                    ) : (
                       <button
                         className="btn btn-sm"
                         style={{ marginTop:6, background:'#16a34a', color:'#fff',
                           fontWeight:700, border:'none', opacity: publishing ? 0.7 : 1 }}
-                        disabled={publishing}
+                        disabled={publishing || !grid}
                         onClick={handlePublish}>
                         {publishing ? 'Publishing…' : '🚀 Publish Results'}
                       </button>
+                    
                     )}
                   </div>
                 ) : (
