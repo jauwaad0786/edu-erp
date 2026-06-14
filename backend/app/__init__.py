@@ -8,6 +8,8 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 from dotenv import load_dotenv
+
+
 # Imports mein add karo (top):
 import cloudinary
 
@@ -55,7 +57,8 @@ def create_app(config_name='default'):
     from app.routes.principal import principal_bp, teacher_bp as teacher_self_bp
     from app.routes.teacher import teacher_bp
     from app.routes.student import student_bp
-
+    from app.routes.marks import marks_bp
+    app.register_blueprint(marks_bp, url_prefix='/api/marks')
     app.register_blueprint(auth_bp,      url_prefix='/api/auth')
     app.register_blueprint(admin_bp,     url_prefix='/api/admin')
     app.register_blueprint(principal_bp, url_prefix='/api/principal')
