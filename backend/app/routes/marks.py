@@ -157,7 +157,7 @@ def save_marks():
 
         record.marks_obtained = marks_obtained
         record.max_marks      = max_marks
-        record.is_absent      = is_absent
+        record.is_absent      = bool(is_absent)
         record.remarks        = e.get('remarks', '')
         record.grade          = 'AB' if is_absent else _grade(marks_obtained, max_marks)
         record.entered_by     = user.id
