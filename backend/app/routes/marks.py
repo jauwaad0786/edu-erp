@@ -77,8 +77,9 @@ def get_marks_roster():
             'student_id':     s.id,
             'name':           s.user.name if s.user else '',
             'roll_number':    s.roll_number or '',
-            'marks_obtained': m.marks_obtained if m else None,
-            'is_absent':      m.is_absent if m else False,
+            'marks_obtained': float(m.marks_obtained) if m and m.marks_obtained is not None else None,
+            'is_absent':      bool(m.is_absent) if m else False,
+            'is_locked':      bool(m.is_locked) if m else False,
             'remarks':        m.remarks if m else '',
             'grade':          m.grade if m else None,
         })
