@@ -178,6 +178,7 @@ class Marks(db.Model):
 
     # NEW: explicit absent flag (so 0 marks vs "did not appear" aren't confused in analytics)
     is_absent      = db.Column(db.Boolean, default=False)
+    is_locked      = db.Column(db.Boolean, default=False)
 
     remarks        = db.Column(db.String(200))
     entered_by     = db.Column(db.Integer, db.ForeignKey('users.id'))
