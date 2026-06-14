@@ -276,9 +276,18 @@ export default function MarksPage() {
               <div className="form-group" style={{ minWidth: 200, marginBottom: 0 }}>
                 <label className="form-label">Subject</label>
                 <select className="form-select" value={subjectId} onChange={e => setSubjectId(e.target.value)} disabled={!classId}>
-                  <option value="">{classId ? 'Select subject' : 'Select class first'}</option>
+                  <option value="">
+                    {!classId ? 'Select class first' : subjects.length === 0 ? 'No subjects — add from Subjects page' : 'Select subject'}
+                  </option>
                   {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
+                {classId && subjects.length === 0 && (
+                  <div style={{ fontSize: 11, color: '#ea580c', marginTop: 4 }}>
+                    ⚠️ Is class mein koi subject nahi hai. Pehle{' '}
+                    <a href="/subjects" style={{ color: '#0176d3', fontWeight: 600 }}>Subjects page</a>
+                    {' '}se subjects add karo.
+                  </div>
+                )}
               </div>
               {roster && (
                 <div style={{ fontSize: 12, color: 'var(--neutral-6)', paddingBottom: 8 }}>
