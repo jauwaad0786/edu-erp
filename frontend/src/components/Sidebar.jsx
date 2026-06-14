@@ -48,8 +48,9 @@ const ROLE_MENUS = {
       items: [
         { icon: '📋', label: 'Attendance',    path: '/attendance' },
         { icon: '📝', label: 'Exams',         path: '/exams' },
+        { icon: '📝', label: 'Exams',         path: '/exams' },
+        { icon: '📊', label: 'Marks',         path: '/marks' },
         { icon: '💰', label: 'Fees',          path: '/fees' },
-        { icon: '🗓', label: 'Holidays',      path: '/holidays' },
       ]
     },
     {
