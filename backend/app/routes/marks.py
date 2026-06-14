@@ -472,9 +472,9 @@ def save_grid_marks():
             max_marks      = float(subj_entry.get('max_marks') or 100)
 
             # Skip empty cells (teacher ne kuch enter hi nahi kiya)
-            if raw_marks is None or raw_marks == '':
-                if not is_absent:
-                    continue
+            
+            if (raw_marks is None or raw_marks == '') and not is_absent:
+                continue
 
             marks_obtained = 0.0 if is_absent else float(raw_marks or 0)
             marks_obtained = max(0, min(marks_obtained, max_marks))
