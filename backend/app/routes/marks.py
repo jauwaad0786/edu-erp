@@ -84,6 +84,7 @@ def get_marks_roster():
             'grade':          m.grade if m else None,
         })
 
+    is_locked = all(r.get('is_locked') for r in roster) if roster else False
     return jsonify({
         'class':      cls.to_dict(),
         'exam':       exam.to_dict(),
@@ -91,6 +92,7 @@ def get_marks_roster():
         'max_marks':  max_marks,
         'pass_marks': pass_marks,
         'students':   roster,
+        'is_locked':  is_locked,
     }), 200
 
 
