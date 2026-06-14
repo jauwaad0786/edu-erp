@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
 import toast   from 'react-hot-toast';
 
-/* ── grade helper (mirrors backend _grade) ── */
+/* ── helpers ── */
 function _grade(marks, max) {
   const pct = max ? (marks / max) * 100 : 0;
   if (pct >= 90) return 'A+';
@@ -16,220 +16,222 @@ function _grade(marks, max) {
   if (pct >= 33) return 'D';
   return 'F';
 }
-
 const GRADE_COLOR = {
-  'A+': '#2e844a', 'A': '#2e844a', 'B+': '#0176d3', 'B': '#0176d3',
-  'C': '#dd7a01', 'D': '#dd7a01', 'F': '#ba0517', 'AB': '#747474', '—': '#c9c9c9',
+  'A+':'#2e844a','A':'#2e844a','B+':'#0176d3','B':'#0176d3',
+  'C':'#dd7a01','D':'#dd7a01','F':'#ba0517','AB':'#747474','—':'#c9c9c9',
 };
-const gradeColor = g => GRADE_COLOR[g] || '#747474';
-const RANK_MEDAL = { 1: '🥇', 2: '🥈', 3: '🥉' };
+const gc = g => GRADE_COLOR[g] || '#747474';
+const MEDAL = { 1:'🥇', 2:'🥈', 3:'🥉' };
 
-/* ════════════════════════════ TopperCard ════════════════════════════ */
-function TopperCard({ icon, title, subtitle, toppers, loading, valueLabel = 'percentage', onStudentClick }) {
+/* ── TopperCard ── */
+function TopperCard({ icon, title, subtitle, toppers, loading, valueLabel='percentage', onStudentClick }) {
   return (
     <div className="card">
-      <div className="card-header" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <span style={{ fontSize: 18 }}>{icon}</span>
+      <div className="card-header" style={{ display:'flex', alignItems:'center', gap:8 }}>
+        <span style={{ fontSize:18 }}>{icon}</span>
         <div>
-          <div style={{ fontWeight: 700, fontSize: 13 }}>{title}</div>
-          {subtitle && <div style={{ fontSize: 11, color: 'var(--neutral-6)' }}>{subtitle}</div>}
+          <div style={{ fontWeight:700, fontSize:13 }}>{title}</div>
+          {subtitle && <div style={{ fontSize:11, color:'var(--neutral-6)' }}>{subtitle}</div>}
         </div>
       </div>
-      <div className="card-body" style={{ paddingTop: 8 }}>
-        {loading ? (
-          <div className="flex flex-col gap-2">
-            {[1, 2, 3].map(i => (
-              <div key={i} className="marks-skel" style={{ height: 46, borderRadius: 8 }} />
-            ))}
+      <div className="card-body" style={{ paddingTop:8 }}>
+        {loading ? [1,2,3].map(i => (
+          <div key={i} style={{ height:46, borderRadius:8, marginBottom:8,
+            background:'linear-gradient(90deg,var(--neutral-1) 25%,var(--neutral-2) 37%,var(--neutral-1) 63%)',
+            backgroundSize:'400px 100%', animation:'shimmer 1.4s infinite' }} />
+        )) : toppers.length === 0 ? (
+          <div style={{ fontSize:12, color:'var(--neutral-6)', textAlign:'center', padding:'20px 0' }}>
+            No results yet
           </div>
-        ) : toppers.length === 0 ? (
-          <div style={{ fontSize: 12, color: 'var(--neutral-6)', textAlign: 'center', padding: '20px 0' }}>
-            No results yet for this selection
-          </div>
-        ) : (
-          <div className="flex flex-col gap-2">
-            {toppers.map(t => (
-              <div
-                key={t.student_id}
-                onClick={() => onStudentClick(t.student_id)}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
-                  borderRadius: 8, border: '1px solid var(--neutral-2)', cursor: 'pointer',
-                  transition: 'background 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'var(--neutral-1)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
-              >
-                <span style={{ fontSize: 18, width: 24, textAlign: 'center' }}>
-                  {RANK_MEDAL[t.rank] || `#${t.rank}`}
-                </span>
-                <div className="avatar avatar-sm" style={{ background: 'var(--blue-10)', color: 'var(--blue-80)' }}>
-                  {(t.name || '?').charAt(0).toUpperCase()}
-                </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {t.name}
-                  </div>
-                  <div style={{ fontSize: 11, color: 'var(--neutral-6)' }}>
-                    {t.class_name}
-                    {t.roll_number ? ` · Roll ${t.roll_number}` : ''}
-                    {t.subject_name ? ` · ${t.subject_name}` : ''}
-                  </div>
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--blue-80)' }}>
-                    {valueLabel === 'marks' ? `${t.marks_obtained}/${t.max_marks}` : `${t.percentage}%`}
-                  </div>
-                  <span className="badge" style={{ background: `${gradeColor(t.grade)}1A`, color: gradeColor(t.grade) }}>
-                    {t.grade}
-                  </span>
-                </div>
+        ) : toppers.map(t => (
+          <div key={t.student_id} onClick={() => onStudentClick(t.student_id)}
+            style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px',
+              borderRadius:8, border:'1px solid var(--neutral-2)', cursor:'pointer',
+              marginBottom:6, transition:'background 0.15s' }}
+            onMouseEnter={e => e.currentTarget.style.background='var(--neutral-1)'}
+            onMouseLeave={e => e.currentTarget.style.background='transparent'}>
+            <span style={{ fontSize:18, width:24, textAlign:'center' }}>{MEDAL[t.rank] || `#${t.rank}`}</span>
+            <div className="avatar avatar-sm" style={{ background:'var(--blue-10)', color:'var(--blue-80)' }}>
+              {(t.name||'?').charAt(0).toUpperCase()}
+            </div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <div style={{ fontSize:13, fontWeight:600, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{t.name}</div>
+              <div style={{ fontSize:11, color:'var(--neutral-6)' }}>
+                {t.class_name}{t.roll_number ? ` · Roll ${t.roll_number}` : ''}{t.subject_name ? ` · ${t.subject_name}` : ''}
               </div>
-            ))}
+            </div>
+            <div style={{ textAlign:'right' }}>
+              <div style={{ fontSize:14, fontWeight:800, color:'var(--blue-80)' }}>
+                {valueLabel==='marks' ? `${t.marks_obtained}/${t.max_marks}` : `${t.percentage}%`}
+              </div>
+              <span className="badge" style={{ background:`${gc(t.grade)}1A`, color:gc(t.grade) }}>{t.grade}</span>
+            </div>
           </div>
-        )}
+        ))}
       </div>
     </div>
   );
 }
 
-/* ════════════════════════════ MarksPage ════════════════════════════ */
+/* ════════════ MarksPage ════════════ */
 export default function MarksPage() {
   const navigate = useNavigate();
 
-  const [classes, setClasses]   = useState([]);
-  const [exams, setExams]       = useState([]);
-  const [subjects, setSubjects] = useState([]);
+  /* filter state */
+  const [classes,  setClasses]  = useState([]);
+  const [exams,    setExams]    = useState([]);
+  const [classId,  setClassId]  = useState('');
+  const [examId,   setExamId]   = useState('');
 
-  const [classId, setClassId]     = useState('');
-  const [examId, setExamId]       = useState('');
-  const [subjectId, setSubjectId] = useState('');
+  /* grid state */
+  const [grid,     setGrid]     = useState(null);   // full API response
+  const [cells,    setCells]    = useState({});      // { "studentId-subjectId": value }
+  const [maxEdits, setMaxEdits] = useState({});      // { subjectId: newMax } — per-subject max override
+  const [search,   setSearch]   = useState('');
+  const [loadingGrid, setLoadingGrid] = useState(false);
+  const [saving,   setSaving]   = useState(false);
+  const [publishing, setPublishing] = useState(false);
 
-  const [roster, setRoster] = useState(null);
-  const [rows, setRows]     = useState([]);
-  const [search, setSearch] = useState('');
+  /* toppers */
+  const [schoolToppers,  setSchoolToppers]  = useState([]);
+  const [classToppers,   setClassToppers]   = useState([]);
+  const [loadingTop, setLoadingTop] = useState(false);
 
-  const [schoolToppers, setSchoolToppers]   = useState([]);
-  const [classToppers, setClassToppers]     = useState([]);
-  const [subjectToppers, setSubjectToppers] = useState([]);
-
-  const [loadingRoster, setLoadingRoster] = useState(false);
-  const [loadingToppers, setLoadingToppers] = useState({ school: false, cls: false, subj: false });
-  const [saving, setSaving] = useState(false);
-
-  /* ── classes + exams ── */
+  /* ── initial load ── */
   useEffect(() => {
     Promise.all([api.get('/principal/classes'), api.get('/principal/exams')])
-      .then(([c, e]) => {
-        setClasses(c.data || []);
-        setExams(e.data || []);
-      })
-      .catch(() => toast.error('Classes/Exams load nahi hue'));
+      .then(([c, e]) => { setClasses(c.data||[]); setExams(e.data||[]); })
+      .catch(() => toast.error('Load nahi hua'));
   }, []);
 
-  /* ── subjects for selected class ── */
-  useEffect(() => {
-    if (!classId) { setSubjects([]); setSubjectId(''); return; }
-    api.get(`/principal/classes/${classId}/subjects`)
-      .then(res => setSubjects(res.data || []))
-      .catch(() => toast.error('Subjects load nahi hue'));
-    setSubjectId('');
-  }, [classId]);
-
-  /* ── topper fetchers ── */
-  const fetchSchoolToppers = useCallback(() => {
-    if (!examId) { setSchoolToppers([]); return; }
-    setLoadingToppers(p => ({ ...p, school: true }));
-    api.get(`/marks/toppers/school?exam_id=${examId}`)
-      .then(res => setSchoolToppers(res.data || []))
-      .catch(() => setSchoolToppers([]))
-      .finally(() => setLoadingToppers(p => ({ ...p, school: false })));
-  }, [examId]);
-
-  const fetchClassToppers = useCallback(() => {
-    if (!examId || !classId) { setClassToppers([]); return; }
-    setLoadingToppers(p => ({ ...p, cls: true }));
-    api.get(`/marks/toppers/class?exam_id=${examId}&class_id=${classId}`)
-      .then(res => setClassToppers(res.data || []))
-      .catch(() => setClassToppers([]))
-      .finally(() => setLoadingToppers(p => ({ ...p, cls: false })));
+  /* ── toppers ── */
+  const fetchToppers = useCallback(() => {
+    if (!examId) { setSchoolToppers([]); setClassToppers([]); return; }
+    setLoadingTop(true);
+    const calls = [api.get(`/marks/toppers/school?exam_id=${examId}`)];
+    if (classId) calls.push(api.get(`/marks/toppers/class?exam_id=${examId}&class_id=${classId}`));
+    Promise.all(calls)
+      .then(([s, c]) => { setSchoolToppers(s.data||[]); setClassToppers(c?.data||[]); })
+      .catch(() => {})
+      .finally(() => setLoadingTop(false));
   }, [examId, classId]);
 
-  const fetchSubjectToppers = useCallback(() => {
-    if (!examId || !subjectId) { setSubjectToppers([]); return; }
-    setLoadingToppers(p => ({ ...p, subj: true }));
-    api.get(`/marks/toppers/subject?exam_id=${examId}&subject_id=${subjectId}&class_id=${classId || ''}`)
-      .then(res => setSubjectToppers(res.data || []))
-      .catch(() => setSubjectToppers([]))
-      .finally(() => setLoadingToppers(p => ({ ...p, subj: false })));
-  }, [examId, subjectId, classId]);
+  useEffect(() => { fetchToppers(); }, [fetchToppers]);
 
-  useEffect(() => { fetchSchoolToppers(); },  [fetchSchoolToppers]);
-  useEffect(() => { fetchClassToppers(); },   [fetchClassToppers]);
-  useEffect(() => { fetchSubjectToppers(); }, [fetchSubjectToppers]);
-
-  /* ── roster ── */
-  const loadRoster = useCallback(() => {
-    if (!classId || !examId || !subjectId) { setRoster(null); setRows([]); return; }
-    setLoadingRoster(true);
-    api.get(`/marks/roster?class_id=${classId}&exam_id=${examId}&subject_id=${subjectId}`)
+  /* ── grid load ── */
+  const loadGrid = useCallback(() => {
+    if (!classId || !examId) { setGrid(null); setCells({}); setMaxEdits({}); return; }
+    setLoadingGrid(true);
+    api.get(`/marks/grid?class_id=${classId}&exam_id=${examId}`)
       .then(res => {
-        setRoster(res.data);
-        setRows(res.data.students.map(s => ({ ...s })));
+        setGrid(res.data);
+        /* init cells from saved data */
+        const c = {};
+        (res.data.rows || []).forEach(row => {
+          Object.entries(row.cells).forEach(([sid, cell]) => {
+            c[`${row.student_id}-${sid}`] = {
+              marks_obtained: cell.marks_obtained,
+              is_absent:      cell.is_absent,
+              remarks:        cell.remarks || '',
+              is_locked:      cell.is_locked,
+            };
+          });
+        });
+        setCells(c);
+        setMaxEdits({});
       })
-      .catch(() => toast.error('Roster load nahi hua'))
-      .finally(() => setLoadingRoster(false));
-  }, [classId, examId, subjectId]);
+      .catch(() => toast.error('Grid load nahi hua'))
+      .finally(() => setLoadingGrid(false));
+  }, [classId, examId]);
 
-  useEffect(() => { loadRoster(); }, [loadRoster]);
+  useEffect(() => { loadGrid(); }, [loadGrid]);
 
-  function updateRow(student_id, field, value) {
-    setRows(prev => prev.map(r => (r.student_id === student_id ? { ...r, [field]: value } : r)));
+  /* ── cell updater ── */
+  function updateCell(studentId, subjectId, field, value) {
+    const key = `${studentId}-${subjectId}`;
+    setCells(prev => ({
+      ...prev,
+      [key]: { ...(prev[key] || {}), [field]: value },
+    }));
   }
 
+  /* ── save grid ── */
   async function handleSave() {
-    if (!roster) return;
-    const max = roster.max_marks;
-    for (const r of rows) {
-      if (!r.is_absent && r.marks_obtained !== '' && r.marks_obtained !== null &&
-          (Number(r.marks_obtained) < 0 || Number(r.marks_obtained) > max)) {
-        toast.error(`${r.name}: marks 0–${max} ke beech hone chahiye`);
-        return;
-      }
-    }
+    if (!grid) return;
     setSaving(true);
     try {
-      await api.post('/marks/save', {
-        class_id: classId, exam_id: examId, subject_id: subjectId,
-        entries: rows.map(r => ({
-          student_id: r.student_id,
-          marks_obtained: r.is_absent ? 0 : Number(r.marks_obtained || 0),
-          is_absent: !!r.is_absent,
-          remarks: r.remarks || '',
-        })),
+      const entries = (grid.rows || []).map(row => ({
+        student_id: row.student_id,
+        subjects: (grid.subjects || []).map(subj => {
+          const key  = `${row.student_id}-${subj.id}`;
+          const cell = cells[key] || {};
+          const max  = parseFloat(maxEdits[subj.id] ?? subj.max_marks);
+          return {
+            subject_id:     subj.id,
+            marks_obtained: cell.is_absent ? 0 : (cell.marks_obtained ?? null),
+            max_marks:      max,
+            is_absent:      !!cell.is_absent,
+            remarks:        cell.remarks || '',
+          };
+        }),
+      }));
+
+      await api.post('/marks/grid/save', {
+        class_id: classId, exam_id: examId, entries,
       });
-      toast.success('Marks saved successfully');
-      loadRoster();
-      fetchSchoolToppers();
-      fetchClassToppers();
-      fetchSubjectToppers();
+      toast.success('✅ Marks saved!');
+      loadGrid();
+      fetchToppers();
     } catch {
-      toast.error('Marks save nahi hue');
+      toast.error('Save nahi hua');
     }
     setSaving(false);
   }
 
-  const filteredRows = rows.filter(r =>
+  /* ── publish ── */
+  async function handlePublish() {
+    if (!window.confirm('Results publish karne ke baad students/parents dekh sakenge. Confirm?')) return;
+    setPublishing(true);
+    try {
+      await api.post('/marks/publish', { exam_id: examId, class_id: classId || undefined });
+      toast.success('🎉 Results published!');
+      loadGrid();
+    } catch (err) {
+      toast.error(err?.response?.data?.error || 'Publish nahi hua');
+    }
+    setPublishing(false);
+  }
+
+  /* ── derived ── */
+  const selectedClass = classes.find(c => String(c.id) === String(classId));
+  const selectedExam  = exams.find(e => String(e.id) === String(examId));
+
+  const filteredRows = (grid?.rows || []).filter(r =>
     !search ||
     r.name.toLowerCase().includes(search.toLowerCase()) ||
-    (r.roll_number || '').toLowerCase().includes(search.toLowerCase())
+    (r.roll_number||'').toLowerCase().includes(search.toLowerCase())
   );
 
-  const selectedClass   = classes.find(c => String(c.id) === String(classId));
-  const selectedSubject = subjects.find(s => String(s.id) === String(subjectId));
-  const selectedExam    = exams.find(e => String(e.id) === String(examId));
+  /* live totals per student */
+  function liveTotal(row) {
+    let obt = 0, max = 0;
+    (grid?.subjects || []).forEach(subj => {
+      const key  = `${row.student_id}-${subj.id}`;
+      const cell = cells[key] || {};
+      const m    = parseFloat(maxEdits[subj.id] ?? subj.max_marks);
+      if (!cell.is_absent && cell.marks_obtained !== null && cell.marks_obtained !== undefined && cell.marks_obtained !== '') {
+        obt += parseFloat(cell.marks_obtained);
+        max += m;
+      }
+    });
+    return { obt, max, pct: max ? Math.round(obt / max * 100) : 0 };
+  }
 
-  /* ════════════════════════════════════════════════════════════════ */
+  const isPublished  = grid?.is_published;
+  const isGridLocked = grid?.is_locked;
+  const canEdit      = !isGridLocked;
+
+  /* ════════════════════ RENDER ════════════════════ */
   return (
     <div className="app-shell">
       <Sidebar />
@@ -237,200 +239,277 @@ export default function MarksPage() {
         <Navbar title="Marks Management" />
         <div className="page-body">
           <style>{`
-            @keyframes marksShimmer {
-              0% { background-position: -200px 0; }
-              100% { background-position: calc(200px + 100%) 0; }
+            @keyframes shimmer {
+              0%{background-position:-200px 0}
+              100%{background-position:calc(200px + 100%) 0}
             }
-            .marks-skel {
-              background: linear-gradient(90deg, var(--neutral-1) 25%, var(--neutral-2) 37%, var(--neutral-1) 63%);
-              background-size: 400px 100%;
-              animation: marksShimmer 1.4s ease-in-out infinite;
+            .marks-grid th { position:sticky; top:0; z-index:2; background:var(--neutral-1); }
+            .marks-grid td, .marks-grid th { white-space:nowrap; }
+            .marks-grid .col-freeze { position:sticky; left:0; z-index:3; background:#fff; }
+            .marks-grid thead .col-freeze { z-index:4; }
+            .marks-grid tr:hover td { background:#f8fafc; }
+            .marks-num-input {
+              width:80px; padding:5px 8px; border:1.5px solid var(--neutral-3);
+              border-radius:6px; font-size:13px; font-weight:600; text-align:center;
+              outline:none; transition:border 0.15s;
             }
-            .marks-table thead th { position: sticky; top: 0; z-index: 2; }
+            .marks-num-input:focus { border-color:#0176d3; background:#f0f7ff; }
+            .marks-num-input:disabled { background:var(--neutral-1); color:var(--neutral-5); border-color:var(--neutral-2); }
+            .max-edit-input {
+              width:55px; padding:3px 6px; border:1.5px dashed #0176d3;
+              border-radius:5px; font-size:11px; text-align:center; color:#0176d3; font-weight:700;
+              background:#f0f7ff; outline:none;
+            }
           `}</style>
 
           <div className="page-header">
             <div>
               <h2 className="page-title">Marks Management</h2>
-              <p className="page-subtitle">Class-wise, subject-wise marks entry &amp; topper analytics</p>
+              <p className="page-subtitle">Multi-subject grid entry · Topper analytics · Result publishing</p>
             </div>
           </div>
 
-          {/* ── filters ── */}
+          {/* ── Filters ── */}
           <div className="card mb-6">
-            <div className="card-body" style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-              <div className="form-group" style={{ minWidth: 180, marginBottom: 0 }}>
+            <div className="card-body" style={{ display:'flex', gap:16, flexWrap:'wrap', alignItems:'flex-end' }}>
+              <div className="form-group" style={{ minWidth:180, marginBottom:0 }}>
                 <label className="form-label">Class</label>
                 <select className="form-select" value={classId} onChange={e => setClassId(e.target.value)}>
                   <option value="">Select class</option>
                   {classes.map(c => <option key={c.id} value={c.id}>{c.name} - {c.section}</option>)}
                 </select>
               </div>
-              <div className="form-group" style={{ minWidth: 220, marginBottom: 0 }}>
+              <div className="form-group" style={{ minWidth:220, marginBottom:0 }}>
                 <label className="form-label">Exam</label>
                 <select className="form-select" value={examId} onChange={e => setExamId(e.target.value)}>
                   <option value="">Select exam</option>
                   {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.exam_name} ({ex.session})</option>)}
                 </select>
               </div>
-              <div className="form-group" style={{ minWidth: 200, marginBottom: 0 }}>
-                <label className="form-label">Subject</label>
-                <select className="form-select" value={subjectId} onChange={e => setSubjectId(e.target.value)} disabled={!classId}>
-                  <option value="">
-                    {!classId ? 'Select class first' : subjects.length === 0 ? 'No subjects — add from Subjects page' : 'Select subject'}
-                  </option>
-                  {subjects.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                </select>
-                {classId && subjects.length === 0 && (
-                  <div style={{ fontSize: 11, color: '#ea580c', marginTop: 4 }}>
-                    ⚠️ Is class mein koi subject nahi hai. Pehle{' '}
-                    <a href="/subjects" style={{ color: '#0176d3', fontWeight: 600 }}>Subjects page</a>
-                    {' '}se subjects add karo.
-                  </div>
-                )}
-              </div>
-              {roster && (
-                <div style={{ fontSize: 12, color: 'var(--neutral-6)', paddingBottom: 8 }}>
-                  Max Marks: <strong>{roster.max_marks}</strong> &nbsp;|&nbsp; Pass Marks: <strong>{roster.pass_marks}</strong>
+              {isPublished && (
+                <div style={{ padding:'8px 16px', borderRadius:8, background:'#dcfce7',
+                  color:'#16a34a', fontWeight:700, fontSize:13, display:'flex', alignItems:'center', gap:6 }}>
+                  ✅ Results Published
                 </div>
               )}
             </div>
           </div>
 
-          {/* ── topper cards ── */}
+          {/* ── Toppers ── */}
           <div className="grid-3 mb-6">
-            <TopperCard
-              icon="🏆" title="Overall School Toppers"
-              subtitle={selectedExam ? selectedExam.exam_name : 'Select an exam'}
-              toppers={schoolToppers} loading={loadingToppers.school}
-              onStudentClick={id => navigate(`/students/${id}`)}
-            />
-            <TopperCard
-              icon="🎓" title="Class Toppers"
-              subtitle={selectedClass ? `${selectedClass.name} - ${selectedClass.section}` : 'Select a class'}
-              toppers={classToppers} loading={loadingToppers.cls}
-              onStudentClick={id => navigate(`/students/${id}`)}
-            />
-            <TopperCard
-              icon="📘" title="Subject Toppers"
-              subtitle={selectedSubject ? selectedSubject.name : 'Select a subject'}
-              toppers={subjectToppers} loading={loadingToppers.subj} valueLabel="marks"
-              onStudentClick={id => navigate(`/students/${id}`)}
-            />
-          </div>
-
-          {/* ── entry table ── */}
-          <div className="card">
-            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
-              <div style={{ fontWeight: 700, fontSize: 14 }}>
-                Marks Entry
-                {selectedClass && selectedExam && selectedSubject &&
-                  ` — ${selectedClass.name} ${selectedClass.section} · ${selectedExam.exam_name} · ${selectedSubject.name}`}
+            <TopperCard icon="🏆" title="School Toppers"
+              subtitle={selectedExam?.exam_name || 'Select exam'}
+              toppers={schoolToppers} loading={loadingTop}
+              onStudentClick={id => navigate(`/students/${id}`)} />
+            <TopperCard icon="🎓" title="Class Toppers"
+              subtitle={selectedClass ? `${selectedClass.name} - ${selectedClass.section}` : 'Select class'}
+              toppers={classToppers} loading={loadingTop}
+              onStudentClick={id => navigate(`/students/${id}`)} />
+            <div className="card">
+              <div className="card-header" style={{ display:'flex', alignItems:'center', gap:8 }}>
+                <span style={{ fontSize:18 }}>📊</span>
+                <div>
+                  <div style={{ fontWeight:700, fontSize:13 }}>Result Status</div>
+                  <div style={{ fontSize:11, color:'var(--neutral-6)' }}>
+                    {selectedExam?.exam_name || 'Select exam'}
+                  </div>
+                </div>
               </div>
-              {roster && (
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <input
-                    className="form-input" style={{ width: 200 }}
-                    placeholder="🔍 Search student / roll no"
-                    value={search} onChange={e => setSearch(e.target.value)}
-                  />
-                  {roster.is_locked ? (
-                    <span style={{
-                      padding: '6px 16px', borderRadius: 8, fontSize: 12,
-                      background: '#fef3c7', color: '#d97706', fontWeight: 700,
-                      display: 'flex', alignItems: 'center', gap: 6,
-                    }}>🔒 Marks Locked</span>
-                  ) : (
-                    <>
-                      <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSave}>
-                        {saving ? 'Saving…' : '💾 Save Marks'}
-                      </button>
+              <div className="card-body" style={{ paddingTop:8 }}>
+                {grid ? (
+                  <div style={{ display:'flex', flexDirection:'column', gap:10 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13 }}>
+                      <span style={{ color:'var(--neutral-6)' }}>Total Students</span>
+                      <strong>{grid.rows?.length || 0}</strong>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13 }}>
+                      <span style={{ color:'var(--neutral-6)' }}>Subjects</span>
+                      <strong>{grid.subjects?.length || 0}</strong>
+                    </div>
+                    <div style={{ display:'flex', justifyContent:'space-between', fontSize:13 }}>
+                      <span style={{ color:'var(--neutral-6)' }}>Status</span>
+                      <span style={{ fontWeight:700,
+                        color: isPublished ? '#16a34a' : isGridLocked ? '#d97706' : '#0176d3' }}>
+                        {isPublished ? '✅ Published' : isGridLocked ? '🔒 Locked' : '📝 Draft'}
+                      </span>
+                    </div>
+                    {!isPublished && (
                       <button
                         className="btn btn-sm"
-                        style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fcd34d', fontWeight: 700 }}
-                        onClick={async () => {
-                          if (!window.confirm('Marks lock karne ke baad edit nahi hoga. Confirm?')) return;
-                          try {
-                            await api.post('/marks/lock', { class_id: classId, exam_id: examId, subject_id: subjectId });
-                            toast.success('Marks locked!');
-                            loadRoster();
-                          } catch { toast.error('Lock nahi hua'); }
-                        }}
-                      >🔒 Lock Marks</button>
-                    </>
+                        style={{ marginTop:6, background:'#16a34a', color:'#fff',
+                          fontWeight:700, border:'none', opacity: publishing ? 0.7 : 1 }}
+                        disabled={publishing}
+                        onClick={handlePublish}>
+                        {publishing ? 'Publishing…' : '🚀 Publish Results'}
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div style={{ fontSize:12, color:'var(--neutral-6)', textAlign:'center', padding:'20px 0' }}>
+                    Select class &amp; exam
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Grid ── */}
+          <div className="card">
+            <div className="card-header" style={{ display:'flex', justifyContent:'space-between',
+              alignItems:'center', flexWrap:'wrap', gap:12 }}>
+              <div style={{ fontWeight:700, fontSize:14 }}>
+                📋 Marks Entry Grid
+                {selectedClass && selectedExam &&
+                  ` — ${selectedClass.name} ${selectedClass.section} · ${selectedExam.exam_name}`}
+              </div>
+              {grid && (
+                <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
+                  <input className="form-input" style={{ width:200 }}
+                    placeholder="🔍 Search student / roll no"
+                    value={search} onChange={e => setSearch(e.target.value)} />
+                  {isGridLocked ? (
+                    <span style={{ padding:'6px 16px', borderRadius:8, fontSize:12,
+                      background:'#fef3c7', color:'#d97706', fontWeight:700 }}>🔒 Marks Locked</span>
+                  ) : (
+                    <button className="btn btn-primary btn-sm" disabled={saving} onClick={handleSave}>
+                      {saving ? 'Saving…' : '💾 Save All Marks'}
+                    </button>
                   )}
                 </div>
               )}
             </div>
-            <div className="card-body" style={{ padding: 0 }}>
-              {(!classId || !examId || !subjectId) ? (
-                <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--neutral-6)', fontSize: 13 }}>
-                  Select Class, Exam and Subject above to start entering marks.
+
+            <div className="card-body" style={{ padding:0 }}>
+              {(!classId || !examId) ? (
+                <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--neutral-6)', fontSize:13 }}>
+                  ☝️ Class aur Exam select karo — saare subjects ka grid dikhega
                 </div>
-              ) : loadingRoster ? (
-                <div style={{ padding: 16 }}>
-                  {[1, 2, 3, 4, 5].map(i => (
-                    <div key={i} className="marks-skel" style={{ height: 38, borderRadius: 6, marginBottom: 8 }} />
+              ) : loadingGrid ? (
+                <div style={{ padding:16 }}>
+                  {[1,2,3,4].map(i => (
+                    <div key={i} style={{ height:44, borderRadius:6, marginBottom:8,
+                      background:'linear-gradient(90deg,var(--neutral-1) 25%,var(--neutral-2) 37%,var(--neutral-1) 63%)',
+                      backgroundSize:'400px 100%', animation:'shimmer 1.4s infinite' }} />
                   ))}
                 </div>
+              ) : !grid?.subjects?.length ? (
+                <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--neutral-6)', fontSize:13 }}>
+                  ⚠️ Is class mein koi subject nahi — pehle{' '}
+                  <a href="/subjects" style={{ color:'#0176d3', fontWeight:600 }}>Subjects page</a>{' '}
+                  se subjects add karo
+                </div>
               ) : filteredRows.length === 0 ? (
-                <div style={{ padding: '40px 20px', textAlign: 'center', color: 'var(--neutral-6)', fontSize: 13 }}>
-                  No students found.
+                <div style={{ padding:'48px 20px', textAlign:'center', color:'var(--neutral-6)', fontSize:13 }}>
+                  Koi student nahi mila
                 </div>
               ) : (
-                <div className="table-container marks-table" style={{ maxHeight: 520, overflowY: 'auto' }}>
-                  <table>
+                <div style={{ overflowX:'auto', maxHeight:560, overflowY:'auto' }}>
+                  <table className="marks-grid" style={{ borderCollapse:'collapse', width:'100%', fontSize:13 }}>
                     <thead>
-                      <tr>
-                        <th style={{ width: 50 }}>Roll No</th>
-                        <th>Student Name</th>
-                        <th style={{ width: 140 }}>Marks (out of {roster.max_marks})</th>
-                        <th style={{ width: 90 }}>Absent</th>
-                        <th style={{ width: 90 }}>Grade</th>
-                        <th>Remarks</th>
+                      <tr style={{ borderBottom:'2px solid var(--neutral-3)' }}>
+                        {/* Freeze: Roll + Name */}
+                        <th className="col-freeze" style={{ padding:'10px 14px', textAlign:'left', minWidth:60 }}>Roll</th>
+                        <th className="col-freeze" style={{ padding:'10px 14px', textAlign:'left', minWidth:160, left:60 }}>Student</th>
+                        {/* Dynamic subject columns */}
+                        {grid.subjects.map(subj => (
+                          <th key={subj.id} style={{ padding:'8px 12px', textAlign:'center', minWidth:110 }}>
+                            <div style={{ fontWeight:700 }}>{subj.name}</div>
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:4, marginTop:2 }}>
+                              <span style={{ fontSize:10, color:'var(--neutral-6)', fontWeight:400 }}>Max:</span>
+                              {canEdit ? (
+                                <input
+                                  className="max-edit-input"
+                                  type="number"
+                                  value={maxEdits[subj.id] ?? subj.max_marks}
+                                  onChange={e => setMaxEdits(prev => ({ ...prev, [subj.id]: e.target.value }))}
+                                  title="Max marks change karo"
+                                />
+                              ) : (
+                                <span style={{ fontSize:11, fontWeight:700, color:'#0176d3' }}>{subj.max_marks}</span>
+                              )}
+                            </div>
+                          </th>
+                        ))}
+                        <th style={{ padding:'10px 12px', textAlign:'center', minWidth:80 }}>Total</th>
+                        <th style={{ padding:'10px 12px', textAlign:'center', minWidth:60 }}>%</th>
+                        <th style={{ padding:'10px 12px', textAlign:'center', minWidth:60 }}>Grade</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {filteredRows.map(r => {
-                        const grade = r.is_absent
-                          ? 'AB'
-                          : (r.marks_obtained === '' || r.marks_obtained === null
-                              ? '—'
-                              : _grade(Number(r.marks_obtained), roster.max_marks));
+                      {filteredRows.map((row, ri) => {
+                        const { obt, max, pct } = liveTotal(row);
+                        const grade = max ? _grade(obt, max) : '—';
                         return (
-                          <tr key={r.student_id}>
-                            <td>{r.roll_number}</td>
-                            <td style={{ fontWeight: 600 }}>{r.name}</td>
-                            <td>
-                              <input
-                                type="number" className="form-input"
-                                style={{ width: 90, padding: '6px 10px' }}
-                                min={0} max={roster.max_marks}
-                                disabled={r.is_absent || roster.is_locked}
-                                value={r.marks_obtained !== null && r.marks_obtained !== undefined ? r.marks_obtained : ''}
-                                onChange={e => updateRow(r.student_id, 'marks_obtained', e.target.value)}
-                                placeholder="—"
-                              />
+                          <tr key={row.student_id}
+                            style={{ borderBottom:'1px solid var(--neutral-2)',
+                              background: ri % 2 === 0 ? '#fff' : '#fafbfc' }}>
+                            {/* Frozen cells */}
+                            <td className="col-freeze" style={{ padding:'8px 14px', fontWeight:600, color:'var(--neutral-6)' }}>
+                              {row.roll_number || '—'}
                             </td>
-                            <td>
-                              
-                              <input
-                                type="checkbox" checked={!!r.is_absent}
-                                disabled={roster.is_locked}
-                                onChange={e => updateRow(r.student_id, 'is_absent', e.target.checked)}
-                              />
+                            <td className="col-freeze" style={{ padding:'8px 14px', fontWeight:700,
+                              cursor:'pointer', color:'#0176d3', left:60 }}
+                              onClick={() => navigate(`/students/${row.student_id}`)}>
+                              {row.name}
                             </td>
-                            <td>
-                              <span className="badge" style={{ background: `${gradeColor(grade)}1A`, color: gradeColor(grade) }}>
+                            {/* Subject mark cells */}
+                            {grid.subjects.map(subj => {
+                              const key  = `${row.student_id}-${subj.id}`;
+                              const cell = cells[key] || {};
+                              const max  = parseFloat(maxEdits[subj.id] ?? subj.max_marks);
+                              const mo   = cell.marks_obtained;
+                              const locked = cell.is_locked || isGridLocked;
+                              return (
+                                <td key={subj.id} style={{ padding:'6px 10px', textAlign:'center' }}>
+                                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:3 }}>
+                                    <input
+                                      className="marks-num-input"
+                                      type="number"
+                                      min={0} max={max}
+                                      disabled={cell.is_absent || locked}
+                                      value={mo !== null && mo !== undefined ? mo : ''}
+                                      onChange={e => updateCell(row.student_id, subj.id, 'marks_obtained', e.target.value === '' ? null : Number(e.target.value))}
+                                      placeholder="—"
+                                    />
+                                    <div style={{ display:'flex', alignItems:'center', gap:4 }}>
+                                      <input type="checkbox"
+                                        checked={!!cell.is_absent}
+                                        disabled={locked}
+                                        onChange={e => updateCell(row.student_id, subj.id, 'is_absent', e.target.checked)}
+                                        style={{ width:12, height:12 }}
+                                      />
+                                      <span style={{ fontSize:10, color:'var(--neutral-6)' }}>Absent</span>
+                                    </div>
+                                    {/* show x/max below */}
+                                    {mo !== null && mo !== undefined && mo !== '' && !cell.is_absent && (
+                                      <span style={{ fontSize:10, color:'var(--neutral-6)' }}>
+                                        {mo}/{max}
+                                      </span>
+                                    )}
+                                    {cell.is_absent && (
+                                      <span style={{ fontSize:10, color:'#ba0517', fontWeight:700 }}>AB</span>
+                                    )}
+                                  </div>
+                                </td>
+                              );
+                            })}
+                            {/* Total / % / Grade */}
+                            <td style={{ padding:'8px 12px', textAlign:'center', fontWeight:700 }}>
+                              {max > 0 ? `${obt}/${max}` : '—'}
+                            </td>
+                            <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                              {max > 0 ? (
+                                <span style={{ fontWeight:800,
+                                  color: pct>=60?'#16a34a':pct>=33?'#dd7a01':'#ba0517' }}>
+                                  {pct}%
+                                </span>
+                              ) : '—'}
+                            </td>
+                            <td style={{ padding:'8px 12px', textAlign:'center' }}>
+                              <span className="badge"
+                                style={{ background:`${gc(grade)}1A`, color:gc(grade) }}>
                                 {grade}
                               </span>
-                            </td>
-                            <td>
-                              <input
-                                type="text" className="form-input" style={{ padding: '6px 10px' }}
-                                value={r.remarks || ''} placeholder="Optional remarks"
-                                onChange={e => updateRow(r.student_id, 'remarks', e.target.value)}
-                              />
                             </td>
                           </tr>
                         );
