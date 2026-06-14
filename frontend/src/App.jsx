@@ -28,6 +28,7 @@ import NotesPage    from './pages/NotesPage';
 import SubjectsPage   from './pages/SubjectsPage';
 import TimetablePage  from './pages/TimetablePage';
 import IDCardPage from './pages/IDCardPage';
+import MarksPage from './pages/MarksPage';
 // routes mein:
 
 
@@ -98,7 +99,7 @@ export default function App() {
           
           <Route path="/marks" element={
             <ProtectedRoute roles={['TEACHER', 'PRINCIPAL']}>
-              <Navigate to="/dashboard" replace />
+              <MarksPage />
             </ProtectedRoute>
           } />
           <Route path="/holidays" element={
