@@ -385,7 +385,7 @@ export default function MarksPage() {
                                 style={{ width: 90, padding: '6px 10px' }}
                                 min={0} max={roster.max_marks}
                                 disabled={r.is_absent}
-                                value={r.marks_obtained ?? ''}
+                                value={r.marks_obtained !== null && r.marks_obtained !== undefined ? r.marks_obtained : ''}
                                 onChange={e => updateRow(r.student_id, 'marks_obtained', e.target.value)}
                                 placeholder="—"
                               />
