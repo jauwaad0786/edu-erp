@@ -289,3 +289,27 @@ def subject_toppers():
             'subject_name':   m.subject.name if m.subject else '',
         })
     return jsonify(result), 200
+
+
+@marks_bp.route('/lock', methods=['POST'])
+@role_required('PRINCIPAL')
+def lock_marks():
+    """Lock marks for a class+exam+subject — no further edits allowed."""
+    sid  = _school_id()
+    data = request.get_json() or {}
+    class_id   = data.get('class_id')
+    exam_id    = data.get('exam_id')
+    subject_id = data.get('subject_id')
+
+    if not all([class_id, exam_id, subject_id]):
+        return jsonify({'error': 'class_id, exam_id, subject_id required'}), 400
+
+    cls = Class.query.get_or_404(class_id)
+    if cls.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    updated = Marks.query.filter_by(
+        class_id=class_id, exam_id=exam_id, subject_id=subject_id
+    ).update({'is_locked': True})
+    db.session.commit()
+    return jsonify({'message': f'{updated} marks locked'}), 200
