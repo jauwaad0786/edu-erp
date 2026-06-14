@@ -65,33 +65,62 @@ def monthly_attendance(student_id):
 @teacher_bp.route('/marks', methods=['POST'])
 @role_required('TEACHER')
 def enter_marks():
-    """Enter marks for multiple students."""
+    """
+    DEPRECATED — superseded by POST /api/marks/save, which is exam-linked
+    (exam_id), supports is_absent, and is validated through /api/marks/roster.
+    Kept only for backward compatibility with any old frontend calls.
+    Tenant check + denormalized columns added so old entries stay consistent
+    with the new Marks Management module.
+    """
     data    = request.get_json()
     user    = get_current_user()
     entries = data['entries']  # [{'student_id':1,'subject_id':2,'marks_obtained':85,'max_marks':100}, ...]
     exam_type = data.get('exam_type', 'Mid Term')
 
+    saved = 0
     for e in entries:
+        student = Student.query.get(e['student_id'])
+        if not student or student.school_id != user.school_id:
+            continue  # tenant check — skip rows that don't belong to this school
+
         existing = Marks.query.filter_by(
-            student_id=e['student_id'], subject_id=e['subject_id'], exam_type=exam_type).first()
+            student_id=e['student_id'], subject_id=e['subject_id'],
+            exam_type=exam_type, exam_id=None
+        ).first()
         if existing:
             existing.marks_obtained = e['marks_obtained']
-            existing.grade = _grade(e['marks_obtained'], e['max_marks'])
+            existing.max_marks      = e['max_marks']
+            existing.grade          = _grade(e['marks_obtained'], e['max_marks'])
         else:
             m = Marks(student_id=e['student_id'], subject_id=e['subject_id'],
                       exam_type=exam_type, marks_obtained=e['marks_obtained'],
                       max_marks=e['max_marks'], grade=_grade(e['marks_obtained'], e['max_marks']),
+                      class_id=student.class_id, school_id=student.school_id,
                       entered_by=user.id)
             db.session.add(m)
+        saved += 1
     db.session.commit()
-    return jsonify({'message': f'{len(entries)} marks saved'}), 200
+    return jsonify({'message': f'{saved} marks saved'}), 200
 
 
 @teacher_bp.route('/marks/<int:class_id>', methods=['GET'])
 @role_required('TEACHER', 'PRINCIPAL')
 def get_marks(class_id):
+    """
+    DEPRECATED — superseded by GET /api/marks/roster, which is exam-linked
+    and pre-fills existing marks for the entry grid.
+    Kept only for backward compatibility. Tenant check added (previously
+    any logged-in teacher/principal could read another school's class by ID).
+    """
+    user = get_current_user()
     exam_type = request.args.get('exam_type')
     from sqlalchemy.orm import joinedload
+    from app.models.academic import Class as ClassModel
+
+    cls = ClassModel.query.get_or_404(class_id)
+    if cls.school_id != user.school_id:
+        return jsonify({'error': 'Unauthorized'}), 403
+
     students = Student.query.options(
         joinedload(Student.user)
     ).filter_by(class_id=class_id).all()
