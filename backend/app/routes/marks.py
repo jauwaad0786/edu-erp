@@ -442,8 +442,8 @@ def save_grid_marks():
     sid  = _school_id()
     data = request.get_json() or {}
 
-    class_id = data.get('class_id')
-    exam_id  = data.get('exam_id')
+    class_id = int(data.get('class_id') or 0)
+    exam_id  = int(data.get('exam_id') or 0)
     entries  = data.get('entries', [])
 
     if not class_id or not exam_id:
@@ -462,7 +462,7 @@ def save_grid_marks():
 
     for entry in entries:
         student = Student.query.get(entry.get('student_id'))
-        if not student or student.school_id != sid or student.class_id != class_id:
+        if not student or student.school_id != sid or int(student.class_id or 0) != class_id:
             continue
 
         for subj_entry in entry.get('subjects', []):
