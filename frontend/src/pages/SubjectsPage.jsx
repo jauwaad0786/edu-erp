@@ -63,7 +63,7 @@ export default function SubjectsPage() {
   async function handleSubmit(e) {
     e.preventDefault();
 
-    if (!form.name || !form.code || !form.class_id) {
+    if (!form.name || !form.class_id) {
       toast.error("Required fields missing");
       return;
     }
@@ -73,8 +73,11 @@ export default function SubjectsPage() {
     try {
       const res = await api.post("/principal/subjects", {
         name:       form.name,
+        code:       form.code || '',
         class_id:   Number(form.class_id),
         teacher_id: form.teacher_id ? Number(form.teacher_id) : null,
+        max_marks:  100,
+        pass_marks: 33,
       });
 
       toast.success("Subject created successfully");
