@@ -11,7 +11,116 @@ const STATUS_COLOR = {
   LATE:       { bg: '#fef3c7', color: '#d97706', label: 'L' },
   NOT_MARKED: { bg: '#f1f5f9', color: '#94a3b8', label: '—' },
 };
+function MarksTab({ studentId, exams }) {
+  const [marksList, setMarksList] = useState([]);
+  const [loading, setLoading]     = useState(true);
+  const [selExam, setSelExam]     = useState('');
 
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/principal/students/${studentId}/profile`)
+      .then(r => {
+        const raw = r.data?.exams || [];
+        setMarksList(raw);
+        if (raw.length) setSelExam(raw[0].exam_type);
+      })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [studentId]);
+
+  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--neutral-5)' }}>⏳ Loading marks...</div>;
+
+  if (!marksList.length) return (
+    <div className="card" style={{ margin: 0 }}>
+      <div className="empty-state" style={{ padding: 48 }}>
+        <div className="empty-state-icon">📝</div>
+        <p>Koi marks record nahi mila</p>
+      </div>
+    </div>
+  );
+
+  const exam = marksList.find(e => e.exam_type === selExam) || marksList[0];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Exam selector */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {marksList.map(e => (
+          <button key={e.exam_type} onClick={() => setSelExam(e.exam_type)}
+            style={{
+              padding: '7px 16px', borderRadius: 20, fontSize: 12, fontWeight: 700,
+              border: '2px solid', cursor: 'pointer',
+              borderColor: selExam === e.exam_type ? '#0176d3' : '#e2e8f0',
+              background:  selExam === e.exam_type ? '#0176d3' : '#fff',
+              color:       selExam === e.exam_type ? '#fff' : '#64748b',
+            }}>
+            {e.exam_type}
+          </button>
+        ))}
+      </div>
+
+      {exam && (
+        <div className="card" style={{ margin: 0 }}>
+          <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h4>📝 {exam.exam_type}</h4>
+            <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+              <span style={{ fontSize: 13, color: 'var(--neutral-6)' }}>
+                Total: <strong>{exam.total_obtained}/{exam.total_max}</strong>
+              </span>
+              <span style={{
+                padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800,
+                background: exam.avg_pct >= 60 ? '#dcfce7' : exam.avg_pct >= 33 ? '#fef3c7' : '#fee2e2',
+                color:      exam.avg_pct >= 60 ? '#16a34a' : exam.avg_pct >= 33 ? '#d97706' : '#dc2626',
+              }}>{exam.avg_pct}% avg</span>
+              <span style={{
+                padding: '4px 14px', borderRadius: 20, fontSize: 12, fontWeight: 800,
+                background: exam.avg_pct >= 33 ? '#dcfce7' : '#fee2e2',
+                color:      exam.avg_pct >= 33 ? '#16a34a' : '#dc2626',
+              }}>{exam.avg_pct >= 33 ? 'PASS ✅' : 'FAIL ❌'}</span>
+            </div>
+          </div>
+          <div className="table-container">
+            <table>
+              <thead>
+                <tr><th>Subject</th><th>Marks</th><th>Max</th><th>%</th><th>Grade</th><th>Status</th></tr>
+              </thead>
+              <tbody>
+                {(exam.subjects || []).map((s, j) => (
+                  <tr key={j}>
+                    <td style={{ fontWeight: 600 }}>{s.subject}</td>
+                    <td style={{ fontWeight: 700, color: s.percentage >= 33 ? '#16a34a' : '#dc2626' }}>
+                      {s.marks_obtained}
+                    </td>
+                    <td style={{ color: 'var(--neutral-6)' }}>{s.max_marks}</td>
+                    <td>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div style={{ width: 60, height: 6, background: '#f1f5f9', borderRadius: 99 }}>
+                          <div style={{
+                            width: `${Math.min(s.percentage, 100)}%`, height: '100%', borderRadius: 99,
+                            background: s.percentage >= 60 ? '#16a34a' : s.percentage >= 33 ? '#d97706' : '#dc2626',
+                          }} />
+                        </div>
+                        <span style={{ fontSize: 12, fontWeight: 700 }}>{s.percentage}%</span>
+                      </div>
+                    </td>
+                    <td><span className={`badge ${s.percentage>=60?'badge-success':s.percentage>=33?'badge-warning':'badge-error'}`}>{s.grade || '—'}</span></td>
+                    <td>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                        background: s.percentage >= 33 ? '#dcfce7' : '#fee2e2',
+                        color:      s.percentage >= 33 ? '#16a34a' : '#dc2626',
+                      }}>{s.percentage >= 33 ? 'Pass' : 'Fail'}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 export default function StudentProfile() {
   const { id }     = useParams();
   const navigate   = useNavigate();
@@ -20,12 +129,17 @@ export default function StudentProfile() {
   const [loading,  setLoading]  = useState(true);
   const [dlLoading,setDlLoading]= useState(false);
 
+  const [examMarks, setExamMarks] = useState([]);
+
   useEffect(() => {
     setLoading(true);
     api.get(`/principal/students/${id}/profile`)
       .then(r => setData(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
+
+    api.get(`/student/marks`)
+      .catch(() => {});
   }, [id]);
 
   const downloadCard = async (type) => {
@@ -399,66 +513,9 @@ export default function StudentProfile() {
           )}
 
           {/* ══ MARKS ══ */}
+          {/* ══ MARKS ══ */}
           {tab === 'marks' && (
-            <div style={{ display:'flex', flexDirection:'column', gap:20 }}>
-              {(exams || []).length === 0 ? (
-                <div className="card" style={{ margin:0 }}>
-                  <div className="empty-state" style={{ padding:48 }}>
-                    <div className="empty-state-icon">📝</div>
-                    <p>Koi marks record nahi mila</p>
-                  </div>
-                </div>
-              ) : (exams || []).map((exam, i) => (
-                <div className="card" key={i} style={{ margin:0 }}>
-                  <div className="card-header" style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                    <h4>📝 {exam.exam_type}</h4>
-                    <div style={{ display:'flex', gap:12, alignItems:'center' }}>
-                      <span style={{ fontSize:13, color:'var(--neutral-6)' }}>
-                        Total: <strong>{exam.total_obtained}/{exam.total_max}</strong>
-                      </span>
-                      <span style={{
-                        padding:'4px 14px', borderRadius:20, fontSize:12, fontWeight:800,
-                        background: exam.avg_pct>=60?'#dcfce7':exam.avg_pct>=33?'#fef3c7':'#fee2e2',
-                        color:      exam.avg_pct>=60?'#16a34a':exam.avg_pct>=33?'#d97706':'#dc2626',
-                      }}>{exam.avg_pct}% avg</span>
-                    </div>
-                  </div>
-                  <div className="table-container">
-                    <table>
-                      <thead>
-                        <tr><th>Subject</th><th>Marks</th><th>Max</th><th>%</th><th>Grade</th></tr>
-                      </thead>
-                      <tbody>
-                        {exam.subjects.map((s, j) => {
-                          const gradeColor = s.percentage>=60?'badge-success':s.percentage>=33?'badge-warning':'badge-error';
-                          return (
-                            <tr key={j}>
-                              <td style={{ fontWeight:600 }}>{s.subject}</td>
-                              <td style={{ fontWeight:700, color: s.percentage>=33?'#16a34a':'#dc2626' }}>
-                                {s.marks_obtained}
-                              </td>
-                              <td style={{ color:'var(--neutral-6)' }}>{s.max_marks}</td>
-                              <td>
-                                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-                                  <div style={{ width:60, height:6, background:'#f1f5f9', borderRadius:99 }}>
-                                    <div style={{
-                                      width:`${s.percentage}%`, height:'100%', borderRadius:99,
-                                      background: s.percentage>=60?'#16a34a':s.percentage>=33?'#d97706':'#dc2626',
-                                    }} />
-                                  </div>
-                                  <span style={{ fontSize:12, fontWeight:700 }}>{s.percentage}%</span>
-                                </div>
-                              </td>
-                              <td><span className={`badge ${gradeColor}`}>{s.grade || '—'}</span></td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ))}
-            </div>
+            <MarksTab studentId={id} exams={exams} />
           )}
 
           {/* ══ DOCUMENTS ══ */}
