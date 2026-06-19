@@ -127,7 +127,6 @@ export default function TeacherProfile() {
               </div>
             </div>
             {/* Salary pill */}
-            {/* Salary pill */}
             {canSeeSalary && (
               <div style={{
                 background:'#f0fdf4', border:'1px solid #bbf7d0',
@@ -139,6 +138,7 @@ export default function TeacherProfile() {
                 </div>
               </div>
             )}
+          </div>
 
           {/* ── Tabs ── */}
           <div style={{ display:'flex', borderBottom:'2px solid var(--neutral-2)', marginBottom:20 }}>
