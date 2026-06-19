@@ -285,6 +285,11 @@ def teacher_profile(teacher_id):
     if t.school_id != sid:
         return jsonify({'error': 'Unauthorized'}), 403
 
+    current_user  = get_current_user()
+    can_see_salary = (
+        current_user.role == UserRole.PRINCIPAL or t.user_id == current_user.id
+    )
+
     user = t.user
 
     # ── Basic Info ──
@@ -298,7 +303,7 @@ def teacher_profile(teacher_id):
         'designation':  t.designation    or 'Teacher',
         'joining_date': str(t.joining_date) if t.joining_date else '',
         'qualification':t.qualification  or '',
-        'salary':       t.salary         or 0,
+        'salary':       (t.salary or 0) if can_see_salary else None,
         'subjects_count': t.classes_taught.count(),
         'photo_url': t.photo_url or '',
     }
@@ -599,10 +604,24 @@ def collect_fee():
     Collect fee for a student.
     Body: record_id, amount_paid, payment_mode
     """
-    data   = request.get_json()
-    record = FeeRecord.query.get_or_404(data['record_id'])
+    data      = request.get_json() or {}
+    record_id = data.get('record_id')
+    if not record_id:
+        return jsonify({'error': 'record_id is required'}), 400
 
-    record.amount_paid  = float(data['amount_paid'])
+    record = FeeRecord.query.get_or_404(record_id)
+    if record.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    try:
+        new_payment = float(data.get('amount_paid'))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'amount_paid must be a number'}), 400
+    if new_payment <= 0:
+        return jsonify({'error': 'amount_paid must be greater than 0'}), 400
+
+    # Accumulate — this is a new installment, not the new total
+    record.amount_paid  = (record.amount_paid or 0) + new_payment
     record.payment_mode = data.get('payment_mode', 'CASH')
     record.paid_date    = date.today()
     record.collected_by = get_current_user().id
@@ -1198,6 +1217,8 @@ def delete_timetable_item(item_id):
 @role_required('PRINCIPAL', 'TEACHER')
 def admit_card_pdf(student_id, exam_id):
     student   = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
     exam      = ExamSchedule.query.get_or_404(exam_id)
     from app.models.school import School
     school    = School.query.get(student.school_id)
@@ -1213,6 +1234,8 @@ def admit_card_pdf(student_id, exam_id):
 @role_required('PRINCIPAL', 'TEACHER')
 def result_card_pdf(student_id, exam_id):
     student = Student.query.get_or_404(student_id)
+    if student.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
     exam    = ExamSchedule.query.get_or_404(exam_id)
     from app.models.school import School
     school  = School.query.get(student.school_id)
