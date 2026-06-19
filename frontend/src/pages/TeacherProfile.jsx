@@ -40,11 +40,13 @@ export default function TeacherProfile() {
 
   const fmt  = n => Number(n || 0).toLocaleString('en-IN');
 
-  const TABS = [
+  const TABS = (info) => [
     { key: 'overview',    label: '📊 Overview'    },
     { key: 'classes',     label: '🏛 Classes'     },
     { key: 'attendance',  label: '📅 Attendance'  },
-    { key: 'salary',      label: '💰 Salary'      },
+    ...(info.salary !== null && info.salary !== undefined
+      ? [{ key: 'salary', label: '💰 Salary' }]
+      : []),
   ];
 
   if (loading) return (
@@ -66,6 +68,7 @@ export default function TeacherProfile() {
   );
 
   const { info, classes_taught, attendance, salary_history } = data;
+  const canSeeSalary = info.salary !== null && info.salary !== undefined;
 
   return (
     <div className="app-shell">
@@ -124,20 +127,22 @@ export default function TeacherProfile() {
               </div>
             </div>
             {/* Salary pill */}
-            <div style={{
-              background:'#f0fdf4', border:'1px solid #bbf7d0',
-              borderRadius:20, padding:'8px 20px', textAlign:'center',
-            }}>
-              <div style={{ fontSize:11, color:'#64748b' }}>Monthly Salary</div>
-              <div style={{ fontSize:18, fontWeight:800, color:'#16a34a' }}>
-                ₹{fmt(info.salary)}
+            {/* Salary pill */}
+            {canSeeSalary && (
+              <div style={{
+                background:'#f0fdf4', border:'1px solid #bbf7d0',
+                borderRadius:20, padding:'8px 20px', textAlign:'center',
+              }}>
+                <div style={{ fontSize:11, color:'#64748b' }}>Monthly Salary</div>
+                <div style={{ fontSize:18, fontWeight:800, color:'#16a34a' }}>
+                  ₹{fmt(info.salary)}
+                </div>
               </div>
-            </div>
-          </div>
+            )}
 
           {/* ── Tabs ── */}
           <div style={{ display:'flex', borderBottom:'2px solid var(--neutral-2)', marginBottom:20 }}>
-            {TABS.map(t => (
+            {TABS(info).map(t => (
               <button key={t.key} onClick={() => setTab(t.key)} style={{
                 background:'none', border:'none', cursor:'pointer',
                 padding:'10px 18px', fontSize:13, fontWeight:600,
@@ -187,7 +192,9 @@ export default function TeacherProfile() {
                       value: attendance?.percentage ? `${attendance.percentage}%` : '—',
                       color: (attendance?.percentage || 0) >= 75 ? '#16a34a' : '#dc2626',
                       bg:    (attendance?.percentage || 0) >= 75 ? '#f0fdf4' : '#fef2f2' },
-                    { icon:'💰', label:'Monthly Salary',   value: `₹${fmt(info.salary)}`, color:'#16a34a', bg:'#f0fdf4' },
+                    ...(canSeeSalary
+                      ? [{ icon:'💰', label:'Monthly Salary', value: `₹${fmt(info.salary)}`, color:'#16a34a', bg:'#f0fdf4' }]
+                      : []),
                   ].map(s => (
                     <div key={s.label} style={{
                       background:s.bg, borderRadius:10, padding:'14px 16px',
