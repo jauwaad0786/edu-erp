@@ -64,14 +64,22 @@ def login():
 @limiter.limit("5 per minute")
 def student_login():
 
-    data = request.get_json()
+    data = request.get_json() or {}
 
-    phone = (data.get('phone') or '').strip()
-    password = data.get('password', '')
+    phone       = (data.get('phone') or '').strip()
+    name        = (data.get('name') or '').strip().lower()
+    father_name = (data.get('father_name') or '').strip().lower()
+    password    = data.get('password', '')
 
-    student = Student.query.filter_by(
-        parent_phone=phone
-    ).first()
+    candidates = Student.query.filter_by(parent_phone=phone).all()
+
+    student = None
+    for s in candidates:
+        s_name   = (s.user.name if s.user else '').strip().lower()
+        s_father = (s.father_name or '').strip().lower()
+        if s_name == name and s_father == father_name:
+            student = s
+            break
 
     if not student:
         return jsonify({
