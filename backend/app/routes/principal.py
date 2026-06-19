@@ -390,22 +390,24 @@ def teacher_profile(teacher_id):
     }
 
     # ── Salary History ──
-    from app.models.financial import SalaryRecord
-    sal_records = SalaryRecord.query.filter_by(
-        teacher_id=teacher_id
-    ).order_by(SalaryRecord.created_at.desc()).all() \
-    if hasattr(SalaryRecord, 'query') else []
+    salary_history = []
+    if can_see_salary:
+        from app.models.financial import SalaryRecord
+        sal_records = SalaryRecord.query.filter_by(
+            teacher_id=teacher_id
+        ).order_by(SalaryRecord.created_at.desc()).all() \
+        if hasattr(SalaryRecord, 'query') else []
 
-    salary_history = [
-        {
-            'month':        s.month,
-            'amount':       s.amount,
-            'status':       s.status,
-            'payment_date': str(s.payment_date) if s.payment_date else None,
-            'note':         s.note or '',
-        }
-        for s in sal_records
-    ]
+        salary_history = [
+            {
+                'month':        s.month,
+                'amount':       s.amount,
+                'status':       s.status,
+                'payment_date': str(s.payment_date) if s.payment_date else None,
+                'note':         s.note or '',
+            }
+            for s in sal_records
+        ]
 
     return jsonify({
         'info':           info,
