@@ -51,11 +51,21 @@ PLAN_PRESETS = {
     'ENTERPRISE':   [f['key'] for f in FEATURE_CATALOG],   # everything
 }
 
+PLAN_PRICING = {
+    'BASIC':        {'price': 1799, 'label': 'Basic'},
+    'PROFESSIONAL': {'price': 2999, 'label': 'Professional'},
+    'ENTERPRISE':   {'price': 5999, 'label': 'Enterprise'},
+}
+
 
 @admin_bp.route('/features/catalog', methods=['GET'])
 @role_required('SUPER_ADMIN')
 def get_feature_catalog():
-    return jsonify({'catalog': FEATURE_CATALOG, 'presets': PLAN_PRESETS}), 200
+    return jsonify({
+        'catalog':  FEATURE_CATALOG,
+        'presets':  PLAN_PRESETS,
+        'pricing':  PLAN_PRICING,
+    }), 200
 
 # ─── Schools ──────────────────────────────────────────────────────────────────
 
