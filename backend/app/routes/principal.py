@@ -2552,3 +2552,205 @@ def my_services():
         'features':      result,
         'pricing':       PLAN_PRICING,
     }), 200
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  Principal — User & Credential Management
+# ═══════════════════════════════════════════════════════════════════════════════
+
+import re   as _re
+import string as _string
+import random  as _random
+from app.models.user import PRINCIPAL_ALLOWED_ROLES
+
+
+def _norm(s):
+    return _re.sub(r'\s+', ' ', (s or '').strip()).lower()
+
+
+def _gen_username_p(name: str, role: str) -> str:
+    """Same logic as admin version but scoped here to avoid circular import."""
+    role_suffix = {
+        'VICE_PRINCIPAL': 'vp', 'TEACHER': 'tchr', 'ACCOUNTANT': 'acct',
+        'RECEPTIONIST': 'rcpt', 'LIBRARIAN': 'lib', 'HOSTEL': 'hstl',
+        'TRANSPORT': 'trns', 'HR': 'hr', 'STUDENT': 'stu', 'PARENT': 'prnt',
+    }.get(role, 'usr')
+
+    from app.models.user import User
+    clean = _re.sub(r'[^a-z0-9 ]', '', name.lower().strip())
+    parts = clean.split()[:2]
+    base  = '.'.join(parts) + '.' + role_suffix
+
+    if not User.query.filter_by(username=base).first():
+        return base
+
+    for _ in range(20):
+        candidate = base + '.' + ''.join(_random.choices(_string.digits, k=3))
+        if not User.query.filter_by(username=candidate).first():
+            return candidate
+
+    return base + '.' + ''.join(_random.choices(_string.digits, k=6))
+
+
+# ── List users of own school ───────────────────────────────────────────────────
+@principal_bp.route('/users', methods=['GET'])
+@role_required('PRINCIPAL')
+def principal_list_users():
+    """
+    GET /api/principal/users
+    Query: role, status, search, page, per_page
+    Returns only users belonging to the principal's school.
+    """
+    from app.models.user import User, UserRole
+    sid = _school_id()
+
+    q       = User.query.filter(User.school_id == sid)
+    role_f  = request.args.get('role')
+    status_f = request.args.get('status')
+    search  = (request.args.get('search') or '').strip().lower()
+    page    = max(1, int(request.args.get('page', 1)))
+    per_page = min(200, int(request.args.get('per_page', 50)))
+
+    if role_f:
+        try:
+            q = q.filter(User.role == UserRole(role_f))
+        except ValueError:
+            pass
+    if status_f == 'active':
+        q = q.filter(User.is_active == True)
+    elif status_f == 'inactive':
+        q = q.filter(User.is_active == False)
+    if search:
+        like = f'%{search}%'
+        q = q.filter(db.or_(
+            User.name.ilike(like),
+            User.email.ilike(like),
+            User.username.ilike(like),
+            User.phone.ilike(like),
+        ))
+
+    total = q.count()
+    users = q.order_by(User.created_at.desc())\
+              .offset((page - 1) * per_page).limit(per_page).all()
+
+    return jsonify({
+        'users':    [u.to_dict_with_credentials() for u in users],
+        'total':    total,
+        'page':     page,
+        'per_page': per_page,
+        'pages':    (total + per_page - 1) // per_page,
+    }), 200
+
+
+# ── Create user (restricted roles only) ───────────────────────────────────────
+@principal_bp.route('/users', methods=['POST'])
+@role_required('PRINCIPAL')
+def principal_create_user():
+    """
+    Principal can only create users for THEIR school.
+    Cannot create SUPER_ADMIN or another PRINCIPAL.
+    """
+    from app.models.user import User, UserRole
+    from sqlalchemy import func as sqlfunc
+
+    sid  = _school_id()
+    data = request.get_json() or {}
+
+    # Role guard
+    role_str = (data.get('role') or '').strip()
+    try:
+        requested_role = UserRole(role_str)
+    except ValueError:
+        return jsonify({'error': f'Invalid role: {role_str}'}), 400
+
+    if requested_role not in PRINCIPAL_ALLOWED_ROLES:
+        return jsonify({
+            'error': f'Principal cannot create users with role {role_str}'
+        }), 403
+
+    if not (data.get('name') or '').strip():
+        return jsonify({'error': 'name is required'}), 400
+    if not (data.get('email') or '').strip():
+        return jsonify({'error': 'email is required'}), 400
+
+    email = data['email'].strip().lower()
+    if User.query.filter(sqlfunc.lower(User.email) == email).first():
+        return jsonify({'error': 'Email already exists'}), 409
+
+    plain_pw = (data.get('password') or '').strip() or 'EduErp@123'
+
+    username = (data.get('username') or '').strip().lower() or None
+    if username:
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Username already taken'}), 409
+    else:
+        username = _gen_username_p(data['name'], role_str)
+
+    user = User(
+        name        = data['name'].strip(),
+        email       = email,
+        username    = username,
+        role        = requested_role,
+        school_id   = sid,
+        phone       = (data.get('phone') or '').strip() or None,
+        department  = (data.get('department') or '').strip() or None,
+        designation = (data.get('designation') or '').strip() or None,
+        is_active   = True,
+    )
+    user.set_password(plain_pw, store_plain=True)
+
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify(user.to_dict_with_credentials()), 201
+
+
+# ── Reset password (own school only) ──────────────────────────────────────────
+@principal_bp.route('/users/<int:user_id>/reset-password', methods=['PUT'])
+@role_required('PRINCIPAL')
+def principal_reset_password(user_id):
+    from app.models.user import User, UserRole
+    sid  = _school_id()
+    user = User.query.get_or_404(user_id)
+
+    # Must belong to same school
+    if user.school_id != sid:
+        return jsonify({'error': 'Unauthorized: user belongs to a different school'}), 403
+
+    # Cannot reset SUPER_ADMIN or another PRINCIPAL (optional safety guard)
+    if user.role in (UserRole.SUPER_ADMIN, UserRole.PRINCIPAL):
+        return jsonify({'error': 'Cannot reset password for this role'}), 403
+
+    data     = request.get_json() or {}
+    plain_pw = (data.get('password') or '').strip() or 'EduErp@123'
+
+    user.set_password(plain_pw, store_plain=True)
+    db.session.commit()
+
+    return jsonify({
+        'message':             'Password reset successful',
+        'plain_password_temp': user.plain_password_temp,
+        'username':            user.username,
+        'email':               user.email,
+    }), 200
+
+
+# ── Toggle active/inactive (own school only) ───────────────────────────────────
+@principal_bp.route('/users/<int:user_id>/toggle', methods=['PUT'])
+@role_required('PRINCIPAL')
+def principal_toggle_user(user_id):
+    from app.models.user import User, UserRole
+    sid  = _school_id()
+    user = User.query.get_or_404(user_id)
+
+    if user.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    if user.role in (UserRole.SUPER_ADMIN, UserRole.PRINCIPAL):
+        return jsonify({'error': 'Cannot deactivate this role'}), 403
+
+    user.is_active = not user.is_active
+    db.session.commit()
+    return jsonify({
+        'is_active': user.is_active,
+        'message':   'User ' + ('activated' if user.is_active else 'deactivated'),
+    }), 200
