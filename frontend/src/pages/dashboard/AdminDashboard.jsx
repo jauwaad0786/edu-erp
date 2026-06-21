@@ -24,10 +24,18 @@ export default function AdminDashboard() {
   const [filterYear,  setFilterYear]    = useState(CUR_YR);
 
   // Modals
-  const [showSchoolModal, setShowSchoolModal] = useState(false);
-  const [showUserModal,   setShowUserModal]   = useState(false);
-  const [showEditModal,   setShowEditModal]   = useState(false);
-  const [editSchool,      setEditSchool]      = useState(null);
+  // Modals
+  const [showSchoolModal,   setShowSchoolModal]   = useState(false);
+  const [showUserModal,     setShowUserModal]     = useState(false);
+  const [showEditModal,     setShowEditModal]     = useState(false);
+  const [editSchool,        setEditSchool]        = useState(null);
+  const [showFeaturesModal, setShowFeaturesModal] = useState(false);
+  const [featuresSchool,    setFeaturesSchool]    = useState(null);
+  const [featureCatalog,    setFeatureCatalog]    = useState([]);
+  const [planPresets,       setPlanPresets]       = useState({});
+  const [selectedFeatures,  setSelectedFeatures]  = useState([]);
+  const [selectedPlan,      setSelectedPlan]      = useState('BASIC');
+  const [savingFeatures,    setSavingFeatures]    = useState(false);
 
   const [createdCreds, setCreatedCreds] = useState(null);
   const [copied,       setCopied]       = useState(false);
@@ -36,12 +44,59 @@ export default function AdminDashboard() {
   const [msg,    setMsg]    = useState('');
 
   // ── Load all data
+  // ── Load all data
   const load = () => {
     api.get('/admin/stats').then(r => setStats(r.data)).catch(() => {});
     api.get('/admin/schools').then(r => setSchools(r.data)).catch(() => {});
     api.get('/admin/users').then(r => setUsers(r.data)).catch(() => {});
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    api.get('/admin/features/catalog').then(r => {
+      setFeatureCatalog(r.data.catalog);
+      setPlanPresets(r.data.presets);
+    }).catch(() => {});
+  }, []);
+
+  // ── Toggle school active/inactive
+  const toggleSchool = async id => {
+    await api.put(`/admin/schools/${id}/toggle`);
+    load();
+  };
+
+  // ── Services / Features modal
+  const openFeatures = s => {
+    setFeaturesSchool(s);
+    setSelectedFeatures(s.enabled_features || []);
+    setSelectedPlan(s.plan || 'BASIC');
+    setShowFeaturesModal(true);
+  };
+
+  const applyPreset = plan => {
+    setSelectedPlan(plan);
+    setSelectedFeatures(planPresets[plan] || []);
+  };
+
+  const toggleFeature = key => {
+    setSelectedFeatures(prev =>
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const saveFeatures = async () => {
+    setSavingFeatures(true);
+    try {
+      await api.put(`/admin/schools/${featuresSchool.id}/features`, {
+        features: selectedFeatures,
+        plan: selectedPlan,
+      });
+      setShowFeaturesModal(false);
+      load();
+    } catch (err) {
+      alert('❌ ' + (err.response?.data?.error || 'Error saving services'));
+    }
+    setSavingFeatures(false);
+  };
 
   // ── Create school
   const createSchool = async e => {
@@ -304,7 +359,7 @@ export default function AdminDashboard() {
                   <thead>
                     <tr>
                       <th>Code</th><th>Name</th><th>Type</th>
-                      <th>City</th><th>Session</th>
+                      <th>City</th><th>Session</th><th>Plan</th>
                       <th>Service</th>
                       <th>Status</th><th>Actions</th>
                     </tr>
@@ -331,6 +386,19 @@ export default function AdminDashboard() {
                         <td style={{ color: 'var(--neutral-6)' }}>{s.city || '—'}</td>
                         <td>{s.current_session}</td>
                         <td>
+                          <span className="badge" style={{
+                            background:
+                              s.plan === 'ENTERPRISE'   ? '#fef3c7' :
+                              s.plan === 'PROFESSIONAL' ? '#dbeafe' : '#f1f5f9',
+                            color:
+                              s.plan === 'ENTERPRISE'   ? '#92400e' :
+                              s.plan === 'PROFESSIONAL' ? '#1d4ed8' : '#475569',
+                            fontWeight: 700, fontSize: 11,
+                          }}>
+                            {s.plan || 'BASIC'}
+                          </span>
+                        </td>
+                        <td>
                           <span style={{
                             fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20,
                             background: s.paid_this_month ? '#dcfce7' : '#fee2e2',
@@ -345,7 +413,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
                         <td>
-                          <div style={{ display: 'flex', gap: 6 }}>
+                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                             <button
                               className="btn btn-neutral btn-sm"
                               onClick={() => navigate(`/schools/${s.id}`)}>
@@ -355,6 +423,16 @@ export default function AdminDashboard() {
                               className="btn btn-neutral btn-sm"
                               onClick={() => openEdit(s)}>
                               Edit
+                            </button>
+                            <button
+                              className="btn btn-sm"
+                              onClick={() => openFeatures(s)}
+                              style={{
+                                background: '#ede9fe', color: '#6d28d9',
+                                border: 'none', cursor: 'pointer', borderRadius: 4,
+                                padding: '4px 10px', fontSize: 11, fontWeight: 700,
+                              }}>
+                              ⚡ Services
                             </button>
                             <button
                               className="btn btn-sm"
@@ -373,7 +451,7 @@ export default function AdminDashboard() {
                     ))}
                     {!schools.length && (
                       <tr>
-                        <td colSpan={8} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 32 }}>
+                        <td colSpan={9} style={{ textAlign: 'center', color: 'var(--neutral-4)', padding: 32 }}>
                           No schools yet. Add one!
                         </td>
                       </tr>
@@ -556,6 +634,78 @@ export default function AdminDashboard() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* ── Services / Features Modal ── */}
+      {showFeaturesModal && featuresSchool && (
+        <div className="modal-backdrop"
+          onClick={e => e.target === e.currentTarget && setShowFeaturesModal(false)}>
+          <div className="modal" style={{ maxWidth: 640 }}>
+            <div className="modal-header">
+              <h3>⚡ Services — {featuresSchool.name}</h3>
+              <button className="modal-close" onClick={() => setShowFeaturesModal(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ maxHeight: '65vh', overflowY: 'auto' }}>
+
+              {/* Plan presets */}
+              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                Quick-fill ek plan ke hisab se, fir neeche manually har service ko alag se on/off bhi kar sakte ho.
+              </p>
+              <div style={{ display: 'flex', gap: 8, marginBottom: 20 }}>
+                {['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].map(p => (
+                  <button key={p} type="button"
+                    onClick={() => applyPreset(p)}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8, cursor: 'pointer',
+                      border: selectedPlan === p ? '2px solid var(--blue-60)' : '1px solid #e2e8f0',
+                      background: selectedPlan === p ? '#eff6ff' : '#fff',
+                      fontWeight: 700, fontSize: 12,
+                      color: selectedPlan === p ? 'var(--blue-60)' : '#475569',
+                    }}>
+                    Apply {p.charAt(0) + p.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Feature checklist grouped by tier */}
+              {['BASIC', 'PROFESSIONAL', 'ENTERPRISE'].map(tier => (
+                <div key={tier} style={{ marginBottom: 18 }}>
+                  <div style={{
+                    fontSize: 11, fontWeight: 800, color: '#94a3b8',
+                    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8,
+                  }}>
+                    {tier}
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                    {featureCatalog.filter(f => f.tier === tier).map(f => {
+                      const checked = selectedFeatures.includes(f.key);
+                      return (
+                        <label key={f.key} style={{
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '8px 10px', borderRadius: 6, cursor: 'pointer',
+                          background: checked ? '#f0fdf4' : '#f8fafc',
+                          border: checked ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+                          fontSize: 12.5,
+                        }}>
+                          <input type="checkbox" checked={checked}
+                            onChange={() => toggleFeature(f.key)} />
+                          <span style={{ color: checked ? '#166534' : '#334155' }}>{f.label}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-neutral"
+                onClick={() => setShowFeaturesModal(false)}>Cancel</button>
+              <button type="button" className="btn btn-primary" disabled={savingFeatures}
+                onClick={saveFeatures}>
+                {savingFeatures ? 'Saving...' : '💾 Save Services'}
+              </button>
+            </div>
           </div>
         </div>
       )}
