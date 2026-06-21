@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import api from '../api/axios';
 
 const ROLE_MENUS = {
   SUPER_ADMIN: [
@@ -39,7 +38,7 @@ const ROLE_MENUS = {
       group: 'PEOPLE',
       items: [
         { icon: '🎒', label: 'Students',      path: '/students' },
-        { icon: '✚',  label: 'New Admission', path: '/admission' },
+        { icon: '✚',  label: 'New Admission', path: '/admission', nested: true },
         { icon: '👩‍🏫', label: 'Teachers',    path: '/teachers' },
       ]
     },
@@ -48,7 +47,6 @@ const ROLE_MENUS = {
       items: [
         { icon: '📋', label: 'Attendance',    path: '/attendance' },
         { icon: '📝', label: 'Exams',         path: '/exams' },
-        
         { icon: '📊', label: 'Marks',         path: '/marks' },
         { icon: '💰', label: 'Fees',          path: '/fees' },
       ]
@@ -64,10 +62,10 @@ const ROLE_MENUS = {
     {
       group: 'SETTINGS',
       items: [
-        { icon: '⚙️', label: 'School Settings', path: '/school-settings' },
+        { icon: '⚡', label: 'My Plan & Services', path: '/my-services' },
+        { icon: '⚙️', label: 'School Settings',    path: '/school-settings' },
       ]
     },
-  
   ],
 
   TEACHER: [
@@ -133,48 +131,11 @@ const ROLE_MENUS = {
 };
 
 export default function Sidebar() {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
+  const { user } = useAuth();
   const groups = ROLE_MENUS[user?.role] || [];
-  const [collapsed,   setCollapsed]   = useState(false);
-  const [menuOpen,    setMenuOpen]    = useState(false);
-  const [showReset,   setShowReset]   = useState(false);
-  const [passwords,   setPasswords]   = useState({ current: '', newP: '', confirm: '' });
-  const [resetError,  setResetError]  = useState('');
-  const [resetSuccess,setResetSuccess]= useState(false);
+  const [collapsed, setCollapsed] = useState(false);
 
-  const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '?';
   const W = collapsed ? 64 : 220;
-
-  function handleResetClose() {
-    setShowReset(false);
-    setPasswords({ current: '', newP: '', confirm: '' });
-    setResetError('');
-    setResetSuccess(false);
-  }
-
-  async function handleResetSubmit() {
-    setResetError('');
-    if (!passwords.current || !passwords.newP || !passwords.confirm) {
-      setResetError('Sab fields fill karo.'); return;
-    }
-    if (passwords.newP.length < 8) {
-      setResetError('Password kam se kam 8 characters ka hona chahiye.'); return;
-    }
-    if (passwords.newP !== passwords.confirm) {
-      setResetError('Naye passwords match nahi kar rahe.'); return;
-    }
-    try {
-      await api.put('/auth/change-password', {
-        old_password: passwords.current,
-        new_password: passwords.newP,
-      });
-      setResetSuccess(true);
-      setTimeout(() => handleResetClose(), 1500);
-    } catch (err) {
-      setResetError(err.response?.data?.error || 'Password update nahi hua.');
-    }
-  }
 
   return (
     <>
@@ -267,6 +228,7 @@ export default function Sidebar() {
                     display: 'flex', alignItems: 'center',
                     gap: collapsed ? 0 : 10,
                     padding: collapsed ? '9px 0' : '8px 10px',
+                    paddingLeft: collapsed ? undefined : (item.nested ? 26 : 10),
                     justifyContent: collapsed ? 'center' : 'flex-start',
                     borderRadius: 7,
                     color: isActive ? '#fff' : 'rgba(255,255,255,0.58)',
@@ -276,7 +238,8 @@ export default function Sidebar() {
                     borderLeft: isActive ? '3px solid #0176d3' : '3px solid transparent',
                     textDecoration: 'none',
                     fontWeight: isActive ? 600 : 400,
-                    fontSize: 13, marginBottom: 1,
+                    fontSize: item.nested ? 12 : 13,
+                    marginBottom: 1,
                     transition: 'all 0.14s',
                     whiteSpace: 'nowrap',
                   })}
@@ -289,7 +252,7 @@ export default function Sidebar() {
                       e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  <span style={{ fontSize: 15, flexShrink: 0, width: collapsed ? 'auto' : 20, textAlign: 'center' }}>
+                  <span style={{ fontSize: item.nested ? 12 : 15, flexShrink: 0, width: collapsed ? 'auto' : 18, textAlign: 'center' }}>
                     {item.icon}
                   </span>
                   {!collapsed && item.label}
@@ -298,166 +261,12 @@ export default function Sidebar() {
             </div>
           ))}
         </nav>
-
-        {/* ── User Footer ── */}
-        <div style={{ position: 'relative' }}>
-          {menuOpen && (
-            <div style={{
-              position: 'absolute', bottom: collapsed ? 56 : 62,
-              left: 0, right: 0,
-              background: '#0d2440',
-              borderTop: '1px solid rgba(255,255,255,0.1)',
-              zIndex: 200,
-              boxShadow: '0 -6px 20px rgba(0,0,0,0.3)',
-            }}>
-              <button
-                onClick={() => { setShowReset(true); setMenuOpen(false); }}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center',
-                  gap: 10, padding: '11px 18px', background: 'none', border: 'none',
-                  borderBottom: '1px solid rgba(255,255,255,0.07)',
-                  color: 'rgba(255,255,255,0.75)', cursor: 'pointer', fontSize: 12,
-                  textAlign: 'left',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,255,255,0.07)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                🔑 Reset Password
-              </button>
-              <button
-                onClick={() => { logout(); navigate('/login'); }}
-                style={{
-                  width: '100%', display: 'flex', alignItems: 'center',
-                  gap: 10, padding: '11px 18px', background: 'none', border: 'none',
-                  color: '#ff7b7b', cursor: 'pointer', fontSize: 12, textAlign: 'left',
-                }}
-                onMouseEnter={e => e.currentTarget.style.background = 'rgba(255,80,80,0.1)'}
-                onMouseLeave={e => e.currentTarget.style.background = 'none'}
-              >
-                ↩ Logout
-              </button>
-            </div>
-          )}
-
-          <div
-            onClick={() => setMenuOpen(o => !o)}
-            style={{
-              padding: collapsed ? '12px 0' : '10px 14px',
-              borderTop: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex', alignItems: 'center',
-              justifyContent: collapsed ? 'center' : 'flex-start',
-              gap: 10, cursor: 'pointer',
-              background: menuOpen ? 'rgba(255,255,255,0.06)' : 'transparent',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={e => {
-              if (!menuOpen) e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
-            }}
-            onMouseLeave={e => {
-              if (!menuOpen) e.currentTarget.style.background = 'transparent';
-            }}
-          >
-            <div style={{
-              width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg,#0176d3,#5867e8)',
-              color: '#fff', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontWeight: 700, fontSize: 12,
-            }}>{initials}</div>
-            {!collapsed && (
-              <>
-                <div style={{ flex: 1, overflow: 'hidden' }}>
-                  <div style={{
-                    color: '#fff', fontSize: 12, fontWeight: 600,
-                    lineHeight: 1.3, overflow: 'hidden',
-                    textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{user?.name}</div>
-                  <div style={{
-                    color: 'rgba(255,255,255,0.4)', fontSize: 10,
-                    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  }}>{user?.email}</div>
-                </div>
-                <span style={{
-                  color: 'rgba(255,255,255,0.35)', fontSize: 9,
-                  transform: menuOpen ? 'rotate(0deg)' : 'rotate(180deg)',
-                  transition: 'transform 0.2s', display: 'inline-block',
-                }}>▲</span>
-              </>
-            )}
-          </div>
-        </div>
       </aside>
 
       {/* ── CSS variable update — sidebar width ── */}
       <style>{`
         :root { --sidebar-w: ${W}px; }
       `}</style>
-
-      {/* ── Reset Password Modal ── */}
-      {showReset && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        }}
-          onClick={e => { if (e.target === e.currentTarget) handleResetClose(); }}
-        >
-          <div style={{
-            background: '#fff', borderRadius: 16, padding: '32px 28px',
-            width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>🔑 Reset Password</div>
-              <button onClick={handleResetClose} style={{
-                background: 'none', border: 'none', fontSize: 18,
-                cursor: 'pointer', color: '#94a3b8',
-              }}>✕</button>
-            </div>
-            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 22 }}>
-              Account ka password update karo.
-            </div>
-            {[
-              { key: 'current', placeholder: 'Current Password' },
-              { key: 'newP',    placeholder: 'New Password (min 8 chars)' },
-              { key: 'confirm', placeholder: 'Confirm New Password' },
-            ].map(f => (
-              <input key={f.key} type="password" placeholder={f.placeholder}
-                value={passwords[f.key]}
-                onChange={e => setPasswords(p => ({ ...p, [f.key]: e.target.value }))}
-                style={{
-                  width: '100%', padding: '10px 14px', fontSize: 13,
-                  border: '1px solid #e2e8f0', borderRadius: 8,
-                  marginBottom: 10, boxSizing: 'border-box', outline: 'none',
-                }}
-                onFocus={e => e.target.style.borderColor = '#0176d3'}
-                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
-              />
-            ))}
-            {resetError && (
-              <div style={{
-                fontSize: 12, color: '#dc2626', marginBottom: 10,
-                background: '#fef2f2', padding: '8px 12px', borderRadius: 6,
-              }}>⚠️ {resetError}</div>
-            )}
-            {resetSuccess && (
-              <div style={{
-                fontSize: 12, color: '#059669', marginBottom: 10,
-                background: '#f0fdf4', padding: '8px 12px', borderRadius: 6,
-              }}>✅ Password update ho gaya!</div>
-            )}
-            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
-              <button onClick={handleResetClose} style={{
-                padding: '9px 18px', borderRadius: 8,
-                border: '1px solid #e2e8f0', background: '#fff',
-                cursor: 'pointer', fontSize: 13, color: '#475569',
-              }}>Cancel</button>
-              <button onClick={handleResetSubmit} style={{
-                padding: '9px 20px', borderRadius: 8, border: 'none',
-                background: '#0176d3', color: '#fff',
-                cursor: 'pointer', fontSize: 13, fontWeight: 600,
-              }}>Update Password</button>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 }
