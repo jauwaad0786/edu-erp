@@ -29,7 +29,7 @@ import SubjectsPage   from './pages/SubjectsPage';
 import TimetablePage  from './pages/TimetablePage';
 import IDCardPage from './pages/IDCardPage';
 import MarksPage from './pages/MarksPage';
-import MyServices from './pages/dashboard/MyServices';
+import MyServices from './pages/MyServices';
 // routes mein:
 
 
