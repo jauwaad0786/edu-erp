@@ -440,6 +440,7 @@ def update_teacher_salary(teacher_id):
 
 @principal_bp.route('/teachers/<int:teacher_id>/salary/record', methods=['POST'])
 @role_required('PRINCIPAL')
+@feature_required('payroll_system')
 def add_salary_record(teacher_id):
     """
     Manually add a salary payment record.
