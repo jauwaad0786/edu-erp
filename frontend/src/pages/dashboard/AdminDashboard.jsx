@@ -125,11 +125,7 @@ export default function AdminDashboard() {
     setSaving(false);
   };
 
-  // ── Toggle school active/inactive
-  const toggleSchool = async id => {
-    await api.put(`/admin/schools/${id}/toggle`);
-    load();
-  };
+  
 
   // ── Create user
   const createUser = async e => {
