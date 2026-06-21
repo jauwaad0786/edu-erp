@@ -21,6 +21,24 @@ class School(db.Model):
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
     created_by  = db.Column(db.Integer, db.ForeignKey('users.id'))
     current_session = db.Column(db.String(20), default='2024-25')
+    plan             = db.Column(db.String(20), default='BASIC')   # BASIC / PROFESSIONAL / ENTERPRISE
+    enabled_features = db.Column(db.Text, default='[]')            # JSON list of feature keys
+
+    def get_features(self):
+        import json
+        try:
+            return json.loads(self.enabled_features or '[]')
+        except Exception:
+            return []
+
+    def set_features(self, feature_list):
+        import json
+        self.enabled_features = json.dumps(list(feature_list))
+
+    def has_feature(self, key):
+        return key in self.get_features()
+
+    
 
     # Relationships
     classes  = db.relationship('Class',   backref='school', lazy='dynamic')
@@ -44,4 +62,7 @@ class School(db.Model):
             'logo_url':                self.logo_url                or None,
             'principal_signature_url': self.principal_signature_url or None,
             'director_signature_url':  self.director_signature_url  or None,
+            'plan':                    self.plan or 'BASIC',
+            'enabled_features':        self.get_features(),
+        
         }
