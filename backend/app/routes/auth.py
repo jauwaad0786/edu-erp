@@ -1,4 +1,3 @@
-
 from flask import Blueprint, request, jsonify
 from app import limiter
 from flask_jwt_extended import (
@@ -13,15 +12,7 @@ from app import db
 from app.models.user import User, UserRole
 from app.models.academic import Student
 
-import random
-import time
-
 auth_bp = Blueprint('auth', __name__)
-
-
-
-# In-memory OTP store
-_otp_store = {}
 
 
 @auth_bp.route('/login', methods=['POST'])
@@ -158,46 +149,10 @@ def change_password():
         'message': 'Password updated'
     }), 200
 
-from werkzeug.security import generate_password_hash
-
-@auth_bp.route('/reset-test')
-def reset_test():
-
-    user = User.query.filter_by(
-        email='hammadbinirshad12407@gmail.com'
-    ).first()
-
-    if not user:
-        return {"error": "user not found"}, 404
-
-    user.password = generate_password_hash('Admin@123')
-
-    db.session.commit()
-
-    return {
-        "message": "password reset done",
-        "email": user.email
-    }, 200
-
-
-from werkzeug.security import generate_password_hash
-
-@auth_bp.route('/force-reset')
-def force_reset():
-
-    user = User.query.filter_by(
-        email='hammadbinirshad12407@gmail.com'
-    ).first()
-
-    if not user:
-        return {"error": "User not found"}, 404
-
-    user.password = generate_password_hash('Admin@123')
-
-    db.session.commit()
-
-    return {
-        "success": True,
-        "email": user.email,
-        "password": "Admin@123"
-    }, 200
+@auth_bp.route('/forgot-password', methods=['POST'])
+@limiter.limit("5 per minute")
+def forgot_password():
+    """No OTP/SMS — user is told to contact the admin to reset their password."""
+    return jsonify({
+        'message': 'Password resets are currently handled by your administrator. Please contact your school/college admin to reset your password.'
+    }), 200
