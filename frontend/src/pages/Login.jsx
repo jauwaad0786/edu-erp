@@ -30,7 +30,7 @@ export default function Login() {
   const [showForgot, setShowForgot] = useState(false);
 
   // Staff fields
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
 
   // Student fields
@@ -49,7 +49,7 @@ export default function Login() {
     e.preventDefault();
     setLoading(true); setError('');
     try {
-      await login(email, password);
+      await login(identifier, password);
       navigate('/dashboard');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please check your credentials.');
@@ -329,9 +329,9 @@ export default function Login() {
 
               <form onSubmit={handleStaffLogin}>
                 <div className="auth-field">
-                  <label>Email Address</label>
-                  <input type="email" placeholder="you@school.edu"
-                    value={email} onChange={e => setEmail(e.target.value)} required />
+                  <label>Email or Username</label>
+                  <input type="text" placeholder="email@school.edu or username"
+                    value={identifier} onChange={e => setIdentifier(e.target.value)} required />
                 </div>
                 <div className="auth-field">
                   <label>Password</label>
@@ -368,9 +368,9 @@ export default function Login() {
                     value={stuName} onChange={e => setStuName(e.target.value)} required />
                 </div>
                 <div className="auth-field">
-                  <label>Father's Name *</label>
-                  <input placeholder="Enter father's name"
-                    value={fatherName} onChange={e => setFatherName(e.target.value)} required />
+                  <label>Father's Name <span style={{ color: '#9ca3af', fontWeight: 400 }}>(only if asked)</span></label>
+                  <input placeholder="Needed only if name matches multiple students"
+                    value={fatherName} onChange={e => setFatherName(e.target.value)} />
                 </div>
                 <div className="auth-field">
                   <label>Mobile Number *</label>
