@@ -9,7 +9,9 @@ from app.models.academic import (
 from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTimetable, Holiday, Timetable, TimetablePeriod
 
 from app.utils.decorators import role_required, get_current_user
+from app.utils.feature_gate import feature_required
 from app.utils.pdf_generator import generate_admit_card, generate_result_card
+
 from sqlalchemy import func
 from datetime import date, datetime
 import random, string
