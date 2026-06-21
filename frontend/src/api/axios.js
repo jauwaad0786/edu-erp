@@ -17,11 +17,22 @@ api.interceptors.request.use(config => {
 });
 
 // Auto-refresh on 401
+// Auto-refresh on 401 + feature-locked handling
 api.interceptors.response.use(
   res => res,
-
   async err => {
     const originalReq = err.config;
+
+    // ── Locked feature (403 from feature_required decorator) ──
+    if (err.response?.status === 403 && err.response?.data?.error === 'feature_locked') {
+      window.dispatchEvent(new CustomEvent('feature-locked', {
+        detail: {
+          feature: err.response.data.feature,
+          message: err.response.data.message,
+        }
+      }));
+      return Promise.reject(err);
+    }
 
     if (err.response?.status === 401 && !originalReq._retry) {
       originalReq._retry = true;
