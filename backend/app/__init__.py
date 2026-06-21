@@ -70,9 +70,39 @@ def create_app(config_name='default'):
     # Create tables on first run
     with app.app_context():
         db.create_all()
+        _ensure_school_columns()
         _seed_super_admin()
-
     return app
+
+
+def _ensure_school_columns():
+    """
+    db.create_all() won't ALTER existing tables to add new columns.
+    Safe auto-migration: add columns if they don't already exist.
+    Works for both Postgres (Render) and SQLite (local dev).
+    """
+    from sqlalchemy import text, inspect
+
+    inspector = inspect(db.engine)
+    if 'schools' not in inspector.get_table_names():
+        return  # create_all() will have made it fresh with all columns already
+
+    existing_cols = {c['name'] for c in inspector.get_columns('schools')}
+
+    columns_to_add = {
+        'plan':             "VARCHAR(20) DEFAULT 'BASIC'",
+        'enabled_features': "TEXT DEFAULT '[]'",
+    }
+
+    with db.engine.connect() as conn:
+        for col_name, col_def in columns_to_add.items():
+            if col_name not in existing_cols:
+                try:
+                    conn.execute(text(f"ALTER TABLE schools ADD COLUMN {col_name} {col_def}"))
+                    conn.commit()
+                    print(f"✅ Added column schools.{col_name}")
+                except Exception as e:
+                    print(f"⚠️ Could not add column {col_name}: {e}")
 
 
 def _seed_super_admin():
