@@ -15,6 +15,48 @@ from app.utils.decorators import role_required
 admin_bp = Blueprint('admin', __name__)
 
 
+# ─── Feature Catalog (reference only — actual enablement is per-school) ──────
+FEATURE_CATALOG = [
+    # key, label, tier
+    {'key': 'up_to_200_students',   'label': 'Up to 200 Students',     'tier': 'BASIC'},
+    {'key': 'single_admin',         'label': '1 Admin Account',        'tier': 'BASIC'},
+    {'key': 'weekly_support',       'label': 'Weekly Support',         'tier': 'BASIC'},
+    {'key': 'student_management',   'label': 'Student Management',     'tier': 'BASIC'},
+    {'key': 'attendance_tracking',  'label': 'Attendance Tracking',    'tier': 'BASIC'},
+    {'key': 'fee_management',       'label': 'Fee Management',         'tier': 'BASIC'},
+    {'key': 'result_management',    'label': 'Result Management',      'tier': 'BASIC'},
+    {'key': 'basic_reports',        'label': 'Basic Reports',          'tier': 'BASIC'},
+
+    {'key': 'hrms_module',          'label': 'HRMS Module',            'tier': 'PROFESSIONAL'},
+    {'key': 'multi_admin_3',        'label': '3 Admin Accounts',       'tier': 'PROFESSIONAL'},
+    {'key': 'support_247',          'label': '24/7 Support',           'tier': 'PROFESSIONAL'},
+    {'key': 'teacher_management',   'label': 'Teacher Management',     'tier': 'PROFESSIONAL'},
+    {'key': 'payroll_system',       'label': 'Payroll System',         'tier': 'PROFESSIONAL'},
+    {'key': 'advanced_analytics',   'label': 'Advanced Analytics',     'tier': 'PROFESSIONAL'},
+    {'key': 'role_based_access',    'label': 'Role-based Access',      'tier': 'PROFESSIONAL'},
+
+    {'key': 'whatsapp_notifications','label': 'WhatsApp Notifications','tier': 'ENTERPRISE'},
+    {'key': 'multi_admin_5',        'label': '5 Admin Accounts',       'tier': 'ENTERPRISE'},
+    {'key': 'priority_support_247', 'label': '24/7 Priority Support',  'tier': 'ENTERPRISE'},
+    {'key': 'ai_reports',           'label': 'AI-powered Reports',     'tier': 'ENTERPRISE'},
+    {'key': 'cloud_erp_dashboard',  'label': 'Cloud ERP Dashboard',    'tier': 'ENTERPRISE'},
+    {'key': 'custom_integrations',  'label': 'Custom Integrations',    'tier': 'ENTERPRISE'},
+    {'key': 'advanced_security',    'label': 'Advanced Security',      'tier': 'ENTERPRISE'},
+    {'key': 'real_time_alerts',     'label': 'Real-time Alerts',       'tier': 'ENTERPRISE'},
+]
+
+PLAN_PRESETS = {
+    'BASIC':        [f['key'] for f in FEATURE_CATALOG if f['tier'] == 'BASIC'],
+    'PROFESSIONAL': [f['key'] for f in FEATURE_CATALOG if f['tier'] in ('BASIC', 'PROFESSIONAL')],
+    'ENTERPRISE':   [f['key'] for f in FEATURE_CATALOG],   # everything
+}
+
+
+@admin_bp.route('/features/catalog', methods=['GET'])
+@role_required('SUPER_ADMIN')
+def get_feature_catalog():
+    return jsonify({'catalog': FEATURE_CATALOG, 'presets': PLAN_PRESETS}), 200
+
 # ─── Schools ──────────────────────────────────────────────────────────────────
 
 @admin_bp.route('/schools', methods=['GET'])
@@ -124,9 +166,45 @@ def get_school_detail(school_id):
 def update_school(school_id):
     school = School.query.get_or_404(school_id)
     data = request.get_json()
-    for field in ['name', 'address', 'city', 'state', 'phone', 'email', 'current_session', 'is_active']:
+    for field in ['name', 'address', 'city', 'state', 'phone', 'email', 'current_session', 'is_active', 'plan']:
         if field in data:
             setattr(school, field, data[field])
+    db.session.commit()
+    return jsonify(school.to_dict()), 200
+
+@admin_bp.route('/schools/<int:school_id>/features', methods=['PUT'])
+@role_required('SUPER_ADMIN')
+def update_school_features(school_id):
+    """
+    Set the exact list of enabled feature keys for a school.
+    Body: { features: ['student_management', 'hrms_module', ...] }
+    This is fully manual/override — independent of plan label.
+    """
+    school = School.query.get_or_404(school_id)
+    data = request.get_json() or {}
+    features = data.get('features', [])
+
+    valid_keys = {f['key'] for f in FEATURE_CATALOG}
+    features = [f for f in features if f in valid_keys]   # sanitize
+
+    school.set_features(features)
+    if 'plan' in data:
+        school.plan = data['plan']
+    db.session.commit()
+    return jsonify(school.to_dict()), 200
+
+
+@admin_bp.route('/schools/<int:school_id>/features/apply-preset', methods=['POST'])
+@role_required('SUPER_ADMIN')
+def apply_plan_preset(school_id):
+    """Quick-fill: apply a plan's default feature set (still editable after)."""
+    school = School.query.get_or_404(school_id)
+    data = request.get_json() or {}
+    plan = data.get('plan', 'BASIC')
+    if plan not in PLAN_PRESETS:
+        return jsonify({'error': 'Invalid plan'}), 400
+    school.plan = plan
+    school.set_features(PLAN_PRESETS[plan])
     db.session.commit()
     return jsonify(school.to_dict()), 200
 
