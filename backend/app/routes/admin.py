@@ -270,32 +270,238 @@ def toggle_charge_paid(charge_id):
     return jsonify(charge.to_dict()), 200
 
 
+# ─── User helpers ─────────────────────────────────────────────────────────────
+
+import re as _re
+import string as _string
+import random as _random
+
+
+def _gen_username(name: str, role: str, school_id=None) -> str:
+    """
+    Generate a unique username like: rajesh.kumar.tchr or priya.student
+    Role suffix keeps usernames self-descriptive.
+    Appends a random 3-digit number if a collision exists.
+    """
+    role_suffix = {
+        'SUPER_ADMIN':   'admin',
+        'PRINCIPAL':     'prin',
+        'VICE_PRINCIPAL':'vp',
+        'TEACHER':       'tchr',
+        'ACCOUNTANT':    'acct',
+        'RECEPTIONIST':  'rcpt',
+        'LIBRARIAN':     'lib',
+        'HOSTEL':        'hstl',
+        'TRANSPORT':     'trns',
+        'HR':            'hr',
+        'STUDENT':       'stu',
+        'PARENT':        'prnt',
+    }.get(role, 'usr')
+
+    # clean name: lower, keep only alphanum+space, replace spaces with dots
+    clean = _re.sub(r'[^a-z0-9 ]', '', name.lower().strip())
+    parts = clean.split()[:2]          # first + last name only
+    base  = '.'.join(parts) + '.' + role_suffix
+
+    if not User.query.filter_by(username=base).first():
+        return base
+
+    for _ in range(20):
+        candidate = base + '.' + ''.join(_random.choices(_string.digits, k=3))
+        if not User.query.filter_by(username=candidate).first():
+            return candidate
+
+    # absolute fallback
+    return base + '.' + ''.join(_random.choices(_string.digits, k=6))
+
+
+def _validate_create_payload(data: dict):
+    """Returns (error_str | None)"""
+    if not (data.get('name') or '').strip():
+        return 'name is required'
+    if not (data.get('email') or '').strip():
+        return 'email is required'
+    if not (data.get('role') or '').strip():
+        return 'role is required'
+    try:
+        UserRole(data['role'])
+    except ValueError:
+        return f"Invalid role: {data['role']}"
+    return None
+
+
 # ─── Users ────────────────────────────────────────────────────────────────────
 
 @admin_bp.route('/users', methods=['GET'])
 @role_required('SUPER_ADMIN')
 def list_users():
-    users = User.query.all()
-    return jsonify([u.to_dict() for u in users]), 200
+    """
+    GET /api/admin/users
+    Query params:
+      school_id   filter by school
+      role        filter by role
+      status      active | inactive
+      search      searches name, email, username, phone
+      page        default 1
+      per_page    default 50 (max 200)
+    """
+    q          = User.query
+    school_id  = request.args.get('school_id')
+    role_f     = request.args.get('role')
+    status_f   = request.args.get('status')
+    search     = (request.args.get('search') or '').strip().lower()
+    page       = max(1, int(request.args.get('page', 1)))
+    per_page   = min(200, int(request.args.get('per_page', 50)))
+
+    if school_id:
+        q = q.filter(User.school_id == int(school_id))
+    if role_f:
+        try:
+            q = q.filter(User.role == UserRole(role_f))
+        except ValueError:
+            pass
+    if status_f == 'active':
+        q = q.filter(User.is_active == True)
+    elif status_f == 'inactive':
+        q = q.filter(User.is_active == False)
+    if search:
+        like = f'%{search}%'
+        q = q.filter(
+            db.or_(
+                User.name.ilike(like),
+                User.email.ilike(like),
+                User.username.ilike(like),
+                User.phone.ilike(like),
+            )
+        )
+
+    total   = q.count()
+    users   = q.order_by(User.created_at.desc())\
+               .offset((page - 1) * per_page).limit(per_page).all()
+
+    return jsonify({
+        'users':    [u.to_dict_with_credentials() for u in users],
+        'total':    total,
+        'page':     page,
+        'per_page': per_page,
+        'pages':    (total + per_page - 1) // per_page,
+    }), 200
 
 
 @admin_bp.route('/users', methods=['POST'])
 @role_required('SUPER_ADMIN')
 def create_user():
-    data = request.get_json()
-    if User.query.filter_by(email=data['email']).first():
+    """
+    Create any user. Returns credentials including plain password.
+    """
+    data = request.get_json() or {}
+
+    err = _validate_create_payload(data)
+    if err:
+        return jsonify({'error': err}), 400
+
+    email = data['email'].strip().lower()
+    if User.query.filter(sqlfunc.lower(User.email) == email).first():
         return jsonify({'error': 'Email already exists'}), 409
+
+    plain_pw  = data.get('password') or 'EduErp@123'
+    role_str  = data['role'].strip()
+    school_id = data.get('school_id') or None
+
+    # If username provided, check uniqueness; else auto-generate
+    username  = (data.get('username') or '').strip().lower() or None
+    if username:
+        if User.query.filter_by(username=username).first():
+            return jsonify({'error': 'Username already taken'}), 409
+    else:
+        username = _gen_username(data['name'], role_str, school_id)
+
     user = User(
-        name=data['name'],
-        email=data['email'].lower(),
-        role=UserRole(data['role']),
-        school_id=data.get('school_id'),
-        phone=data.get('phone')
+        name        = data['name'].strip(),
+        email       = email,
+        username    = username,
+        role        = UserRole(role_str),
+        school_id   = int(school_id) if school_id else None,
+        phone       = (data.get('phone') or '').strip() or None,
+        department  = (data.get('department') or '').strip() or None,
+        designation = (data.get('designation') or '').strip() or None,
+        is_active   = data.get('is_active', True),
     )
-    user.set_password(data.get('password', 'EduErp@123'))
+    user.set_password(plain_pw, store_plain=True)
+
     db.session.add(user)
     db.session.commit()
-    return jsonify(user.to_dict()), 201
+
+    return jsonify(user.to_dict_with_credentials()), 201
+
+
+@admin_bp.route('/users/<int:user_id>', methods=['GET'])
+@role_required('SUPER_ADMIN')
+def get_user(user_id):
+    user = User.query.get_or_404(user_id)
+    return jsonify(user.to_dict_with_credentials()), 200
+
+
+@admin_bp.route('/users/<int:user_id>', methods=['PUT'])
+@role_required('SUPER_ADMIN')
+def update_user(user_id):
+    """Edit name, email, username, phone, department, designation, role, school, status."""
+    user = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+
+    if 'name' in data and data['name'].strip():
+        user.name = data['name'].strip()
+
+    if 'email' in data:
+        new_email = data['email'].strip().lower()
+        conflict  = User.query.filter(
+            sqlfunc.lower(User.email) == new_email,
+            User.id != user_id
+        ).first()
+        if conflict:
+            return jsonify({'error': 'Email already used by another user'}), 409
+        user.email = new_email
+
+    if 'username' in data:
+        new_uname = (data['username'] or '').strip().lower() or None
+        if new_uname:
+            conflict = User.query.filter(
+                sqlfunc.lower(User.username) == new_uname,
+                User.id != user_id
+            ).first()
+            if conflict:
+                return jsonify({'error': 'Username already taken'}), 409
+        user.username = new_uname
+
+    for field in ('phone', 'department', 'designation'):
+        if field in data:
+            setattr(user, field, (data[field] or '').strip() or None)
+
+    if 'role' in data:
+        try:
+            user.role = UserRole(data['role'])
+        except ValueError:
+            return jsonify({'error': f"Invalid role: {data['role']}"}), 400
+
+    if 'school_id' in data:
+        user.school_id = int(data['school_id']) if data['school_id'] else None
+
+    if 'is_active' in data:
+        user.is_active = bool(data['is_active'])
+
+    db.session.commit()
+    return jsonify(user.to_dict_with_credentials()), 200
+
+
+@admin_bp.route('/users/<int:user_id>', methods=['DELETE'])
+@role_required('SUPER_ADMIN')
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    if user.role == UserRole.SUPER_ADMIN:
+        return jsonify({'error': 'Cannot delete Super Admin'}), 403
+    db.session.delete(user)
+    db.session.commit()
+    return jsonify({'message': 'User deleted'}), 200
 
 
 @admin_bp.route('/users/<int:user_id>/toggle', methods=['PUT'])
@@ -304,7 +510,52 @@ def toggle_user(user_id):
     user = User.query.get_or_404(user_id)
     user.is_active = not user.is_active
     db.session.commit()
-    return jsonify({'is_active': user.is_active}), 200
+    return jsonify({
+        'is_active': user.is_active,
+        'message': 'User ' + ('activated' if user.is_active else 'deactivated'),
+    }), 200
+
+
+@admin_bp.route('/users/<int:user_id>/reset-password', methods=['PUT'])
+@role_required('SUPER_ADMIN')
+def reset_user_password(user_id):
+    """
+    Admin resets a user's password.
+    Body: { "password": "NewPass@123" }  (optional — defaults to EduErp@123)
+    Returns the plain password so admin can share with user.
+    """
+    user     = User.query.get_or_404(user_id)
+    data     = request.get_json() or {}
+    plain_pw = (data.get('password') or '').strip() or 'EduErp@123'
+
+    user.set_password(plain_pw, store_plain=True)
+    db.session.commit()
+
+    return jsonify({
+        'message':           'Password reset successful',
+        'plain_password_temp': user.plain_password_temp,
+        'username':          user.username,
+        'email':             user.email,
+    }), 200
+
+
+@admin_bp.route('/users/<int:user_id>/assign-role', methods=['PUT'])
+@role_required('SUPER_ADMIN')
+def assign_role(user_id):
+    """Quick role change without full edit."""
+    user = User.query.get_or_404(user_id)
+    data = request.get_json() or {}
+    try:
+        user.role = UserRole(data['role'])
+    except (ValueError, KeyError):
+        return jsonify({'error': 'Invalid role'}), 400
+
+    # SUPER_ADMIN has no school
+    if user.role == UserRole.SUPER_ADMIN:
+        user.school_id = None
+
+    db.session.commit()
+    return jsonify(user.to_dict()), 200
 
 
 # ─── Stats ────────────────────────────────────────────────────────────────────
