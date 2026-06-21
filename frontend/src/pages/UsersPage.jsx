@@ -1,4 +1,3 @@
-
 // frontend/src/pages/UsersPage.jsx — NEW FILE
 
 import React, { useState, useEffect } from 'react';
@@ -6,13 +5,14 @@ import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api     from '../api/axios';
 
-const ROLES = ['PRINCIPAL', 'TEACHER', 'STUDENT', 'PARENT'];
+const ROLES = ['PRINCIPAL', 'VICE_PRINCIPAL', 'TEACHER', 'ACCOUNTANT', 'RECEPTIONIST', 'LIBRARIAN', 'HOSTEL', 'TRANSPORT', 'HR', 'STUDENT', 'PARENT'];
 
 export default function UsersPage() {
   const [users,   setUsers]   = useState([]);
   const [schools, setSchools] = useState([]);
   const [loading, setLoading] = useState(true);
   const [msg,     setMsg]     = useState('');
+  const [showPw,  setShowPw]  = useState({});
 
   // Filters
   const [filterRole,   setFilterRole]   = useState('');
@@ -29,10 +29,10 @@ export default function UsersPage() {
   const load = () => {
     setLoading(true);
     Promise.all([
-      api.get('/admin/users'),
+      api.get('/admin/users?per_page=200'),
       api.get('/admin/schools'),
     ]).then(([u, s]) => {
-      setUsers(u.data);
+      setUsers(u.data.users || []);
       setSchools(s.data);
     }).catch(() => {})
       .finally(() => setLoading(false));
@@ -47,14 +47,15 @@ export default function UsersPage() {
   const createUser = async e => {
     e.preventDefault(); setSaving(true); setMsg('');
     try {
-      await api.post('/admin/users', form);
+      const r = await api.post('/admin/users', form);
       setShowCreate(false);
       setCreatedCreds({
-        name:     form.name,
-        email:    form.email,
-        password: form.password || 'EduErp@123',
-        role:     form.role,
-        school:   schools.find(s => String(s.id) === String(form.school_id))?.name || '—',
+        name:     r.data.name,
+        username: r.data.username,
+        email:    r.data.email,
+        password: r.data.plain_password_temp || form.password || 'EduErp@123',
+        role:     r.data.role,
+        school:   schools.find(s => String(s.id) === String(r.data.school_id))?.name || '—',
       });
       setForm({}); load();
     } catch (err) {
@@ -68,6 +69,7 @@ export default function UsersPage() {
     navigator.clipboard.writeText(
       `EduERP Login Credentials\n` +
       `Name:     ${createdCreds.name}\n` +
+      `Username: ${createdCreds.username || '—'}\n` +
       `Email:    ${createdCreds.email}\n` +
       `Password: ${createdCreds.password}\n` +
       `Role:     ${createdCreds.role}\n` +
@@ -84,7 +86,9 @@ export default function UsersPage() {
     const matchSchool = filterSchool ? String(u.school_id) === filterSchool : true;
     const matchSearch = search
       ? u.name.toLowerCase().includes(search.toLowerCase()) ||
-        u.email.toLowerCase().includes(search.toLowerCase())
+        u.email.toLowerCase().includes(search.toLowerCase()) ||
+        (u.username || '').toLowerCase().includes(search.toLowerCase()) ||
+        (u.phone || '').toLowerCase().includes(search.toLowerCase())
       : true;
     return matchRole && matchSchool && matchSearch;
   });
@@ -219,7 +223,9 @@ export default function UsersPage() {
                   <thead>
                     <tr>
                       <th>Name</th>
+                      <th>Username</th>
                       <th>Email</th>
+                      <th>Password</th>
                       <th>Role</th>
                       <th>School</th>
                       <th>Phone</th>
@@ -243,7 +249,31 @@ export default function UsersPage() {
                             <span style={{ fontWeight: 500, fontSize: 13 }}>{u.name}</span>
                           </div>
                         </td>
+                        <td style={{ color: 'var(--neutral-6)', fontSize: 12, fontFamily: 'monospace' }}>
+                          {u.username
+                            ? <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                {u.username}
+                                <button onClick={() => navigator.clipboard.writeText(u.username)}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#94a3b8', padding: 0 }}>📋</button>
+                              </span>
+                            : '—'}
+                        </td>
                         <td style={{ color: 'var(--neutral-6)', fontSize: 12 }}>{u.email}</td>
+                        <td>
+                          {u.plain_password_temp ? (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                                {showPw[u.id] ? u.plain_password_temp : '••••••'}
+                              </span>
+                              <button onClick={() => setShowPw(p => ({ ...p, [u.id]: !p[u.id] }))}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#94a3b8', padding: 0 }}>
+                                {showPw[u.id] ? '🙈' : '👁'}
+                              </button>
+                              <button onClick={() => navigator.clipboard.writeText(u.plain_password_temp)}
+                                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 11, color: '#94a3b8', padding: 0 }}>📋</button>
+                            </span>
+                          ) : <span style={{ color: '#94a3b8', fontSize: 12 }}>changed</span>}
+                        </td>
                         <td>
                           <span className={`badge ${roleBadge(u.role)}`}>{u.role}</span>
                         </td>
@@ -274,7 +304,7 @@ export default function UsersPage() {
                     ))}
                     {!filtered.length && (
                       <tr>
-                        <td colSpan={7} style={{
+                        <td colSpan={9} style={{
                           textAlign: 'center', color: 'var(--neutral-4)', padding: 40,
                         }}>
                           No users found.
@@ -338,9 +368,19 @@ export default function UsersPage() {
                     onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
                 </div>
                 <div className="form-group">
+                  <label className="form-label">Username <span style={{ color: '#94a3b8', fontWeight: 400 }}>(optional — auto-generated if blank)</span></label>
+                  <input className="form-input" placeholder="e.g. ravi.kumar.tchr"
+                    onChange={e => setForm(f => ({ ...f, username: e.target.value }))} />
+                </div>
+                <div className="form-group">
                   <label className="form-label">Phone</label>
                   <input className="form-input" placeholder="+91-XXXXX-XXXXX"
                     onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
+                </div>
+                <div className="form-group">
+                  <label className="form-label">Department</label>
+                  <input className="form-input" placeholder="e.g. Science"
+                    onChange={e => setForm(f => ({ ...f, department: e.target.value }))} />
                 </div>
               </div>
               <div className="modal-footer">
@@ -374,6 +414,7 @@ export default function UsersPage() {
                 </p>
                 {[
                   ['👤 Name',     createdCreds.name],
+                  ['🔖 Username', createdCreds.username],
                   ['📧 Email',    createdCreds.email],
                   ['🔑 Password', createdCreds.password],
                   ['🎭 Role',     createdCreds.role],
