@@ -11,6 +11,7 @@ from app.models.financial import FeeRecord, FeeStructure, ExamSchedule, ExamTime
 from app.utils.decorators import role_required, get_current_user
 from app.utils.feature_gate import feature_required
 from app.utils.pdf_generator import generate_admit_card, generate_result_card
+from app.routes.admin import FEATURE_CATALOG, PLAN_PRESETS, PLAN_PRICING
 
 from sqlalchemy import func
 from datetime import date, datetime
@@ -2515,3 +2516,39 @@ def school_director_signature():
     school.director_signature_url = result['secure_url']
     db.session.commit()
     return jsonify({'director_signature_url': school.director_signature_url}), 200
+
+
+
+@principal_bp.route('/my-services', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def my_services():
+    """
+    School ki apni service list — kaunsi active hain, kaunsi locked
+    (upgrade ke liye), pricing ke saath. Read-only, ChatGPT/Claude-style.
+    """
+    from app.models.school import School
+    school = School.query.get(_school_id())
+    if not school:
+        return jsonify({'error': 'School nahi mili'}), 404
+
+    enabled = set(school.get_features())
+    plan    = school.plan or 'BASIC'
+
+    result = []
+    for f in FEATURE_CATALOG:
+        is_active = f['key'] in enabled
+        result.append({
+            'key':         f['key'],
+            'label':       f['label'],
+            'tier':        f['tier'],
+            'is_active':   is_active,
+            'tier_price':  PLAN_PRICING.get(f['tier'], {}).get('price'),
+            'tier_label':  PLAN_PRICING.get(f['tier'], {}).get('label'),
+        })
+
+    return jsonify({
+        'current_plan':  plan,
+        'current_price': PLAN_PRICING.get(plan, {}).get('price'),
+        'features':      result,
+        'pricing':       PLAN_PRICING,
+    }), 200
