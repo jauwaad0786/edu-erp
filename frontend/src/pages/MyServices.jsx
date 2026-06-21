@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from '../../components/Sidebar';
-import Navbar  from '../../components/Navbar';
-import api     from '../../api/axios';
+import Sidebar from '../components/Sidebar';
+import Navbar  from '../components/Navbar';
+import api     from '../api/axios';
 
 const TIER_ORDER = ['BASIC', 'PROFESSIONAL', 'ENTERPRISE'];
 
