@@ -1,49 +1,48 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const MODULES = [
   {
-    id: 'school', icon: '🏫', label: 'School ERP',
+    id: 'school', label: 'School ERP',
     desc: 'K-12 management — attendance, results, fees, timetable',
     ready: true,
     tags: ['Attendance', 'Results', 'Fees', 'Timetable'],
-    accent: '#1a73e8',
+    initial: 'SC',
   },
   {
-    id: 'college', icon: '🎓', label: 'College ERP',
+    id: 'college', label: 'College ERP',
     desc: 'Higher education — courses, semesters, departments',
     ready: false,
     tags: ['Courses', 'Semesters', 'Departments'],
-    accent: '#5867e8',
+    initial: 'CL',
   },
   {
-    id: 'hospital', icon: '🏥', label: 'Hospital ERP',
+    id: 'hospital', label: 'Hospital ERP',
     desc: 'Patient management, OPD, billing, pharmacy',
     ready: false,
     tags: ['OPD', 'Billing', 'Pharmacy'],
-    accent: '#2e844a',
+    initial: 'HS',
   },
   {
-    id: 'industry', icon: '🏭', label: 'Industry ERP',
+    id: 'industry', label: 'Industry ERP',
     desc: 'HR, inventory, production, finance modules',
     ready: false,
     tags: ['HR', 'Inventory', 'Finance'],
-    accent: '#dd7a01',
+    initial: 'IN',
   },
 ];
 
 const FEATURES = [
-  { icon: '🔐', text: 'Role-based access control' },
-  { icon: '📋', text: 'Auto-generate Admit & Result cards' },
-  { icon: '💰', text: 'Real-time Fee management' },
-  { icon: '📊', text: 'Attendance tracking & reports' },
-  { icon: '🏆', text: 'Multi-tenant architecture' },
+  'Role-based access control',
+  'Automated admit cards & result generation',
+  'Real-time fee management',
+  'Attendance tracking & analytics',
 ];
 
 const styles = `
   @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
-  * { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; }
 
   .erp-landing {
     display: flex;
@@ -54,40 +53,31 @@ const styles = `
 
   /* ── LEFT PANEL ── */
   .left-panel {
-    width: 52%;
-    background: #0a1628;
+    width: 46%;
+    background: linear-gradient(160deg, #032d60 0%, #0b5cab 55%, #0176d3 100%);
     display: flex;
     flex-direction: column;
-    padding: 36px 48px 32px;
+    padding: 48px 56px;
     position: relative;
     overflow: hidden;
-  }
-
-  .left-grid {
-    position: absolute;
-    inset: 0;
-    background-image:
-      linear-gradient(rgba(56,139,253,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(56,139,253,0.05) 1px, transparent 1px);
-    background-size: 48px 48px;
-    pointer-events: none;
+    color: #fff;
   }
 
   .left-orb-1 {
     position: absolute;
     width: 480px; height: 480px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(26,115,232,0.18) 0%, transparent 70%);
-    top: -120px; left: -100px;
+    background: rgba(255,255,255,0.06);
+    top: -160px; right: -140px;
     pointer-events: none;
   }
 
   .left-orb-2 {
     position: absolute;
-    width: 300px; height: 300px;
+    width: 320px; height: 320px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
-    bottom: 40px; right: -60px;
+    background: rgba(255,255,255,0.05);
+    bottom: -120px; left: -100px;
     pointer-events: none;
   }
 
@@ -102,8 +92,7 @@ const styles = `
   .nav-top {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    margin-bottom: 48px;
+    margin-bottom: 56px;
   }
 
   .logo-wrap {
@@ -113,29 +102,18 @@ const styles = `
   }
 
   .logo-box {
-    width: 40px; height: 40px;
-    background: linear-gradient(135deg, #1a73e8, #4da3ff);
-    border-radius: 10px;
+    width: 44px; height: 44px;
+    border-radius: 11px;
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.28);
     display: flex; align-items: center; justify-content: center;
-    font-weight: 800; font-size: 18px; color: #fff;
-    box-shadow: 0 0 24px rgba(26,115,232,0.45);
+    font-weight: 800; font-size: 19px; color: #fff;
   }
 
   .logo-name {
-    font-size: 20px;
+    font-size: 19px;
     font-weight: 800;
-    color: #e6edf3;
-    letter-spacing: -0.5px;
-  }
-
-  .version-chip {
-    font-size: 11px;
-    padding: 4px 12px;
-    background: rgba(26,115,232,0.12);
-    border: 1px solid rgba(26,115,232,0.28);
-    border-radius: 20px;
-    color: #79c0ff;
-    letter-spacing: 0.3px;
+    letter-spacing: -0.3px;
   }
 
   .hero-section {
@@ -143,315 +121,247 @@ const styles = `
     display: flex;
     flex-direction: column;
     justify-content: center;
+    max-width: 440px;
   }
 
   .eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11px;
-    letter-spacing: 2px;
+    font-size: 11.5px;
+    letter-spacing: 1.6px;
     text-transform: uppercase;
-    color: #79c0ff;
+    color: rgba(255,255,255,0.65);
     margin-bottom: 18px;
-    font-weight: 600;
-  }
-
-  .live-dot {
-    width: 7px; height: 7px;
-    background: #3fb950;
-    border-radius: 50%;
-    box-shadow: 0 0 8px #3fb950;
-    animation: blink 2s ease-in-out infinite;
-  }
-
-  @keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.35; }
+    font-weight: 700;
   }
 
   .hero-title {
-    font-size: 36px;
+    font-size: 2.4rem;
     font-weight: 800;
-    color: #e6edf3;
-    line-height: 1.12;
-    letter-spacing: -1.2px;
-    margin-bottom: 16px;
+    line-height: 1.18;
+    letter-spacing: -1px;
+    margin-bottom: 18px;
   }
 
   .hero-title .accent {
-    background: linear-gradient(120deg, #4da3ff, #79c0ff);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    color: #aed6ff;
   }
 
   .hero-sub {
-    font-size: 14px;
-    color: #8b949e;
-    line-height: 1.65;
-    max-width: 400px;
-    margin-bottom: 36px;
-    font-weight: 400;
+    font-size: 14.5px;
+    color: rgba(255,255,255,0.78);
+    line-height: 1.7;
+    margin-bottom: 38px;
   }
 
   .features-list {
     display: flex;
     flex-direction: column;
-    gap: 11px;
-    margin-bottom: 40px;
+    gap: 15px;
   }
 
   .feature-row {
     display: flex;
-    align-items: center;
-    gap: 10px;
-    font-size: 13px;
-    color: #c9d1d9;
-    font-weight: 500;
+    align-items: flex-start;
+    gap: 11px;
+    font-size: 13.5px;
+    color: rgba(255,255,255,0.88);
   }
 
-  .feature-icon-wrap {
-    width: 28px; height: 28px;
-    border-radius: 7px;
-    background: rgba(26,115,232,0.1);
-    border: 1px solid rgba(26,115,232,0.2);
+  .feature-tick {
+    width: 21px; height: 21px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
     display: flex; align-items: center; justify-content: center;
-    font-size: 13px;
+    font-size: 11px;
+    margin-top: 1px;
   }
 
-  .stats-strip {
-    display: flex;
-    gap: 28px;
-    padding-top: 24px;
-    border-top: 1px solid rgba(56,139,253,0.12);
-  }
-
-  .stat-item .num {
-    font-size: 20px;
-    font-weight: 800;
-    color: #e6edf3;
-  }
-
-  .stat-item .lbl {
-    font-size: 10px;
-    color: #6e7681;
-    letter-spacing: 0.5px;
-    margin-top: 2px;
-    text-transform: uppercase;
+  .left-footer {
+    position: relative;
+    z-index: 2;
+    font-size: 11.5px;
+    color: rgba(255,255,255,0.5);
+    margin-top: 32px;
   }
 
   /* ── RIGHT PANEL ── */
   .right-panel {
-    width: 48%;
+    flex: 1;
     background: #f6f8fa;
     display: flex;
     flex-direction: column;
-    padding: 36px 44px 32px;
+    padding: 48px 56px;
     position: relative;
     overflow-y: auto;
   }
 
   .right-header {
     margin-bottom: 28px;
+    max-width: 640px;
   }
 
   .right-header h2 {
-    font-size: 22px;
+    font-size: 1.6rem;
     font-weight: 800;
     color: #0d1117;
     letter-spacing: -0.5px;
-    margin-bottom: 4px;
+    margin: 0 0 6px 0;
   }
 
   .right-header p {
-    font-size: 13px;
+    font-size: 13.5px;
     color: #656d76;
+    margin: 0;
   }
 
   .module-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    margin-bottom: 20px;
+    gap: 14px;
+    margin-bottom: 24px;
+    max-width: 720px;
   }
 
   .mod-card {
     background: #fff;
     border: 1.5px solid #e1e4e8;
-    border-radius: 12px;
-    padding: 18px 16px 16px;
+    border-radius: 14px;
+    padding: 20px 18px;
     cursor: pointer;
     transition: all 0.2s ease;
     position: relative;
     text-align: left;
     outline: none;
+    font-family: inherit;
   }
 
   .mod-card:hover:not(.disabled) {
-    border-color: #1a73e8;
-    box-shadow: 0 4px 20px rgba(26,115,232,0.12);
+    border-color: #0176d3;
+    box-shadow: 0 6px 22px rgba(1,118,211,0.14);
     transform: translateY(-2px);
   }
 
   .mod-card.active-mod {
-    border-color: #1a73e8;
+    border-color: #0176d3;
     background: #f0f6ff;
-    box-shadow: 0 0 0 1px rgba(26,115,232,0.25), 0 4px 16px rgba(26,115,232,0.1);
+    box-shadow: 0 0 0 1px rgba(1,118,211,0.18);
   }
 
   .mod-card.disabled {
-    opacity: 0.5;
+    opacity: 0.55;
     cursor: not-allowed;
   }
 
-  .cs-pill {
+  .status-pill {
     position: absolute;
-    top: 10px; right: 10px;
-    font-size: 9px;
-    padding: 3px 8px;
-    background: #f1f3f5;
-    border: 1px solid #d0d7de;
+    top: 14px; right: 14px;
+    font-size: 9.5px;
+    padding: 3px 9px;
     border-radius: 20px;
-    color: #6e7681;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.4px;
     text-transform: uppercase;
     font-weight: 700;
   }
 
-  .live-pill {
-    position: absolute;
-    top: 10px; right: 10px;
-    font-size: 9px;
-    padding: 3px 8px;
+  .status-pill.live {
     background: #dafbe1;
     border: 1px solid #82cf99;
-    border-radius: 20px;
     color: #1a7f37;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    font-weight: 700;
+  }
+
+  .status-pill.soon {
+    background: #f1f3f5;
+    border: 1px solid #d0d7de;
+    color: #6e7681;
   }
 
   .mod-icon-wrap {
-    width: 40px; height: 40px;
+    width: 42px; height: 42px;
     border-radius: 10px;
     display: flex; align-items: center; justify-content: center;
-    font-size: 20px;
-    margin-bottom: 12px;
+    font-size: 14px;
+    font-weight: 800;
+    margin-bottom: 14px;
+    background: #032d60;
+    color: #fff;
+  }
+
+  .mod-card.disabled .mod-icon-wrap {
+    background: #97a1ab;
   }
 
   .mod-name {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: #0d1117;
-    margin-bottom: 4px;
+    margin-bottom: 5px;
   }
 
   .mod-desc {
-    font-size: 11px;
+    font-size: 12px;
     color: #656d76;
     line-height: 1.5;
-    margin-bottom: 10px;
+    margin-bottom: 12px;
   }
 
   .mod-tags {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 5px;
   }
 
   .tag-pill {
-    font-size: 9px;
-    padding: 2px 7px;
-    border-radius: 5px;
+    font-size: 9.5px;
+    padding: 3px 8px;
+    border-radius: 6px;
     font-weight: 600;
     letter-spacing: 0.2px;
   }
 
-  .tag-blue { background: #dbeafe; color: #1d4ed8; }
+  .tag-blue { background: #dbeafe; color: #0b5cab; }
   .tag-gray { background: #f1f3f5; color: #6e7681; }
 
   .launch-btn {
-    width: 100%;
-    padding: 13px;
-    background: linear-gradient(135deg, #1a73e8, #4da3ff);
+    max-width: 720px;
+    padding: 14px;
+    background: #0176d3;
     border: none;
     border-radius: 10px;
     color: #fff;
-    font-size: 14px;
+    font-size: 14.5px;
     font-weight: 700;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-family: inherit;
     cursor: pointer;
-    letter-spacing: 0.2px;
-    transition: all 0.2s ease;
-    box-shadow: 0 4px 16px rgba(26,115,232,0.3);
-    margin-top: 8px;
+    transition: background 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
   }
 
-  .launch-btn:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 24px rgba(26,115,232,0.4);
-  }
-
-  .launch-btn:active {
-    transform: scale(0.99);
-  }
-
-  .bottom-note {
-    text-align: center;
-    font-size: 11px;
-    color: #afb8c1;
-    margin-top: 16px;
-    letter-spacing: 0.2px;
-  }
-
-  .stack-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: #6e7681;
-    background: #fff;
-    border: 1px solid #e1e4e8;
-    border-radius: 8px;
-    padding: 5px 10px;
-    margin-top: 6px;
-  }
-
-  .stack-dot {
-    width: 5px; height: 5px;
-    border-radius: 50%;
-    background: #3fb950;
-  }
-
-  @keyframes fadeInUp {
-    from { opacity: 0; transform: translateY(16px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .fade-in { animation: fadeInUp 0.5s ease both; }
-  .delay-1 { animation-delay: 0.1s; }
-  .delay-2 { animation-delay: 0.2s; }
-  .delay-3 { animation-delay: 0.3s; }
-  .delay-4 { animation-delay: 0.4s; }
-  .delay-5 { animation-delay: 0.5s; }
+  .launch-btn:hover { background: #014486; }
 
   @media (max-width: 900px) {
     .erp-landing { flex-direction: column; }
-    .left-panel, .right-panel { width: 100%; padding: 28px 24px; }
-    .module-grid { grid-template-columns: 1fr 1fr; }
-    .hero-title { font-size: 26px; }
+    .left-panel { width: 100%; padding: 32px 24px 26px; }
+    .hero-section { max-width: 100%; }
+    .features-list { display: none; }
+    .left-footer { display: none; }
+    .right-panel { width: 100%; padding: 28px 22px 36px; }
+    .module-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .hero-title { font-size: 1.7rem; }
+    .launch-btn, .module-grid { max-width: 100%; }
+  }
+
+  @media (max-width: 520px) {
+    .module-grid { grid-template-columns: 1fr; }
+    .mod-card { padding: 16px; }
   }
 `;
 
 export default function Landing() {
   const navigate = useNavigate();
-  const [hoveredMod, setHoveredMod] = useState(null);
 
   return (
     <>
@@ -460,118 +370,79 @@ export default function Landing() {
 
         {/* ── LEFT PANEL ── */}
         <div className="left-panel">
-          <div className="left-grid" />
           <div className="left-orb-1" />
           <div className="left-orb-2" />
 
           <div className="left-content">
-            {/* Nav */}
-            <div className="nav-top fade-in">
+            <div className="nav-top">
               <div className="logo-wrap">
                 <div className="logo-box">E</div>
                 <span className="logo-name">EduERP</span>
               </div>
-              <span className="version-chip">v1.0 — School Active</span>
             </div>
 
-            {/* Hero */}
             <div className="hero-section">
-              <div className="eyebrow fade-in delay-1">
-                <span className="live-dot" />
-                Enterprise Platform
-              </div>
+              <div className="eyebrow">Enterprise Platform</div>
 
-              <h1 className="hero-title fade-in delay-1">
+              <h1 className="hero-title">
                 Unified ERP for<br />
                 <span className="accent">Education, Health</span><br />
-                & Industry
+                &amp; Industry
               </h1>
 
-              <p className="hero-sub fade-in delay-2">
-                One platform for schools, colleges, hospitals and industries. Role-based access, real-time data, and automated reports — built for the next generation of institutions.
+              <p className="hero-sub">
+                One platform for schools, colleges, hospitals and industries —
+                role-based access, real-time data, and automated reports
+                built for the next generation of institutions.
               </p>
 
-              <div className="features-list fade-in delay-3">
+              <div className="features-list">
                 {FEATURES.map((f, i) => (
                   <div className="feature-row" key={i}>
-                    <div className="feature-icon-wrap">{f.icon}</div>
-                    {f.text}
+                    <span className="feature-tick">&#10003;</span>
+                    {f}
                   </div>
                 ))}
               </div>
-
-              <div className="stats-strip fade-in delay-4">
-                <div className="stat-item">
-                  <div className="num">4</div>
-                  <div className="lbl">Modules</div>
-                </div>
-                <div className="stat-item">
-                  <div className="num">Multi-tenant</div>
-                  <div className="lbl">Architecture</div>
-                </div>
-                <div className="stat-item">
-                  <div className="num">JWT</div>
-                  <div className="lbl">Auth System</div>
-                </div>
-              </div>
             </div>
           </div>
+
+          <div className="left-footer">Trusted by institutions to run their daily operations.</div>
         </div>
 
         {/* ── RIGHT PANEL ── */}
         <div className="right-panel">
-          <div className="right-header fade-in">
+          <div className="right-header">
             <h2>Select Your Module</h2>
             <p>Choose a platform to get started with your institution</p>
           </div>
 
           <div className="module-grid">
-            {MODULES.map((mod, i) => (
+            {MODULES.map(mod => (
               <button
                 key={mod.id}
-                className={`mod-card fade-in delay-${i + 1} ${mod.ready ? 'active-mod' : 'disabled'}`}
+                className={`mod-card ${mod.ready ? 'active-mod' : 'disabled'}`}
                 onClick={() => mod.ready && navigate('/login')}
-                onMouseEnter={() => setHoveredMod(mod.id)}
-                onMouseLeave={() => setHoveredMod(null)}
                 disabled={!mod.ready}
               >
-                {mod.ready
-                  ? <span className="live-pill">● Live</span>
-                  : <span className="cs-pill">Soon</span>
-                }
-                <div
-                  className="mod-icon-wrap"
-                  style={{ background: `${mod.accent}14` }}
-                >
-                  {mod.icon}
-                </div>
+                <span className={`status-pill ${mod.ready ? 'live' : 'soon'}`}>
+                  {mod.ready ? 'Live' : 'Coming Soon'}
+                </span>
+                <div className="mod-icon-wrap">{mod.initial}</div>
                 <div className="mod-name">{mod.label}</div>
                 <div className="mod-desc">{mod.desc}</div>
                 <div className="mod-tags">
                   {mod.tags.map(t => (
-                    <span
-                      key={t}
-                      className={`tag-pill ${mod.ready ? 'tag-blue' : 'tag-gray'}`}
-                    >{t}</span>
+                    <span key={t} className={`tag-pill ${mod.ready ? 'tag-blue' : 'tag-gray'}`}>{t}</span>
                   ))}
                 </div>
               </button>
             ))}
           </div>
 
-          <button
-            className="launch-btn fade-in delay-5"
-            onClick={() => navigate('/login')}
-          >
-            Launch School ERP →
+          <button className="launch-btn" onClick={() => navigate('/login')}>
+            Launch School ERP &rarr;
           </button>
-
-          <div className="bottom-note fade-in delay-5">
-            <div className="stack-badge">
-              <span className="stack-dot" />
-              Flask + React &nbsp;·&nbsp; Multi-tenant SaaS &nbsp;·&nbsp; JWT Auth
-            </div>
-          </div>
         </div>
 
       </div>
