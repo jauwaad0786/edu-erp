@@ -8,17 +8,14 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 import os
 from dotenv import load_dotenv
-
-
-# Imports mein add karo (top):
 import cloudinary
 
-# After CORS(...) ke baad add karo:
 cloudinary.config(
     cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key    = os.environ.get('CLOUDINARY_API_KEY'),
     api_secret = os.environ.get('CLOUDINARY_API_SECRET'),
 )
+
 db = SQLAlchemy()
 jwt = JWTManager()
 bcrypt = Bcrypt()
@@ -26,13 +23,14 @@ migrate = Migrate()
 load_dotenv()
 limiter = Limiter(get_remote_address)
 
+
 def create_app(config_name='default'):
     app = Flask(__name__)
-    
+
     from config import config
     app.config.from_object(config[config_name])
     print("DB URI:", app.config['SQLALCHEMY_DATABASE_URI'])
-    # Init extensions
+
     db.init_app(app)
     jwt.init_app(app)
     bcrypt.init_app(app)
@@ -48,7 +46,6 @@ def create_app(config_name='default'):
         methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
     )
 
-    # Ensure upload folder exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
 
     # Register blueprints
@@ -58,108 +55,114 @@ def create_app(config_name='default'):
     from app.routes.teacher import teacher_bp
     from app.routes.student import student_bp
     from app.routes.marks import marks_bp
-    app.register_blueprint(marks_bp, url_prefix='/api/marks')
-    app.register_blueprint(auth_bp,      url_prefix='/api/auth')
-    app.register_blueprint(admin_bp,     url_prefix='/api/admin')
-    app.register_blueprint(principal_bp, url_prefix='/api/principal')
+    app.register_blueprint(marks_bp,        url_prefix='/api/marks')
+    app.register_blueprint(auth_bp,         url_prefix='/api/auth')
+    app.register_blueprint(admin_bp,        url_prefix='/api/admin')
+    app.register_blueprint(principal_bp,    url_prefix='/api/principal')
+    app.register_blueprint(teacher_bp,      url_prefix='/api/teacher')
+    app.register_blueprint(teacher_self_bp, url_prefix='/api/teacher')
+    app.register_blueprint(student_bp,      url_prefix='/api/student')
 
-    app.register_blueprint(teacher_bp,        url_prefix='/api/teacher')
-    app.register_blueprint(teacher_self_bp,   url_prefix='/api/teacher')
-    app.register_blueprint(student_bp,   url_prefix='/api/student')
-
-    # Create tables on first run
+    # ── Startup sequence (ORDER IS CRITICAL on PostgreSQL) ──────────────────
+    # Step 1: Raw ALTER TABLE BEFORE SQLAlchemy loads the model.
+    #         If columns don't exist yet and SQLAlchemy sees the new model,
+    #         the very first query (even _seed_super_admin) crashes with
+    #         "column does not exist". Raw SQL runs outside ORM — safe.
+    # Step 2: create_all() — now the DB schema matches the model.
+    # Step 3: Seed default rows.
     with app.app_context():
-        db.create_all()
         _ensure_school_columns()
-        _ensure_user_columns()
+        _ensure_user_columns()   # ← must be BEFORE db.create_all()
+        db.create_all()
         _seed_super_admin()
+
     return app
 
 
-def _ensure_school_columns():
-    """
-    db.create_all() won't ALTER existing tables to add new columns.
-    Safe auto-migration: add columns if they don't already exist.
-    Works for both Postgres (Render) and SQLite (local dev).
-    """
-    from sqlalchemy import text, inspect
+# ── School columns ────────────────────────────────────────────────────────────
 
+def _ensure_school_columns():
+    from sqlalchemy import text, inspect
     inspector = inspect(db.engine)
     if 'schools' not in inspector.get_table_names():
-        return  # create_all() will have made it fresh with all columns already
+        return
 
-    existing_cols = {c['name'] for c in inspector.get_columns('schools')}
-
-    columns_to_add = {
+    existing = {c['name'] for c in inspector.get_columns('schools')}
+    to_add = {
         'plan':             "VARCHAR(20) DEFAULT 'BASIC'",
         'enabled_features': "TEXT DEFAULT '[]'",
     }
-
     with db.engine.connect() as conn:
-        for col_name, col_def in columns_to_add.items():
-            if col_name not in existing_cols:
+        for col, defn in to_add.items():
+            if col not in existing:
                 try:
-                    conn.execute(text(f"ALTER TABLE schools ADD COLUMN {col_name} {col_def}"))
+                    conn.execute(text(f'ALTER TABLE schools ADD COLUMN {col} {defn}'))
                     conn.commit()
-                    print(f"✅ Added column schools.{col_name}")
+                    print(f'✅ Added column schools.{col}')
                 except Exception as e:
-                    print(f"⚠️ Could not add column {col_name}: {e}")
+                    print(f'⚠️  schools.{col}: {e}')
 
+
+# ── User columns ──────────────────────────────────────────────────────────────
 
 def _ensure_user_columns():
     """
-    Safe auto-migration for the users table.
-    Adds new columns without touching existing data.
-    Works on both SQLite (local) and PostgreSQL (Render).
+    Run raw ALTER TABLE before SQLAlchemy ORM touches the users table.
+    This prevents "column does not exist" on first deploy after adding fields.
+    Safe to run every startup — skips columns that already exist.
     """
     from sqlalchemy import text, inspect
-
     inspector = inspect(db.engine)
+
     if 'users' not in inspector.get_table_names():
-        return  # create_all() will have built it fresh
+        # Brand-new DB: create_all() will build the full schema. Nothing to do.
+        return
 
-    existing_cols = {c['name'] for c in inspector.get_columns('users')}
+    existing = {c['name'] for c in inspector.get_columns('users')}
 
-    # col_name → SQL definition
-    columns_to_add = {
-        'username':           'VARCHAR(80) UNIQUE',
-        'last_login':         'TIMESTAMP NULL',
-        'department':         'VARCHAR(100)',
-        'designation':        'VARCHAR(100)',
-        'plain_password_temp':'VARCHAR(256)',
+    to_add = {
+        'username':            'VARCHAR(80)',
+        'last_login':          'TIMESTAMP NULL',
+        'department':          'VARCHAR(100)',
+        'designation':         'VARCHAR(100)',
+        'plain_password_temp': 'VARCHAR(256)',
     }
 
     with db.engine.connect() as conn:
-        for col_name, col_def in columns_to_add.items():
-            if col_name not in existing_cols:
+        for col, defn in to_add.items():
+            if col not in existing:
                 try:
-                    conn.execute(text(
-                        f'ALTER TABLE users ADD COLUMN {col_name} {col_def}'
-                    ))
+                    conn.execute(text(f'ALTER TABLE users ADD COLUMN {col} {defn}'))
                     conn.commit()
-                    print(f'✅ Added column users.{col_name}')
+                    print(f'✅ Added column users.{col}')
                 except Exception as e:
-                    print(f'⚠️  Could not add column {col_name}: {e}')
+                    print(f'⚠️  users.{col}: {e}')
 
-    # Patch UserRole enum on PostgreSQL if new values are missing
-    # (SQLite ignores enum changes; Postgres needs ALTER TYPE)
-    _ensure_user_role_enum_values(existing_cols)
+        # PostgreSQL: add UNIQUE constraint on username if not present
+        if db.engine.dialect.name == 'postgresql' and 'username' not in existing:
+            try:
+                conn.execute(text(
+                    'ALTER TABLE users ADD CONSTRAINT uq_users_username UNIQUE (username)'
+                ))
+                conn.commit()
+                print('✅ Added UNIQUE constraint on users.username')
+            except Exception as e:
+                print(f'⚠️  UNIQUE constraint: {e}')
+
+    # PostgreSQL only: add new enum values to userrole type
+    _ensure_userrole_enum()
 
 
-def _ensure_user_role_enum_values(existing_cols):
-    """
-    PostgreSQL only: add new enum labels to the userrole type if missing.
-    Safe to call multiple times (checks before altering).
-    """
-    from sqlalchemy import text
-    dialect = db.engine.dialect.name
-    if dialect != 'postgresql':
-        return  # SQLite stores enums as VARCHAR — no action needed
+def _ensure_userrole_enum():
+    """PostgreSQL: extend the userrole enum with new role values."""
+    if db.engine.dialect.name != 'postgresql':
+        return  # SQLite stores enums as plain VARCHAR — no action needed
 
-    new_roles = [
+    new_values = [
         'VICE_PRINCIPAL', 'ACCOUNTANT', 'RECEPTIONIST',
         'LIBRARIAN', 'HOSTEL', 'TRANSPORT', 'HR',
     ]
+    from sqlalchemy import text
     with db.engine.connect() as conn:
         result = conn.execute(text(
             "SELECT enumlabel FROM pg_enum "
@@ -168,7 +171,7 @@ def _ensure_user_role_enum_values(existing_cols):
         ))
         existing_labels = {row[0] for row in result}
 
-        for label in new_roles:
+        for label in new_values:
             if label not in existing_labels:
                 try:
                     conn.execute(text(
@@ -177,20 +180,32 @@ def _ensure_user_role_enum_values(existing_cols):
                     conn.commit()
                     print(f'✅ Added enum value userrole.{label}')
                 except Exception as e:
-                    print(f'⚠️  Could not add enum value {label}: {e}')
+                    print(f'⚠️  enum {label}: {e}')
 
+
+# ── Seed super admin ──────────────────────────────────────────────────────────
 
 def _seed_super_admin():
     from app.models.user import User, UserRole
-    import os
-    if not User.query.filter_by(role=UserRole.SUPER_ADMIN).first():
-        email    = os.environ.get('SUPER_ADMIN_EMAIL', 'admin@eduErp.com')
-        password = os.environ.get('SUPER_ADMIN_PASSWORD')
-        if not password:
-            raise RuntimeError(
-                "Set SUPER_ADMIN_PASSWORD env var before first run."
-            )
-        admin = User(name='Super Admin', email=email, role=UserRole.SUPER_ADMIN)
-        admin.set_password(password)
-        db.session.add(admin)
-        db.session.commit()
+    from sqlalchemy import text
+
+    # Use raw SQL count to avoid ORM touching any column that might
+    # still be missing in a partial migration edge case.
+    with db.engine.connect() as conn:
+        row = conn.execute(text(
+            "SELECT COUNT(*) FROM users WHERE role = 'SUPER_ADMIN'"
+        )).scalar()
+
+    if row and row > 0:
+        return  # already seeded
+
+    email    = os.environ.get('SUPER_ADMIN_EMAIL', 'admin@eduErp.com')
+    password = os.environ.get('SUPER_ADMIN_PASSWORD')
+    if not password:
+        raise RuntimeError('Set SUPER_ADMIN_PASSWORD env var before first run.')
+
+    admin = User(name='Super Admin', email=email, role=UserRole.SUPER_ADMIN)
+    admin.set_password(password, store_plain=False)
+    db.session.add(admin)
+    db.session.commit()
+    print('✅ Super Admin seeded')
