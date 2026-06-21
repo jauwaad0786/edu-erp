@@ -175,21 +175,6 @@ export default function SchoolSettings() {
     }
   };
 
-  if (loading) return (
-    <div className="app-shell">
-      <Sidebar />
-      <div className="main-content">
-        <Navbar title="School Settings" />
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
-          <div style={{ textAlign: 'center', color: '#64748b' }}>
-            <div style={{ fontSize: 32, marginBottom: 10 }}>⏳</div>
-            <div style={{ fontSize: 14 }}>Loading...</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
   // ── Users tab state (Principal) ──
   const PU_ROLES = ['VICE_PRINCIPAL','TEACHER','ACCOUNTANT','RECEPTIONIST','LIBRARIAN','HOSTEL','TRANSPORT','HR','STUDENT','PARENT'];
   const [pUsers, setPUsers]             = useState([]);
@@ -215,6 +200,23 @@ export default function SchoolSettings() {
   };
 
   useEffect(() => { if (tab === 'users') loadPrincipalUsers(); }, [tab, pSearch, pFilterRole]);
+
+  if (loading) return (
+    <div className="app-shell">
+      <Sidebar />
+      <div className="main-content">
+        <Navbar title="School Settings" />
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '60vh' }}>
+          <div style={{ textAlign: 'center', color: '#64748b' }}>
+            <div style={{ fontSize: 32, marginBottom: 10 }}>⏳</div>
+            <div style={{ fontSize: 14 }}>Loading...</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  
 
   const createPrincipalUser = async e => {
     e.preventDefault(); setPSaving(true);
@@ -254,6 +256,12 @@ export default function SchoolSettings() {
   };
 
   const pRoleBadge = r => ({ TEACHER: 'badge-info', STUDENT: 'badge-success', PARENT: 'badge-neutral' }[r] || 'badge-warning');
+
+  const TABS = [
+    { key: 'info',     icon: '🏫', label: 'School Info' },
+    { key: 'branding', icon: '🖼️', label: 'Logo & Signatures' },
+    { key: 'users',    icon: '👥', label: 'Users' },
+  ];
 
   return (
     <div className="app-shell">
