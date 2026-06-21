@@ -21,18 +21,26 @@ const BREADCRUMB_MAP = {
   '/results':    'Results',
   '/schools':    'Schools',
   '/users':      'Users',
-  '/id-cards/students':  'Student ID Cards',   // ← ADD
-  '/id-cards/employees': 'Employee ID Cards',  // ← ADD
+  '/id-cards/students':  'Student ID Cards',
+  '/id-cards/employees': 'Employee ID Cards',
   '/school-settings': 'School Settings',
+  '/my-services': 'My Plan & Services',
 };
 
 export default function Navbar({ title }) {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigate  = useNavigate();
   const location  = useLocation();
   const [pendingCount, setPendingCount] = useState(0);
   const [showNotif,    setShowNotif]    = useState(false);
   const [pendingReqs,  setPendingReqs]  = useState([]);
+
+  // ── User chip dropdown + reset password modal ──
+  const [menuOpen,     setMenuOpen]     = useState(false);
+  const [showReset,    setShowReset]    = useState(false);
+  const [passwords,    setPasswords]    = useState({ current: '', newP: '', confirm: '' });
+  const [resetError,   setResetError]   = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
 
   const pageLabel = title || BREADCRUMB_MAP[location.pathname] || 'EduERP';
 
@@ -54,6 +62,36 @@ export default function Navbar({ title }) {
   const today = new Date().toLocaleDateString('en-IN', {
     weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
   });
+
+  function handleResetClose() {
+    setShowReset(false);
+    setPasswords({ current: '', newP: '', confirm: '' });
+    setResetError('');
+    setResetSuccess(false);
+  }
+
+  async function handleResetSubmit() {
+    setResetError('');
+    if (!passwords.current || !passwords.newP || !passwords.confirm) {
+      setResetError('Please fill all fields.'); return;
+    }
+    if (passwords.newP.length < 8) {
+      setResetError('Password must be at least 8 characters.'); return;
+    }
+    if (passwords.newP !== passwords.confirm) {
+      setResetError('New passwords do not match.'); return;
+    }
+    try {
+      await api.put('/auth/change-password', {
+        old_password: passwords.current,
+        new_password: passwords.newP,
+      });
+      setResetSuccess(true);
+      setTimeout(() => handleResetClose(), 1500);
+    } catch (err) {
+      setResetError(err.response?.data?.error || 'Could not update password.');
+    }
+  }
 
   return (
     <>
@@ -83,7 +121,7 @@ export default function Navbar({ title }) {
           {/* Date */}
           <span style={{
             fontSize: 11, color: '#94a3b8', fontWeight: 500,
-            display: 'none',  // hide on small; show md+
+            display: 'none',
           }}
             className="hide-mobile"
           >{today}</span>
@@ -156,7 +194,7 @@ export default function Navbar({ title }) {
                       <div style={{
                         padding: '24px 16px', textAlign: 'center',
                         fontSize: 13, color: '#94a3b8',
-                      }}>Koi pending request nahi</div>
+                      }}>No pending requests</div>
                     ) : (
                       <>
                         {pendingReqs.map((r, i) => (
@@ -198,7 +236,7 @@ export default function Navbar({ title }) {
                           onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
                           onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
                         >
-                          Sab dekho →
+                          View all →
                         </div>
                       </>
                     )}
@@ -208,30 +246,159 @@ export default function Navbar({ title }) {
             </div>
           )}
 
-          {/* User chip */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '4px 12px 4px 4px', borderRadius: 99,
-            border: '1px solid #e2e8f0', background: '#f8fafc',
-          }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: '50%',
-              background: 'linear-gradient(135deg,#0176d3,#5867e8)',
-              color: '#fff', display: 'flex', alignItems: 'center',
-              justifyContent: 'center', fontSize: 11, fontWeight: 700,
-            }}>{initials}</div>
-            <div>
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>
-                {user?.name?.split(' ')[0]}
+          {/* User chip — clickable */}
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => setMenuOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '4px 12px 4px 4px', borderRadius: 99,
+                border: '1px solid #e2e8f0', background: menuOpen ? '#eff6ff' : '#f8fafc',
+                cursor: 'pointer', transition: 'background 0.15s',
+              }}
+              onMouseEnter={e => { if (!menuOpen) e.currentTarget.style.background = '#f1f5f9'; }}
+              onMouseLeave={e => { if (!menuOpen) e.currentTarget.style.background = '#f8fafc'; }}
+            >
+              <div style={{
+                width: 28, height: 28, borderRadius: '50%',
+                background: 'linear-gradient(135deg,#0176d3,#5867e8)',
+                color: '#fff', display: 'flex', alignItems: 'center',
+                justifyContent: 'center', fontSize: 11, fontWeight: 700,
+              }}>{initials}</div>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>
+                  {user?.name?.split(' ')[0]}
+                </div>
+                <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {user?.role?.replace('_', ' ')}
+                </div>
               </div>
-              <div style={{ fontSize: 10, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {user?.role?.replace('_', ' ')}
-              </div>
+              <span style={{
+                color: '#94a3b8', fontSize: 9, marginLeft: 2,
+                transform: menuOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s', display: 'inline-block',
+              }}>▼</span>
             </div>
+
+            {/* Dropdown */}
+            {menuOpen && (
+              <>
+                <div
+                  style={{ position: 'fixed', inset: 0, zIndex: 98 }}
+                  onClick={() => setMenuOpen(false)}
+                />
+                <div style={{
+                  position: 'absolute', top: 46, right: 0,
+                  width: 220, background: '#fff', borderRadius: 12,
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.14)',
+                  border: '1px solid #e2e8f0', zIndex: 99, overflow: 'hidden',
+                }}>
+                  <div style={{ padding: '12px 16px', borderBottom: '1px solid #f1f5f9' }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#0f172a' }}>{user?.name}</div>
+                    <div style={{ fontSize: 11, color: '#94a3b8', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {user?.email}
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => { setShowReset(true); setMenuOpen(false); }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center',
+                      gap: 10, padding: '11px 16px', background: 'none', border: 'none',
+                      borderBottom: '1px solid #f1f5f9',
+                      color: '#334155', cursor: 'pointer', fontSize: 12.5,
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#f8fafc'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
+                    🔑 Reset Password
+                  </button>
+                  <button
+                    onClick={() => { logout(); navigate('/login'); }}
+                    style={{
+                      width: '100%', display: 'flex', alignItems: 'center',
+                      gap: 10, padding: '11px 16px', background: 'none', border: 'none',
+                      color: '#dc2626', cursor: 'pointer', fontSize: 12.5, textAlign: 'left',
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = '#fef2f2'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                  >
+                    ↩ Logout
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
         </div>
       </header>
+
+      {/* ── Reset Password Modal ── */}
+      {showReset && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+          zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}
+          onClick={e => { if (e.target === e.currentTarget) handleResetClose(); }}
+        >
+          <div style={{
+            background: '#fff', borderRadius: 16, padding: '32px 28px',
+            width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.22)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>🔑 Reset Password</div>
+              <button onClick={handleResetClose} style={{
+                background: 'none', border: 'none', fontSize: 18,
+                cursor: 'pointer', color: '#94a3b8',
+              }}>✕</button>
+            </div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 22 }}>
+              Update your account password.
+            </div>
+            {[
+              { key: 'current', placeholder: 'Current Password' },
+              { key: 'newP',    placeholder: 'New Password (min 8 chars)' },
+              { key: 'confirm', placeholder: 'Confirm New Password' },
+            ].map(f => (
+              <input key={f.key} type="password" placeholder={f.placeholder}
+                value={passwords[f.key]}
+                onChange={e => setPasswords(p => ({ ...p, [f.key]: e.target.value }))}
+                style={{
+                  width: '100%', padding: '10px 14px', fontSize: 13,
+                  border: '1px solid #e2e8f0', borderRadius: 8,
+                  marginBottom: 10, boxSizing: 'border-box', outline: 'none',
+                }}
+                onFocus={e => e.target.style.borderColor = '#0176d3'}
+                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+              />
+            ))}
+            {resetError && (
+              <div style={{
+                fontSize: 12, color: '#dc2626', marginBottom: 10,
+                background: '#fef2f2', padding: '8px 12px', borderRadius: 6,
+              }}>⚠️ {resetError}</div>
+            )}
+            {resetSuccess && (
+              <div style={{
+                fontSize: 12, color: '#059669', marginBottom: 10,
+                background: '#f0fdf4', padding: '8px 12px', borderRadius: 6,
+              }}>✅ Password updated successfully!</div>
+            )}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 4 }}>
+              <button onClick={handleResetClose} style={{
+                padding: '9px 18px', borderRadius: 8,
+                border: '1px solid #e2e8f0', background: '#fff',
+                cursor: 'pointer', fontSize: 13, color: '#475569',
+              }}>Cancel</button>
+              <button onClick={handleResetSubmit} style={{
+                padding: '9px 20px', borderRadius: 8, border: 'none',
+                background: '#0176d3', color: '#fff',
+                cursor: 'pointer', fontSize: 13, fontWeight: 600,
+              }}>Update Password</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
