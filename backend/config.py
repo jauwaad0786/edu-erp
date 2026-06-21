@@ -12,6 +12,10 @@ class Config:
     JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=30)
     SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL', 'sqlite:///eduErp.db')
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,   # test connection before using it; reconnect if dead
+        'pool_recycle': 280,     # recycle connections before Neon's idle timeout kicks in
+    }
     UPLOAD_FOLDER = os.environ.get('UPLOAD_FOLDER', 'uploads/')
     MAX_CONTENT_LENGTH = 16 * 1024 * 1024  # 16MB max upload
 
