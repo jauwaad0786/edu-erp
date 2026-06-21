@@ -71,6 +71,7 @@ def create_app(config_name='default'):
     with app.app_context():
         db.create_all()
         _ensure_school_columns()
+        _ensure_user_columns()
         _seed_super_admin()
     return app
 
@@ -103,6 +104,80 @@ def _ensure_school_columns():
                     print(f"✅ Added column schools.{col_name}")
                 except Exception as e:
                     print(f"⚠️ Could not add column {col_name}: {e}")
+
+
+def _ensure_user_columns():
+    """
+    Safe auto-migration for the users table.
+    Adds new columns without touching existing data.
+    Works on both SQLite (local) and PostgreSQL (Render).
+    """
+    from sqlalchemy import text, inspect
+
+    inspector = inspect(db.engine)
+    if 'users' not in inspector.get_table_names():
+        return  # create_all() will have built it fresh
+
+    existing_cols = {c['name'] for c in inspector.get_columns('users')}
+
+    # col_name → SQL definition
+    columns_to_add = {
+        'username':           'VARCHAR(80) UNIQUE',
+        'last_login':         'TIMESTAMP NULL',
+        'department':         'VARCHAR(100)',
+        'designation':        'VARCHAR(100)',
+        'plain_password_temp':'VARCHAR(256)',
+    }
+
+    with db.engine.connect() as conn:
+        for col_name, col_def in columns_to_add.items():
+            if col_name not in existing_cols:
+                try:
+                    conn.execute(text(
+                        f'ALTER TABLE users ADD COLUMN {col_name} {col_def}'
+                    ))
+                    conn.commit()
+                    print(f'✅ Added column users.{col_name}')
+                except Exception as e:
+                    print(f'⚠️  Could not add column {col_name}: {e}')
+
+    # Patch UserRole enum on PostgreSQL if new values are missing
+    # (SQLite ignores enum changes; Postgres needs ALTER TYPE)
+    _ensure_user_role_enum_values(existing_cols)
+
+
+def _ensure_user_role_enum_values(existing_cols):
+    """
+    PostgreSQL only: add new enum labels to the userrole type if missing.
+    Safe to call multiple times (checks before altering).
+    """
+    from sqlalchemy import text
+    dialect = db.engine.dialect.name
+    if dialect != 'postgresql':
+        return  # SQLite stores enums as VARCHAR — no action needed
+
+    new_roles = [
+        'VICE_PRINCIPAL', 'ACCOUNTANT', 'RECEPTIONIST',
+        'LIBRARIAN', 'HOSTEL', 'TRANSPORT', 'HR',
+    ]
+    with db.engine.connect() as conn:
+        result = conn.execute(text(
+            "SELECT enumlabel FROM pg_enum "
+            "JOIN pg_type ON pg_enum.enumtypid = pg_type.oid "
+            "WHERE pg_type.typname = 'userrole'"
+        ))
+        existing_labels = {row[0] for row in result}
+
+        for label in new_roles:
+            if label not in existing_labels:
+                try:
+                    conn.execute(text(
+                        f"ALTER TYPE userrole ADD VALUE IF NOT EXISTS '{label}'"
+                    ))
+                    conn.commit()
+                    print(f'✅ Added enum value userrole.{label}')
+                except Exception as e:
+                    print(f'⚠️  Could not add enum value {label}: {e}')
 
 
 def _seed_super_admin():
