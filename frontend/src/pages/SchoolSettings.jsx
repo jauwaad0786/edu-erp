@@ -190,10 +190,70 @@ export default function SchoolSettings() {
     </div>
   );
 
-  const TABS = [
-    { key: 'info',       icon: '🏫', label: 'School Info' },
-    { key: 'branding',   icon: '🎨', label: 'Logo & Signatures' },
-  ];
+  // ── Users tab state (Principal) ──
+  const PU_ROLES = ['VICE_PRINCIPAL','TEACHER','ACCOUNTANT','RECEPTIONIST','LIBRARIAN','HOSTEL','TRANSPORT','HR','STUDENT','PARENT'];
+  const [pUsers, setPUsers]             = useState([]);
+  const [pUsersLoading, setPUsersLoading] = useState(false);
+  const [pSearch, setPSearch]           = useState('');
+  const [pFilterRole, setPFilterRole]   = useState('');
+  const [showPCreate, setShowPCreate]   = useState(false);
+  const [pForm, setPForm]               = useState({});
+  const [pSaving, setPSaving]           = useState(false);
+  const [pCreds, setPCreds]             = useState(null);
+  const [pCopied, setPCopied]           = useState(false);
+  const [pShowPw, setPShowPw]           = useState({});
+
+  const loadPrincipalUsers = () => {
+    setPUsersLoading(true);
+    const params = new URLSearchParams();
+    if (pSearch) params.set('search', pSearch);
+    if (pFilterRole) params.set('role', pFilterRole);
+    api.get('/principal/users?' + params.toString())
+      .then(r => setPUsers(r.data.users || []))
+      .catch(() => toast.error('Users load nahi hue'))
+      .finally(() => setPUsersLoading(false));
+  };
+
+  useEffect(() => { if (tab === 'users') loadPrincipalUsers(); }, [tab, pSearch, pFilterRole]);
+
+  const createPrincipalUser = async e => {
+    e.preventDefault(); setPSaving(true);
+    try {
+      const r = await api.post('/principal/users', pForm);
+      setPCreds(r.data);
+      setShowPCreate(false);
+      setPForm({});
+      loadPrincipalUsers();
+      toast.success('User created!');
+    } catch (err) {
+      toast.error(err.response?.data?.error || 'Error');
+    }
+    setPSaving(false);
+  };
+
+  const togglePUser = async (id) => {
+    try {
+      await api.put('/principal/users/' + id + '/toggle');
+      loadPrincipalUsers();
+    } catch {
+      toast.error('Toggle failed');
+    }
+  };
+
+  const resetPUserPw = async (u) => {
+    const pw = window.prompt("New password for " + u.name + ":\n(blank = EduErp@123)");
+    if (pw === null) return;
+    try {
+      const r = await api.put('/principal/users/' + u.id + '/reset-password', { password: pw || 'EduErp@123' });
+      toast.success('Password reset!');
+      navigator.clipboard.writeText('Username: ' + (r.data.username || u.email) + '\nPassword: ' + r.data.plain_password_temp);
+      loadPrincipalUsers();
+    } catch {
+      toast.error('Reset failed');
+    }
+  };
+
+  const pRoleBadge = r => ({ TEACHER: 'badge-info', STUDENT: 'badge-success', PARENT: 'badge-neutral' }[r] || 'badge-warning');
 
   return (
     <div className="app-shell">
@@ -459,6 +519,177 @@ export default function SchoolSettings() {
                   <li>Admit Cards, Result Cards — logo + signature</li>
                 </ul>
               </div>
+            </div>
+          )}
+
+          {/* ══ TAB: User Management (Principal) ════════════════════════════ */}
+          {tab === 'users' && (
+            <div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginBottom: 16, flexWrap: 'wrap' }}>
+                <input
+                  placeholder="🔍 Search name, email, username, phone..."
+                  value={pSearch} onChange={e => setPSearch(e.target.value)}
+                  style={{ flex: 1, minWidth: 180, padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, outline: 'none' }}
+                />
+                <select value={pFilterRole} onChange={e => setPFilterRole(e.target.value)}
+                  style={{ padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, color: '#475569', background: '#fff' }}>
+                  <option value="">All Roles</option>
+                  {PU_ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                </select>
+                <button className="btn btn-primary btn-sm" onClick={() => { setPForm({}); setShowPCreate(true); }}>+ Create User</button>
+              </div>
+
+              <div className="card">
+                <div className="table-container">
+                  {pUsersLoading ? (
+                    <div style={{ textAlign: 'center', padding: 40, color: '#94a3b8' }}>Loading...</div>
+                  ) : (
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Name</th>
+                          <th>Username</th>
+                          <th>Email</th>
+                          <th>Password</th>
+                          <th>Role</th>
+                          <th>Phone</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {pUsers.map(u => (
+                          <tr key={u.id}>
+                            <td>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'var(--blue-10)', color: 'var(--blue-80)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700 }}>
+                                  {u.name?.charAt(0).toUpperCase()}
+                                </div>
+                                <span style={{ fontWeight: 500, fontSize: 13 }}>{u.name}</span>
+                              </div>
+                            </td>
+                            <td style={{ fontSize: 12, fontFamily: 'monospace', color: '#334155' }}>
+                              {u.username || '—'}
+                            </td>
+                            <td style={{ fontSize: 12, color: '#64748b' }}>{u.email}</td>
+                            <td>
+                              {u.plain_password_temp ? (
+                                <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                  <span style={{ fontFamily: 'monospace', fontSize: 12 }}>
+                                    {pShowPw[u.id] ? u.plain_password_temp : '••••••'}
+                                  </span>
+                                  <button onClick={() => setPShowPw(p => ({ ...p, [u.id]: !p[u.id] }))}
+                                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 11, padding: 0 }}>
+                                    {pShowPw[u.id] ? '🙈' : '👁'}
+                                  </button>
+                                </span>
+                              ) : <span style={{ color: '#94a3b8', fontSize: 12 }}>changed</span>}
+                            </td>
+                            <td><span className={"badge " + pRoleBadge(u.role)}>{u.role?.replace(/_/g, ' ')}</span></td>
+                            <td style={{ fontSize: 12, color: '#64748b' }}>{u.phone || '—'}</td>
+                            <td><span className={"badge " + (u.is_active ? 'badge-success' : 'badge-neutral')}>{u.is_active ? 'Active' : 'Inactive'}</span></td>
+                            <td>
+                              <div style={{ display: 'flex', gap: 4 }}>
+                                <button onClick={() => resetPUserPw(u)} style={{ background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 5, padding: '4px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>🔑 Reset</button>
+                                <button onClick={() => togglePUser(u.id)} style={{ background: u.is_active ? '#fef1ee' : '#f0fdf4', color: u.is_active ? '#dc2626' : '#16a34a', border: 'none', borderRadius: 5, padding: '4px 8px', fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
+                                  {u.is_active ? 'Deactivate' : 'Activate'}
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {!pUsers.length && (
+                          <tr><td colSpan={8} style={{ textAlign: 'center', color: '#94a3b8', padding: 40 }}>No users found.</td></tr>
+                        )}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
+
+              {showPCreate && (
+                <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && setShowPCreate(false)}>
+                  <div className="modal" style={{ maxWidth: 480 }}>
+                    <div className="modal-header">
+                      <h3>👤 Create User</h3>
+                      <button className="modal-close" onClick={() => setShowPCreate(false)}>✕</button>
+                    </div>
+                    <form onSubmit={createPrincipalUser}>
+                      <div className="modal-body">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                          <div className="form-group" style={{ gridColumn: '1/-1' }}>
+                            <label className="form-label">Full Name *</label>
+                            <input className="form-input" required placeholder="Ravi Sharma"
+                              value={pForm.name || ''} onChange={e => setPForm(f => ({ ...f, name: e.target.value }))} />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Email *</label>
+                            <input className="form-input" type="email" required placeholder="ravi@school.edu"
+                              value={pForm.email || ''} onChange={e => setPForm(f => ({ ...f, email: e.target.value }))} />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Phone</label>
+                            <input className="form-input" placeholder="9876543210"
+                              value={pForm.phone || ''} onChange={e => setPForm(f => ({ ...f, phone: e.target.value }))} />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Role *</label>
+                            <select className="form-select" required value={pForm.role || ''}
+                              onChange={e => setPForm(f => ({ ...f, role: e.target.value }))}>
+                              <option value="">Select role</option>
+                              {PU_ROLES.map(r => <option key={r} value={r}>{r.replace(/_/g, ' ')}</option>)}
+                            </select>
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Password <span style={{ color: '#94a3b8', fontWeight: 400 }}>(default: EduErp@123)</span></label>
+                            <input className="form-input" type="password" placeholder="EduErp@123"
+                              value={pForm.password || ''} onChange={e => setPForm(f => ({ ...f, password: e.target.value }))} />
+                          </div>
+                          <div className="form-group">
+                            <label className="form-label">Department</label>
+                            <input className="form-input" placeholder="Science, Maths..."
+                              value={pForm.department || ''} onChange={e => setPForm(f => ({ ...f, department: e.target.value }))} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="modal-footer">
+                        <button type="button" className="btn btn-neutral" onClick={() => setShowPCreate(false)}>Cancel</button>
+                        <button type="submit" className="btn btn-primary" disabled={pSaving}>{pSaving ? '⏳ Creating...' : '👤 Create'}</button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
+
+              {pCreds && (
+                <div className="modal-backdrop">
+                  <div className="modal" style={{ maxWidth: 400 }}>
+                    <div className="modal-header">
+                      <h3>✅ User Created!</h3>
+                      <button className="modal-close" onClick={() => setPCreds(null)}>✕</button>
+                    </div>
+                    <div className="modal-body">
+                      <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10, padding: '14px 18px', marginBottom: 12 }}>
+                        {[['Name', pCreds.name], ['Username', pCreds.username || pCreds.email], ['Email', pCreds.email], ['Password', pCreds.plain_password_temp || 'EduErp@123'], ['Role', pCreds.role?.replace(/_/g, ' ')]].map(([lbl, val]) => (
+                          <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, padding: '6px 0', borderBottom: '1px solid #dcfce7' }}>
+                            <span style={{ color: '#64748b' }}>{lbl}</span>
+                            <strong style={{ color: '#0f172a', fontFamily: (lbl === 'Password' || lbl === 'Username') ? 'monospace' : 'inherit' }}>{val || '—'}</strong>
+                          </div>
+                        ))}
+                      </div>
+                      <button onClick={() => {
+                        navigator.clipboard.writeText('Username: ' + (pCreds.username || pCreds.email) + '\nPassword: ' + (pCreds.plain_password_temp || 'EduErp@123'));
+                        setPCopied(true); setTimeout(() => setPCopied(false), 2000);
+                      }} style={{ width: '100%', padding: 10, borderRadius: 8, border: 'none', background: pCopied ? '#2e844a' : '#0176d3', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+                        {pCopied ? '✅ Copied!' : '📋 Copy Credentials'}
+                      </button>
+                    </div>
+                    <div className="modal-footer">
+                      <button className="btn btn-primary" onClick={() => setPCreds(null)}>Done</button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
