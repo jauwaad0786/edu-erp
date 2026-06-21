@@ -30,6 +30,7 @@ import TimetablePage  from './pages/TimetablePage';
 import IDCardPage from './pages/IDCardPage';
 import MarksPage from './pages/MarksPage';
 import MyServices from './pages/MyServices';
+import UsersPage from './pages/UsersPage';
 // routes mein:
 
 
@@ -165,7 +166,7 @@ export default function App() {
           } />
           <Route path="/users" element={
             <ProtectedRoute roles={['SUPER_ADMIN']}>
-              <Navigate to="/dashboard" replace />
+              <UsersPage />
             </ProtectedRoute>
           } />
 
