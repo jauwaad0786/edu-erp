@@ -34,7 +34,11 @@ api.interceptors.response.use(
       return Promise.reject(err);
     }
 
-    if (err.response?.status === 401 && !originalReq._retry) {
+    const skipRefresh = originalReq.url?.includes('/auth/login')
+      || originalReq.url?.includes('/auth/student-login')
+      || originalReq.url?.includes('/auth/refresh');
+    
+    if (err.response?.status === 401 && !originalReq._retry && !skipRefresh) {
       originalReq._retry = true;
 
       try {
