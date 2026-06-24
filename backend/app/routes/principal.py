@@ -73,6 +73,7 @@ def create_class():
 
 @principal_bp.route('/classes/<int:class_id>/detail', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
+@feature_required('advanced_analytics')
 def class_detail(class_id):
     sid = _school_id()
     cls = Class.query.get_or_404(class_id)
@@ -236,6 +237,7 @@ def assign_class_teacher(class_id):
 
 @principal_bp.route('/teachers', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
+@feature_required('teacher_management')
 def list_teachers():
     teachers = Teacher.query.filter_by(school_id=_school_id()).all()
     return jsonify([t.to_dict() for t in teachers]), 200
@@ -243,6 +245,7 @@ def list_teachers():
 
 @principal_bp.route('/teachers', methods=['POST'])
 @role_required('PRINCIPAL', 'TEACHER')
+@feature_required('teacher_management')
 def create_teacher():
     data = request.get_json()
     if User.query.filter_by(email=data['email']).first():
@@ -282,6 +285,7 @@ def assign_teacher(t_id):
 
 @principal_bp.route('/teachers/<int:teacher_id>/profile', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
+@feature_required('teacher_management')
 def teacher_profile(teacher_id):
     sid = _school_id()
     t   = Teacher.query.get_or_404(teacher_id)
@@ -422,6 +426,7 @@ def teacher_profile(teacher_id):
 
 @principal_bp.route('/teachers/<int:teacher_id>/salary', methods=['PATCH'])
 @role_required('PRINCIPAL')
+@feature_required('payroll_system')
 def update_teacher_salary(teacher_id):
     """Principal manually update kare teacher ki salary."""
     t = Teacher.query.get_or_404(teacher_id)
@@ -1677,6 +1682,7 @@ def submit_self_attendance():
 
 @principal_bp.route('/teachers/<int:t_id>', methods=['PATCH'])
 @role_required('PRINCIPAL')
+@feature_required('teacher_management')
 def update_teacher(t_id):
     t    = Teacher.query.get_or_404(t_id)
     if t.school_id != _school_id():
@@ -1724,6 +1730,7 @@ def delete_teacher(t_id):
 
 @principal_bp.route('/attendance/weekly', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
+@feature_required('advanced_analytics')
 def attendance_weekly():
     """Last 7 days student + teacher attendance for charts."""
     from datetime import timedelta
@@ -2595,6 +2602,7 @@ def _gen_username_p(name: str, role: str) -> str:
 # ── List users of own school ───────────────────────────────────────────────────
 @principal_bp.route('/users', methods=['GET'])
 @role_required('PRINCIPAL')
+@feature_required('role_based_access')
 def principal_list_users():
     """
     GET /api/principal/users
@@ -2645,6 +2653,7 @@ def principal_list_users():
 # ── Create user (restricted roles only) ───────────────────────────────────────
 @principal_bp.route('/users', methods=['POST'])
 @role_required('PRINCIPAL')
+@feature_required('role_based_access')
 def principal_create_user():
     """
     Principal can only create users for THEIR school.
