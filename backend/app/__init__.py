@@ -57,6 +57,8 @@ def create_app(config_name='default'):
     from app.routes.student import student_bp
     from app.routes.marks import marks_bp
     from app.models import communication
+    from app.routes.communication.notifications import notifications_bp
+    app.register_blueprint(notifications_bp, url_prefix='/api/support/notifications')
     app.register_blueprint(marks_bp,        url_prefix='/api/marks')
     app.register_blueprint(auth_bp,         url_prefix='/api/auth')
     app.register_blueprint(admin_bp,        url_prefix='/api/admin')
