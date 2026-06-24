@@ -10,6 +10,7 @@ import os
 from dotenv import load_dotenv
 import cloudinary
 
+
 cloudinary.config(
     cloud_name = os.environ.get('CLOUDINARY_CLOUD_NAME'),
     api_key    = os.environ.get('CLOUDINARY_API_KEY'),
@@ -55,6 +56,7 @@ def create_app(config_name='default'):
     from app.routes.teacher import teacher_bp
     from app.routes.student import student_bp
     from app.routes.marks import marks_bp
+    from app.models import communication
     app.register_blueprint(marks_bp,        url_prefix='/api/marks')
     app.register_blueprint(auth_bp,         url_prefix='/api/auth')
     app.register_blueprint(admin_bp,        url_prefix='/api/admin')
@@ -73,12 +75,19 @@ def create_app(config_name='default'):
     with app.app_context():
         _ensure_school_columns()
         _ensure_user_columns()   # ← must be BEFORE db.create_all()
+        _ensure_communication_columns()
         db.create_all()
         _seed_super_admin()
 
     return app
 
-
+def _ensure_communication_columns():
+    """New tables ke liye — pehli deploy pe auto-create."""
+    from sqlalchemy import inspect
+    inspector = inspect(db.engine)
+    # Tables db.create_all() se ban jayenge automatically
+    # Yeh function future column additions ke liye placeholder hai
+    pass
 # ── School columns ────────────────────────────────────────────────────────────
 
 def _ensure_school_columns():
