@@ -247,12 +247,30 @@ def list_teachers():
 @role_required('PRINCIPAL', 'TEACHER')
 @feature_required('teacher_management')
 def create_teacher():
-    data = request.get_json()
+    from app.utils.plan_limits import get_limit, get_school_plan
+    from app.models.academic import Teacher as TeacherModel
+
+    data  = request.get_json()
+    sid   = _school_id()
+    plan  = get_school_plan(sid)
+    limit = get_limit(plan, 'teachers')
+
+    current_count = TeacherModel.query.filter_by(school_id=sid).count()
+    if current_count >= limit:
+        return jsonify({
+            'error':   'teacher_limit_reached',
+            'message': f'Aapke {plan} plan mein sirf {limit} teachers allowed hain. '
+                       f'Abhi {current_count} teachers hain. Upgrade karo.',
+            'current': current_count,
+            'limit':   limit,
+            'plan':    plan,
+        }), 403
+
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already registered'}), 409
     user = User(
         name=data['name'], email=data['email'].lower(),
-        role=UserRole.TEACHER, school_id=_school_id(),
+        role=UserRole.TEACHER, school_id=sid,
         phone=data.get('phone')
     )
     user.set_password(data.get('password', 'Teacher@123'))
@@ -501,12 +519,29 @@ def list_students():
 @principal_bp.route('/students', methods=['POST'])
 @role_required('PRINCIPAL', 'TEACHER')
 def create_student():
-    data = request.get_json()
+    from app.utils.plan_limits import get_limit, get_school_plan
+
+    data   = request.get_json()
+    sid    = _school_id()
+    plan   = get_school_plan(sid)
+    limit  = get_limit(plan, 'students')
+
+    current_count = Student.query.filter_by(school_id=sid).count()
+    if current_count >= limit:
+        return jsonify({
+            'error':   'student_limit_reached',
+            'message': f'Aapke {plan} plan mein sirf {limit} students allowed hain. '
+                       f'Abhi {current_count} students hain. Upgrade karo aage badhne ke liye.',
+            'current': current_count,
+            'limit':   limit,
+            'plan':    plan,
+        }), 403
+
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'error': 'Email already registered'}), 409
     user = User(
         name=data['name'], email=data['email'].lower(),
-        role=UserRole.STUDENT, school_id=_school_id()
+        role=UserRole.STUDENT, school_id=sid
     )
     user.set_password(data.get('password', 'Student@123'))
     db.session.add(user)
@@ -2676,6 +2711,29 @@ def principal_create_user():
         return jsonify({
             'error': f'Principal cannot create users with role {role_str}'
         }), 403
+
+    # ── Admin account limit check ─────────────────────────────────────────
+    from app.utils.plan_limits import (
+        get_limit, get_school_plan, ADMIN_TYPE_ROLES
+    )
+    if requested_role in ADMIN_TYPE_ROLES:
+        plan          = get_school_plan(sid)
+        limit         = get_limit(plan, 'admin_accounts')
+        current_admins = User.query.filter(
+            User.school_id == sid,
+            User.role.in_(list(ADMIN_TYPE_ROLES)),
+            User.is_active == True
+        ).count()
+        if current_admins >= limit:
+            return jsonify({
+                'error':   'admin_limit_reached',
+                'message': f'Aapke {plan} plan mein sirf {limit} admin-type accounts '
+                           f'allowed hain. Abhi {current_admins} active hain. Upgrade karo.',
+                'current': current_admins,
+                'limit':   limit,
+                'plan':    plan,
+            }), 403
+    # ─────────────────────────────────────────────────────────────────────
 
     if not (data.get('name') or '').strip():
         return jsonify({'error': 'name is required'}), 400
