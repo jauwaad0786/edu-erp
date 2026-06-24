@@ -1820,16 +1820,7 @@ def attendance_weekly():
         })
 
         # Teachers
-        tatt = TeacherAttendance.query.filter_by(school_id=sid, date=d).all()
-        t_present = sum(1 for a in tatt if a.status == 'PRESENT')
-        t_absent  = sum(1 for a in tatt if a.status == 'ABSENT')
-        teacher_weekly.append({
-            'date':    str(d),
-            'day':     d.strftime('%a'),
-            'total':   total_teachers,
-            'present': t_present,
-            'absent':  t_absent,
-        })
+        
 
     # Class-wise today
     # Class-wise today — single aggregated query
