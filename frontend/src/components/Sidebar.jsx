@@ -1,560 +1,407 @@
-import { NavLink } from 'react-router-dom';
+
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import api from '../api/axios';
 
-// ─── Color Tokens ─────────────────────────────────────────────────────────────
-const NAV = {
-  bg:           '#0f2744',   // Dark Navy — SAP/Salesforce
-  bgDeep:       '#0a1e36',   // Deeper for brand bar
-  bgHover:      '#162f52',   // Hover state
-  bgActive:     '#1a3a66',   // Active item bg
-  accent:       '#4a9eff',   // Bright blue accent — active text & indicator
-  accentGlow:   '#3b82f6',   // Indicator bar color
-  border:       '#1c3452',   // Subtle divider
-  groupLabel:   '#6b8cae',   // Section headers
-  textBase:     '#a8c4e0',   // Normal menu text
-  textActive:   '#ffffff',   // Active item text
-  textMuted:    '#5a7fa0',   // Very muted
-  searchBg:     '#0d2240',   // Search input bg
-  searchBorder: '#1c3452',
-  footerBg:     '#0a1e36',
-  avatarGrad:   'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-  logoGrad:     'linear-gradient(135deg, #3b82f6, #60a5fa)',
+const BREADCRUMB_MAP = {
+  '/dashboard': 'Dashboard', '/students': 'Students', '/admission': 'New Admission',
+  '/teachers': 'Teachers', '/classes': 'Classes', '/subjects': 'Subjects',
+  '/attendance': 'Attendance', '/exams': 'Exams', '/fees': 'Fees',
+  '/documents': 'Documents', '/notes': 'Notes', '/timetable': 'Timetable',
+  '/holidays': 'Holidays', '/marks': 'Marks', '/results': 'Results',
+  '/schools': 'Schools', '/users': 'Users', '/id-cards': 'ID Cards',
+  '/school-settings': 'School Settings', '/my-services': 'My Plan & Services',
 };
 
-// ─── Menu definitions ─────────────────────────────────────────────────────────
-const ROLE_MENUS = {
-  SUPER_ADMIN: [
-    { group: 'Overview', items: [
-      { icon: 'ti-layout-dashboard', label: 'Dashboard', path: '/dashboard' },
-    ]},
-    { group: 'Management', items: [
-      { icon: 'ti-building-school', label: 'Schools', path: '/schools' },
-      { icon: 'ti-users', label: 'Users', path: '/users' },
-      { icon: 'ti-building-school', label: 'Schools',   path: '/schools' },
-      { icon: 'ti-users',           label: 'Users',     path: '/users' },
-    ]},
-  ],
-  PRINCIPAL: [
-    { group: 'Overview', items: [
-      { icon: 'ti-layout-dashboard', label: 'Dashboard', path: '/dashboard' },
-    ]},
-    { group: 'Academics', items: [
-      { icon: 'ti-school', label: 'Classes', path: '/classes' },
-      { icon: 'ti-books', label: 'Subjects', path: '/subjects' },
-      { icon: 'ti-calendar-time', label: 'Timetable', path: '/timetable' },
-      { icon: 'ti-school',          label: 'Classes',   path: '/classes' },
-      { icon: 'ti-books',           label: 'Subjects',  path: '/subjects' },
-      { icon: 'ti-calendar-time',   label: 'Timetable', path: '/timetable' },
-    ]},
-    { group: 'People', items: [
-      { icon: 'ti-user-graduate', label: 'Students', path: '/students' },
-      { icon: 'ti-user-plus', label: 'New Admission', path: '/admission', nested: true },
-      { icon: 'ti-chalkboard', label: 'Teachers', path: '/teachers' },
-      { icon: 'ti-user-graduate', label: 'Students',      path: '/students' },
-      { icon: 'ti-user-plus',     label: 'New Admission', path: '/admission', nested: true },
-      { icon: 'ti-chalkboard',    label: 'Teachers',      path: '/teachers' },
-    ]},
-    { group: 'Operations', items: [
-      { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
-      { icon: 'ti-pencil', label: 'Exams', path: '/exams' },
-      { icon: 'ti-chart-bar', label: 'Marks', path: '/marks' },
-      { icon: 'ti-receipt', label: 'Fees', path: '/fees' },
-      { icon: 'ti-pencil',          label: 'Exams',      path: '/exams' },
-      { icon: 'ti-chart-bar',       label: 'Marks',      path: '/marks' },
-      { icon: 'ti-receipt',         label: 'Fees',        path: '/fees' },
-    ]},
-    { group: 'Documents', items: [
-      { icon: 'ti-file-text', label: 'Documents', path: '/documents' },
-      { icon: 'ti-notes', label: 'Notes', path: '/notes' },
-      { icon: 'ti-id-badge', label: 'ID Cards', path: '/id-cards' },
-      { icon: 'ti-notes',     label: 'Notes',     path: '/notes' },
-      { icon: 'ti-id-badge',  label: 'ID Cards',  path: '/id-cards' },
-    ]},
-    { group: 'Settings', items: [
-      { icon: 'ti-bolt', label: 'My Plan & Services', path: '/my-services' },
-      { icon: 'ti-settings', label: 'School Settings', path: '/school-settings' },
-      { icon: 'ti-bolt',     label: 'My Plan & Services', path: '/my-services' },
-      { icon: 'ti-settings', label: 'School Settings',    path: '/school-settings' },
-    ]},
-  ],
-  TEACHER: [
-@@ -50,23 +71,23 @@ const ROLE_MENUS = {
-      { icon: 'ti-calendar-time', label: 'Timetable', path: '/timetable' },
-    ]},
-    { group: 'My Work', items: [
-      { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
-      { icon: 'ti-pencil', label: 'Marks Entry', path: '/marks' },
-      { icon: 'ti-upload', label: 'Upload Notes', path: '/notes' },
-      { icon: 'ti-user-graduate', label: 'My Students', path: '/students' },
-      { icon: 'ti-clipboard-check', label: 'Attendance',   path: '/attendance' },
-      { icon: 'ti-pencil',          label: 'Marks Entry',  path: '/marks' },
-      { icon: 'ti-upload',          label: 'Upload Notes', path: '/notes' },
-      { icon: 'ti-user-graduate',   label: 'My Students',  path: '/students' },
-    ]},
-  ],
-  STUDENT: [
-    { group: 'Overview', items: [
-      { icon: 'ti-layout-dashboard', label: 'Dashboard', path: '/dashboard' },
-    ]},
-    { group: 'My School', items: [
-      { icon: 'ti-calendar-time', label: 'Timetable', path: '/timetable' },
-      { icon: 'ti-calendar-time',   label: 'Timetable',  path: '/timetable' },
-      { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
-      { icon: 'ti-chart-bar', label: 'Results', path: '/results' },
-      { icon: 'ti-receipt', label: 'Fees', path: '/fees' },
-      { icon: 'ti-notes', label: 'Notes', path: '/notes' },
-      { icon: 'ti-ticket', label: 'Admit Card', path: '/admit-card' },
-      { icon: 'ti-chart-bar',       label: 'Results',    path: '/results' },
-      { icon: 'ti-receipt',         label: 'Fees',        path: '/fees' },
-      { icon: 'ti-notes',           label: 'Notes',      path: '/notes' },
-      { icon: 'ti-ticket',          label: 'Admit Card', path: '/admit-card' },
-    ]},
-  ],
-  PARENT: [
-@@ -75,8 +96,8 @@ const ROLE_MENUS = {
-    ]},
-    { group: 'My Child', items: [
-      { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
-      { icon: 'ti-chart-bar', label: 'Progress', path: '/results' },
-      { icon: 'ti-receipt', label: 'Fees', path: '/fees' },
-      { icon: 'ti-chart-bar',       label: 'Progress',   path: '/results' },
-      { icon: 'ti-receipt',         label: 'Fees',        path: '/fees' },
-    ]},
-  ],
-};
-@@ -87,39 +108,20 @@ const ROLE_LABELS = {
-  LIBRARIAN: 'Librarian', STUDENT: 'Student', PARENT: 'Parent',
-};
+export default function Navbar({ title, darkMode, onToggleDark }) {
+  const { user, logout } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
-function iconBtnStyle(border, color) {
-  return {
-    background: 'transparent', border: `1px solid ${border}`,
-    borderRadius: 6, width: 26, height: 26, cursor: 'pointer',
+  const [pendingCount, setPendingCount] = useState(0);
+  const [pendingReqs,  setPendingReqs]  = useState([]);
+  const [showNotif,    setShowNotif]    = useState(false);
+  const [menuOpen,     setMenuOpen]     = useState(false);
+  const [showReset,    setShowReset]    = useState(false);
+  const [passwords,    setPasswords]    = useState({ current: '', newP: '', confirm: '' });
+  const [resetError,   setResetError]   = useState('');
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [pwVisible,    setPwVisible]    = useState({ current: false, newP: false, confirm: false });
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  const pageLabel = title || BREADCRUMB_MAP[location.pathname] || 'EduERP';
+
+  useEffect(() => {
+    if (user?.role !== 'PRINCIPAL') return;
+    api.get('/principal/teachers/attendance/requests?approval=PENDING')
+      .then(r => {
+        const data = Array.isArray(r.data) ? r.data : [];
+        setPendingCount(data.length);
+        setPendingReqs(data.slice(0, 6));
+      })
+      .catch(() => {});
+  }, [user]);
+
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', handler);
+    return () => document.removeEventListener('fullscreenchange', handler);
+  }, []);
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+    else document.exitFullscreen?.();
+  }
+
+  const initials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
+  const today = new Date().toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric',
+  });
+
+  function handleResetClose() {
+    setShowReset(false);
+    setPasswords({ current: '', newP: '', confirm: '' });
+    setResetError('');
+    setResetSuccess(false);
+    setPwVisible({ current: false, newP: false, confirm: false });
+  }
+
+  async function handleResetSubmit() {
+    setResetError('');
+    if (!passwords.current || !passwords.newP || !passwords.confirm) { setResetError('Please fill all fields.'); return; }
+    if (passwords.newP.length < 8) { setResetError('New password must be at least 8 characters.'); return; }
+    if (passwords.newP !== passwords.confirm) { setResetError('New passwords do not match.'); return; }
+    try {
+      await api.put('/auth/change-password', { old_password: passwords.current, new_password: passwords.newP });
+      setResetSuccess(true);
+      setTimeout(() => handleResetClose(), 1800);
+    } catch (err) {
+      setResetError(err.response?.data?.error || 'Could not update password.');
+    }
+  }
+
+  // ── Colors ───────────────────────────────────────────────────────────────────
+  const bg          = darkMode ? '#0f172a' : '#ffffff';
+  const border      = darkMode ? '#1e293b' : '#e8edf3';
+  const textPrimary = darkMode ? '#f1f5f9' : '#0f172a';
+  const textMuted   = darkMode ? '#64748b' : '#94a3b8';
+  const textSub     = darkMode ? '#94a3b8' : '#64748b';
+  const surfaceBg   = darkMode ? '#1e293b' : '#f8fafc';
+  const dropBg      = darkMode ? '#1e293b' : '#ffffff';
+  const dropBorder  = darkMode ? '#334155' : '#e2e8f0';
+  const hoverBg     = darkMode ? '#273349' : '#f1f5f9';
+
+  // ── Icon button style — FIXED: font-size explicit so Tabler icons show ───────
+  const iconBtn = (active = false) => ({
+    background:   active ? (darkMode ? '#273349' : '#f0f4ff') : surfaceBg,
+    border:       `1px solid ${border}`,
+    borderRadius: 8,
+    width:  34, height: 34,
+    cursor: 'pointer',
     display: 'flex', alignItems: 'center', justifyContent: 'center',
-    color, flexShrink: 0,
+    color:    textSub,
+    flexShrink: 0,
+    padding: 0,
+    transition: 'background 0.15s',
+  });
+
+  const inputStyle = {
+    width: '100%', padding: '9px 38px 9px 12px', fontSize: 13,
+    background: darkMode ? '#0f172a' : '#fff',
+    border: `1px solid ${dropBorder}`,
+    color: textPrimary, borderRadius: 8, marginBottom: 10,
+    boxSizing: 'border-box', outline: 'none',
   };
-}
 
-// ─── Component ────────────────────────────────────────────────────────────────
-export default function Sidebar({ darkMode }) {
-  const { user } = useAuth();
-  const groups = ROLE_MENUS[user?.role] || [];
-  const [collapsed, setCollapsed] = useState(false);
-  const [search, setSearch] = useState('');
-  const groups   = ROLE_MENUS[user?.role] || [];
-
-  const W = collapsed ? 64 : 232;
-  const [collapsed, setCollapsed] = useState(false);
-  const [search,    setSearch]    = useState('');
-
-  const bg         = darkMode ? '#0f172a' : '#ffffff';
-  const border     = darkMode ? '#1e293b' : '#e8edf3';
-  const textMuted  = darkMode ? '#64748b' : '#94a3b8';
-  const textBase   = darkMode ? '#94a3b8' : '#475569';
-  const activeText = darkMode ? '#f1f5f9' : '#0f172a';
-  const activeBg   = darkMode ? 'rgba(99,102,241,0.16)' : '#eef2ff';
-  const activeAccent = '#4f46e5';
-  const hoverBg    = darkMode ? 'rgba(255,255,255,0.04)' : '#f8fafc';
-  const divider    = darkMode ? '#1e293b' : '#f1f5f9';
-  const inputBg    = darkMode ? '#1e293b' : '#f8fafc';
-  const logoGrad   = 'linear-gradient(135deg,#4f46e5,#7c3aed)';
-  const W = collapsed ? 60 : 230;
-
-  // Backend se school ka naam/code aane ka safe fallback
-  const schoolName = user?.school?.name || user?.school_name || 'EduERP';
-  const schoolCode = user?.school?.code || user?.school_code || null;
-  const initial = schoolName.charAt(0).toUpperCase();
-  const initial    = schoolName.charAt(0).toUpperCase();
-  const userInitials = user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??';
-
-  const filteredGroups = useMemo(() => {
-    if (!search.trim()) return groups;
-@@ -132,150 +134,313 @@ export default function Sidebar({ darkMode }) {
   return (
     <>
-      <aside style={{
-        width: W, minWidth: W, position: 'fixed', top: 0, left: 0,
-        height: '100vh', background: bg,
-        width: W, minWidth: W, maxWidth: W,
-        position: 'fixed', top: 0, left: 0,
-        height: '100vh',
-        background: NAV.bg,
-        display: 'flex', flexDirection: 'column',
-        zIndex: 100, transition: 'width 0.2s ease',
-        overflow: 'hidden', borderRight: `1px solid ${border}`,
-        zIndex: 100,
-        transition: 'width 0.22s cubic-bezier(0.4,0,0.2,1)',
-        overflow: 'hidden',
-        borderRight: `1px solid ${NAV.border}`,
-        boxShadow: '2px 0 12px rgba(0,0,0,0.35)',
+      <header style={{
+        height: 54,
+        background: bg,
+        borderBottom: `1px solid ${border}`,
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 20px',
+        position: 'sticky', top: 0, zIndex: 50,
       }}>
 
-        {/* Brand */}
-        {/* ── Brand Header ───────────────────────────────────────────── */}
-        <div style={{
-          padding: collapsed ? '16px 0' : '16px 16px 14px',
-          borderBottom: `1px solid ${border}`,
-          display: 'flex', alignItems: collapsed ? 'center' : 'flex-start',
-          justifyContent: collapsed ? 'center' : 'space-between', gap: 10,
-          background: NAV.bgDeep,
-          borderBottom: `1px solid ${NAV.border}`,
-          padding: collapsed ? '14px 0' : '14px 14px 12px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'space-between',
-          gap: 10,
-          flexShrink: 0,
-          minHeight: 56,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, overflow: 'hidden' }}>
-            {/* Logo circle */}
-            <div style={{
-              width: 32, height: 32, borderRadius: 9, background: logoGrad,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-              width: 32, height: 32, borderRadius: 8,
-              background: NAV.logoGrad,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              flexShrink: 0,
-              boxShadow: '0 2px 8px rgba(59,130,246,0.4)',
-            }}>
-              <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{initial}</span>
-              <span style={{ color: '#fff', fontSize: 14, fontWeight: 800, letterSpacing: '-0.5px' }}>{initial}</span>
-            </div>
-
-            {!collapsed && (
-              <div style={{ minWidth: 0 }}>
-              <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                <div style={{
-                  color: darkMode ? '#f1f5f9' : '#0f172a', fontWeight: 700, fontSize: 13,
-                  lineHeight: 1.2, letterSpacing: '-0.01em',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  lineHeight: 1.25,
-                  letterSpacing: '-0.01em',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>{schoolName}</div>
-                <div style={{ color: textMuted, fontSize: 10, fontWeight: 500, letterSpacing: '0.03em', marginTop: 2 }}>
-                  {schoolCode ? `Code: ${schoolCode} · ` : ''}{ROLE_LABELS[user?.role] || user?.role}
-                <div style={{
-                  color: NAV.groupLabel,
-                  fontSize: 10,
-                  fontWeight: 500,
-                  letterSpacing: '0.04em',
-                  marginTop: 2,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
-                  {schoolCode ? `${schoolCode} · ` : ''}{ROLE_LABELS[user?.role] || user?.role}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Collapse toggle */}
-          {!collapsed && (
-            <button onClick={() => setCollapsed(true)} title="Collapse sidebar" style={iconBtnStyle(border, textMuted)}>
-              <i className="ti ti-layout-sidebar-left-collapse" style={{ fontSize: 14 }} aria-hidden="true" />
+        {/* Left: breadcrumb */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          {location.pathname !== '/dashboard' && (
             <button
-              onClick={() => setCollapsed(true)}
-              title="Collapse sidebar"
-              style={{
-                background: 'transparent',
-                border: `1px solid ${NAV.border}`,
-                borderRadius: 6,
-                width: 26, height: 26,
-                cursor: 'pointer',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                color: NAV.textMuted,
-                flexShrink: 0,
-                transition: 'background 0.15s, color 0.15s',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.background = NAV.bgHover; e.currentTarget.style.color = NAV.textBase; }}
-              onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = NAV.textMuted; }}
+              onClick={() => navigate(-1)}
+              title="Go back"
+              style={iconBtn()}
+              onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+              onMouseLeave={e => e.currentTarget.style.background = surfaceBg}
             >
-              <i className="ti ti-layout-sidebar-left-collapse" style={{ fontSize: 13 }} />
+              <i className="ti ti-arrow-left" style={{ fontSize: 16, lineHeight: 1 }} aria-hidden="true" />
             </button>
           )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ fontSize: 12, color: textMuted }}>EduERP</span>
+            <i className="ti ti-chevron-right" style={{ fontSize: 11, color: textMuted }} aria-hidden="true" />
+            <span style={{ fontSize: 13, fontWeight: 600, color: textPrimary }}>{pageLabel}</span>
+          </div>
         </div>
 
-        {/* Expand button when collapsed */}
-        {collapsed && (
-          <button onClick={() => setCollapsed(false)} title="Expand sidebar"
-            style={{ ...iconBtnStyle(border, textMuted), margin: '8px auto 0' }}>
-            <i className="ti ti-layout-sidebar-right-collapse" style={{ fontSize: 14 }} aria-hidden="true" />
-          <button
-            onClick={() => setCollapsed(false)}
-            title="Expand sidebar"
-            style={{
-              background: 'transparent',
-              border: `1px solid ${NAV.border}`,
-              borderRadius: 6,
-              width: 30, height: 30,
-              cursor: 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: NAV.textMuted,
-              margin: '10px auto 4px',
-              flexShrink: 0,
-            }}
-            onMouseEnter={e => { e.currentTarget.style.background = NAV.bgHover; e.currentTarget.style.color = NAV.textBase; }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = NAV.textMuted; }}
-          >
-            <i className="ti ti-layout-sidebar-right-collapse" style={{ fontSize: 13 }} />
-          </button>
-        )}
+        {/* Right controls */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
 
-        {/* Search */}
-        {/* ── Search ─────────────────────────────────────────────────── */}
-        {!collapsed && (
-          <div style={{ padding: '10px 12px 4px' }}>
-          <div style={{ padding: '10px 12px 4px', flexShrink: 0 }}>
+          {/* Date */}
+          <span style={{ fontSize: 12, color: textMuted, padding: '4px 10px' }}>{today}</span>
+
+          {/* Session badge */}
+          <span style={{
+            background: darkMode ? 'rgba(99,102,241,0.15)' : '#eef2ff',
+            color: darkMode ? '#a5b4fc' : '#4f46e5',
+            fontSize: 11, fontWeight: 600,
+            padding: '3px 10px', borderRadius: 20,
+          }}>2024-25</span>
+
+          {/* Fullscreen */}
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Exit fullscreen' : 'Fullscreen'}
+            style={iconBtn()}
+            onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+            onMouseLeave={e => e.currentTarget.style.background = surfaceBg}
+          >
+            <i
+              className={`ti ${isFullscreen ? 'ti-minimize' : 'ti-maximize'}`}
+              style={{ fontSize: 16, lineHeight: 1, display: 'block' }}
+              aria-hidden="true"
+            />
+          </button>
+
+          {/* Dark / Light toggle */}
+          <button
+            onClick={onToggleDark}
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            style={iconBtn()}
+            onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+            onMouseLeave={e => e.currentTarget.style.background = surfaceBg}
+          >
+            <i
+              className={`ti ${darkMode ? 'ti-sun' : 'ti-moon'}`}
+              style={{ fontSize: 16, lineHeight: 1, display: 'block' }}
+              aria-hidden="true"
+            />
+          </button>
+
+          {/* Notification bell (PRINCIPAL only) */}
+          {user?.role === 'PRINCIPAL' && (
             <div style={{ position: 'relative' }}>
-              <i className="ti ti-search" style={{
-                position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
-                fontSize: 13, color: textMuted,
-              }} aria-hidden="true" />
-                position: 'absolute', left: 9, top: '50%',
-                transform: 'translateY(-50%)',
-                fontSize: 12, color: NAV.textMuted, pointerEvents: 'none',
-              }} />
-              <input
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-                placeholder="Search modules…"
-                style={{
-                  width: '100%', padding: '7px 10px 7px 30px', fontSize: 12,
-                  background: inputBg, border: `1px solid ${border}`,
-                  borderRadius: 8, color: activeText, outline: 'none', boxSizing: 'border-box',
-                  width: '100%',
-                  padding: '7px 10px 7px 28px',
-                  fontSize: 12,
-                  background: NAV.searchBg,
-                  border: `1px solid ${NAV.searchBorder}`,
-                  borderRadius: 7,
-                  color: '#c8dff5',
-                  outline: 'none',
-                  boxSizing: 'border-box',
-                  caretColor: NAV.accent,
-                }}
-                onFocus={e => { e.target.style.borderColor = NAV.accentGlow; e.target.style.boxShadow = '0 0 0 2px rgba(59,130,246,0.15)'; }}
-                onBlur={e => { e.target.style.borderColor = NAV.searchBorder; e.target.style.boxShadow = 'none'; }}
+              <button
+                onClick={() => setShowNotif(n => !n)}
+                title="Notifications"
+                style={{ ...iconBtn(showNotif), position: 'relative' }}
+                onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+                onMouseLeave={e => e.currentTarget.style.background = showNotif ? (darkMode ? '#273349' : '#f0f4ff') : surfaceBg}
+              >
+                <i className="ti ti-bell" style={{ fontSize: 16, lineHeight: 1, display: 'block' }} aria-hidden="true" />
+                {pendingCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: 5, right: 5,
+                    background: '#ef4444', color: '#fff',
+                    fontSize: 9, fontWeight: 700,
+                    minWidth: 14, height: 14, borderRadius: 99,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    padding: '0 3px',
+                    border: `2px solid ${bg}`,
+                    lineHeight: 1,
+                  }}>{pendingCount > 9 ? '9+' : pendingCount}</span>
+                )}
+              </button>
+
+              {showNotif && (
+                <>
+                  <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setShowNotif(false)} />
+                  <div style={{
+                    position: 'absolute', top: 42, right: 0, width: 320,
+                    background: dropBg, borderRadius: 12,
+                    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                    border: `1px solid ${dropBorder}`, zIndex: 99, overflow: 'hidden',
+                  }}>
+                    <div style={{ padding: '12px 16px', borderBottom: `1px solid ${dropBorder}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: textPrimary }}>Notifications</span>
+                      {pendingCount > 0 && (
+                        <span style={{ background: '#fef2f2', color: '#dc2626', fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20 }}>
+                          {pendingCount} pending
+                        </span>
+                      )}
+                    </div>
+                    {pendingReqs.length === 0 ? (
+                      <div style={{ padding: '28px 16px', textAlign: 'center', fontSize: 13, color: textMuted }}>
+                        <i className="ti ti-bell-off" style={{ fontSize: 24, display: 'block', marginBottom: 8 }} aria-hidden="true" />
+                        No pending requests
+                      </div>
+                    ) : (
+                      <>
+                        {pendingReqs.map((r, i) => (
+                          <div key={i} style={{ padding: '10px 16px', borderBottom: `1px solid ${darkMode ? '#1e293b' : '#f8fafc'}`, display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+                            <div style={{ width: 32, height: 32, borderRadius: '50%', flexShrink: 0, background: '#fef3c7', color: '#d97706', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 700, fontSize: 12 }}>
+                              {r.teacher_name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary }}>{r.teacher_name}</div>
+                              <div style={{ fontSize: 11, color: textMuted }}>Attendance request · {r.date}</div>
+                            </div>
+                            <span style={{
+                              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20, flexShrink: 0,
+                              background: r.status === 'PRESENT' ? '#dcfce7' : '#fee2e2',
+                              color: r.status === 'PRESENT' ? '#16a34a' : '#dc2626',
+                            }}>{r.status}</span>
+                          </div>
+                        ))}
+                        <div
+                          onClick={() => { navigate('/dashboard'); setShowNotif(false); }}
+                          style={{ padding: '10px 16px', textAlign: 'center', fontSize: 12, color: '#4f46e5', fontWeight: 600, cursor: 'pointer' }}
+                          onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+                          onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                        >
+                          View all requests <i className="ti ti-arrow-right" style={{ fontSize: 12, marginLeft: 4 }} aria-hidden="true" />
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* User menu */}
+          <div style={{ position: 'relative' }}>
+            <div
+              onClick={() => setMenuOpen(o => !o)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '4px 10px 4px 4px', borderRadius: 99,
+                border: `1px solid ${border}`,
+                background: menuOpen ? (darkMode ? '#273349' : '#f0f4ff') : surfaceBg,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{
+                width: 26, height: 26, borderRadius: '50%',
+                background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
+                color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 10, fontWeight: 700, flexShrink: 0,
+              }}>{initials}</div>
+              <div style={{ lineHeight: 1.3 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary }}>{user?.name?.split(' ')[0]}</div>
+                <div style={{ fontSize: 10, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {user?.role?.replace(/_/g, ' ')}
+                </div>
+              </div>
+              <i
+                className="ti ti-chevron-down"
+                style={{ fontSize: 12, color: textMuted, transform: menuOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                aria-hidden="true"
               />
             </div>
-          </div>
-        )}
 
-        {/* Nav */}
-        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '8px 8px' }}>
-        {/* ── Navigation ─────────────────────────────────────────────── */}
-        <nav style={{
-          flex: 1,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: collapsed ? '6px 6px' : '6px 8px',
-          /* Custom scrollbar */
-        }}>
-          <style>{`
-            aside nav::-webkit-scrollbar { width: 3px; }
-            aside nav::-webkit-scrollbar-track { background: transparent; }
-            aside nav::-webkit-scrollbar-thumb { background: #1c3452; border-radius: 99px; }
-          `}</style>
-
-          {filteredGroups.length === 0 && (
-            <div style={{ padding: '20px 8px', fontSize: 12, color: textMuted, textAlign: 'center' }}>
-            <div style={{ padding: '24px 8px', textAlign: 'center', fontSize: 12, color: NAV.textMuted }}>
-              Koi module nahi mila
-            </div>
-          )}
-
-          {filteredGroups.map((group, gi) => (
-            <div key={gi} style={{ marginBottom: 2 }}>
-              {!collapsed && (
-            <div key={gi} style={{ marginBottom: 4 }}>
-
-              {/* Group label */}
-              {!collapsed ? (
+            {menuOpen && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 98 }} onClick={() => setMenuOpen(false)} />
                 <div style={{
-                  fontSize: 10, fontWeight: 600, letterSpacing: '0.08em',
-                  color: textMuted, padding: '10px 8px 4px', textTransform: 'uppercase',
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: '0.09em',
-                  color: NAV.groupLabel,
-                  padding: gi === 0 ? '6px 8px 4px' : '12px 8px 4px',
-                  textTransform: 'uppercase',
-                  userSelect: 'none',
-                }}>{group.group}</div>
-              ) : (
-                gi > 0 && (
-                  <div style={{
-                    height: 1,
-                    background: NAV.border,
-                    margin: '8px 6px',
-                    opacity: 0.7,
-                  }} />
-                )
-              )}
-              {collapsed && gi > 0 && <div style={{ height: 1, background: divider, margin: '8px 4px' }} />}
-
-              {/* Menu items */}
-              {group.items.map(item => (
-                <NavLink
-                  key={item.path}
-                  to={item.path}
-                  title={collapsed ? item.label : undefined}
-                  style={({ isActive }) => ({
-                    display: 'flex', alignItems: 'center', gap: collapsed ? 0 : 9,
-                    padding: collapsed ? '9px 0' : '7px 8px',
-                    paddingLeft: collapsed ? undefined : (item.nested ? 26 : 8),
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: collapsed ? 0 : 9,
-                    padding: collapsed ? '9px 0' : item.nested ? '6px 8px 6px 26px' : '7px 8px',
-                    justifyContent: collapsed ? 'center' : 'flex-start',
-                    borderRadius: 8,
-                    color: isActive ? activeText : textBase,
-                    background: isActive ? activeBg : 'transparent',
-                    borderLeft: isActive ? `2.5px solid ${activeAccent}` : '2.5px solid transparent',
-                    textDecoration: 'none', fontWeight: isActive ? 600 : 400,
-                    fontSize: item.nested ? 12 : 13, marginBottom: 1,
-                    transition: 'background 0.12s, color 0.12s', whiteSpace: 'nowrap',
-                    borderRadius: 7,
-                    color:      isActive ? NAV.textActive  : NAV.textBase,
-                    background: isActive ? NAV.bgActive    : 'transparent',
-                    borderLeft: isActive
-                      ? `3px solid ${NAV.accentGlow}`
-                      : '3px solid transparent',
-                    textDecoration: 'none',
-                    fontWeight: isActive ? 600 : 400,
-                    fontSize: item.nested ? 12 : 13,
-                    marginBottom: 1,
-                    transition: 'background 0.12s, color 0.12s, border-color 0.12s',
-                    whiteSpace: 'nowrap',
-                    overflow: 'hidden',
-                    boxSizing: 'border-box',
-                  })}
-                  onMouseEnter={e => { if (!e.currentTarget.classList.contains('active')) e.currentTarget.style.background = hoverBg; }}
-                  onMouseLeave={e => { if (!e.currentTarget.classList.contains('active')) e.currentTarget.style.background = 'transparent'; }}
-                  onMouseEnter={e => {
-                    const el = e.currentTarget;
-                    if (!el.getAttribute('aria-current')) {
-                      el.style.background = NAV.bgHover;
-                      el.style.color = '#d8ecff';
-                    }
-                  }}
-                  onMouseLeave={e => {
-                    const el = e.currentTarget;
-                    if (!el.getAttribute('aria-current')) {
-                      el.style.background = 'transparent';
-                      el.style.color = NAV.textBase;
-                    }
-                  }}
-                >
-                  <i
-                    className={`ti ${item.icon}`}
-                    aria-hidden="true"
-                    style={{ fontSize: item.nested ? 14 : 16, flexShrink: 0, width: collapsed ? 'auto' : 18, textAlign: 'center' }}
-                    style={{
-                      fontSize: item.nested ? 14 : 16,
-                      flexShrink: 0,
-                      width: collapsed ? 'auto' : 18,
-                      textAlign: 'center',
-                      opacity: 0.9,
-                    }}
-                  />
-                  {!collapsed && item.label}
-                  {!collapsed && (
-                    <span style={{
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                      flex: 1,
-                    }}>{item.label}</span>
-                  )}
-                </NavLink>
-              ))}
-            </div>
-          ))}
-        </nav>
-
-        {/* Footer - user mini card */}
-        {!collapsed && (
-          <div style={{ padding: '12px 14px', borderTop: `1px solid ${border}`, display: 'flex', alignItems: 'center', gap: 9 }}>
-            <div style={{
-              width: 30, height: 30, borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg,#4f46e5,#7c3aed)',
-              color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 11, fontWeight: 700,
-            }}>
-              {user?.name?.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase() || '??'}
-            </div>
-            <div style={{ minWidth: 0 }}>
-        {/* ── Footer — User Card ─────────────────────────────────────── */}
-        <div style={{
-          borderTop: `1px solid ${NAV.border}`,
-          background: NAV.footerBg,
-          padding: collapsed ? '12px 0' : '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: collapsed ? 'center' : 'flex-start',
-          gap: 10,
-          flexShrink: 0,
-        }}>
-          {/* Avatar */}
-          <div style={{
-            width: 30, height: 30,
-            borderRadius: '50%',
-            background: NAV.avatarGrad,
-            color: '#fff',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 700,
-            flexShrink: 0,
-            boxShadow: '0 2px 6px rgba(59,130,246,0.4)',
-          }}>
-            {userInitials}
+                  position: 'absolute', top: 46, right: 0, width: 220,
+                  background: dropBg, borderRadius: 12,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  border: `1px solid ${dropBorder}`, zIndex: 99, overflow: 'hidden',
+                }}>
+                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${dropBorder}` }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary }}>{user?.name}</div>
+                    <div style={{ fontSize: 11, color: textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user?.email}</div>
+                  </div>
+                  {[
+                    { icon: 'ti-lock',   label: 'Change password', onClick: () => { setShowReset(true); setMenuOpen(false); }, danger: false },
+                    { icon: 'ti-logout', label: 'Sign out',        onClick: () => { logout(); navigate('/login'); },           danger: true  },
+                  ].map((item, i) => (
+                    <button
+                      key={i}
+                      onClick={item.onClick}
+                      style={{
+                        width: '100%', display: 'flex', alignItems: 'center', gap: 10,
+                        padding: '10px 16px', background: 'none', border: 'none',
+                        borderBottom: i === 0 ? `1px solid ${dropBorder}` : 'none',
+                        color: item.danger ? '#ef4444' : textSub,
+                        cursor: 'pointer', fontSize: 13, textAlign: 'left',
+                      }}
+                      onMouseEnter={e => e.currentTarget.style.background = item.danger ? (darkMode ? '#2d1b1b' : '#fef2f2') : hoverBg}
+                      onMouseLeave={e => e.currentTarget.style.background = 'none'}
+                    >
+                      <i className={`ti ${item.icon}`} style={{ fontSize: 15 }} aria-hidden="true" />
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
-
-          {!collapsed && (
-            <div style={{ minWidth: 0, overflow: 'hidden' }}>
-              <div style={{
-                fontSize: 12, fontWeight: 600, color: darkMode ? '#e2e8f0' : '#0f172a',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                fontSize: 12,
-                fontWeight: 600,
-                color: '#e8f4ff',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                lineHeight: 1.3,
-              }}>{user?.name}</div>
-              <div style={{ fontSize: 10, color: textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                {ROLE_LABELS[user?.role] || user?.role}
-              </div>
-              <div style={{
-                fontSize: 10,
-                color: NAV.groupLabel,
-                textTransform: 'uppercase',
-                letterSpacing: '0.05em',
-                marginTop: 1,
-              }}>{ROLE_LABELS[user?.role] || user?.role}</div>
-            </div>
-          </div>
-        )}
-          )}
         </div>
-      </aside>
+      </header>
 
-      <style>{`:root { --sidebar-w: ${W}px; }`}</style>
-      {/* Sidebar width CSS variable for main content offset */}
-      <style>{`
-        :root { --sidebar-w: ${W}px; }
-        .main-content { margin-left: var(--sidebar-w) !important; transition: margin-left 0.22s cubic-bezier(0.4,0,0.2,1); }
-      `}</style>
+      {/* Change password modal */}
+      {showReset && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={e => { if (e.target === e.currentTarget) handleResetClose(); }}
+        >
+          <div style={{ background: darkMode ? '#1e293b' : '#fff', border: `1px solid ${dropBorder}`, borderRadius: 16, padding: '28px', width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.22)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+              <div style={{ fontSize: 15, fontWeight: 700, color: textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <i className="ti ti-lock" style={{ fontSize: 16 }} aria-hidden="true" /> Change password
+              </div>
+              <button onClick={handleResetClose} style={{ background: 'none', border: 'none', fontSize: 18, cursor: 'pointer', color: textMuted }}>
+                <i className="ti ti-x" style={{ fontSize: 16 }} aria-hidden="true" />
+              </button>
+            </div>
+            <p style={{ fontSize: 12, color: textMuted, marginBottom: 20, marginTop: 4 }}>Update your account password below.</p>
+
+            {[
+              { key: 'current', placeholder: 'Current password' },
+              { key: 'newP',    placeholder: 'New password (min. 8 characters)' },
+              { key: 'confirm', placeholder: 'Confirm new password' },
+            ].map(f => (
+              <div key={f.key} style={{ position: 'relative', marginBottom: 10 }}>
+                <input
+                  type={pwVisible[f.key] ? 'text' : 'password'}
+                  placeholder={f.placeholder}
+                  value={passwords[f.key]}
+                  onChange={e => setPasswords(p => ({ ...p, [f.key]: e.target.value }))}
+                  style={inputStyle}
+                  onFocus={e => e.target.style.borderColor = '#4f46e5'}
+                  onBlur={e => e.target.style.borderColor = dropBorder}
+                />
+                <button
+                  type="button"
+                  onClick={() => setPwVisible(v => ({ ...v, [f.key]: !v[f.key] }))}
+                  style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: textMuted, padding: 0 }}
+                >
+                  <i className={`ti ${pwVisible[f.key] ? 'ti-eye-off' : 'ti-eye'}`} style={{ fontSize: 15 }} aria-hidden="true" />
+                </button>
+              </div>
+            ))}
+
+            {resetError && (
+              <div style={{ fontSize: 12, color: '#dc2626', marginBottom: 12, background: '#fef2f2', padding: '8px 12px', borderRadius: 8, border: '1px solid #fecaca' }}>
+                <i className="ti ti-alert-circle" style={{ fontSize: 13, marginRight: 6 }} aria-hidden="true" />{resetError}
+              </div>
+            )}
+            {resetSuccess && (
+              <div style={{ fontSize: 12, color: '#059669', marginBottom: 12, background: '#f0fdf4', padding: '8px 12px', borderRadius: 8, border: '1px solid #bbf7d0' }}>
+                <i className="ti ti-circle-check" style={{ fontSize: 13, marginRight: 6 }} aria-hidden="true" />Password updated successfully
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 8 }}>
+              <button onClick={handleResetClose} style={{ padding: '8px 18px', borderRadius: 8, border: `1px solid ${dropBorder}`, background: 'transparent', cursor: 'pointer', fontSize: 13, color: textSub }}>Cancel</button>
+              <button onClick={handleResetSubmit} style={{ padding: '8px 20px', borderRadius: 8, border: 'none', background: '#4f46e5', color: '#fff', cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>Update password</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
