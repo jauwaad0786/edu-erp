@@ -73,7 +73,7 @@ def create_app(config_name='default'):
     app.register_blueprint(meetings_bp,      url_prefix='/api/support/meetings')
     app.register_blueprint(announcements_bp, url_prefix='/api/support/announcements')
     app.register_blueprint(chat_bp,          url_prefix='/api/support/chat')
-    app.register_blueprint(notifications_bp, url_prefix='/api/support/notifications')
+    
     app.register_blueprint(marks_bp,        url_prefix='/api/marks')
     app.register_blueprint(auth_bp,         url_prefix='/api/auth')
     app.register_blueprint(admin_bp,        url_prefix='/api/admin')
