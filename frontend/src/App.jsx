@@ -3,8 +3,10 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
-import { AuthProvider }    from './context/AuthContext';
-import ProtectedRoute      from './components/ProtectedRoute';
+
+import { AuthProvider }         from './context/AuthContext';
+import { NotificationProvider } from './context/NotificationContext';
+import ProtectedRoute           from './components/ProtectedRoute';
 import DocumentsPage from './pages/DocumentsPage';
 import SchoolSettings from './pages/SchoolSettings';
 
@@ -35,10 +37,12 @@ import UsersPage from './pages/UsersPage';
 
 
 export default function App() {
+  // ✅ NEW
   return (
     <AuthProvider>
-      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
-      <Router>
+      <NotificationProvider>
+        <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
+        <Router>
         <Routes>
 
           {/* ── Public ── */}
@@ -174,7 +178,9 @@ export default function App() {
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
 
         </Routes>
+  
       </Router>
+      </NotificationProvider>
     </AuthProvider>
   );
 }
