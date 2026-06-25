@@ -57,7 +57,7 @@ def create_app(config_name='default'):
     from app.routes.student import student_bp
     from app.routes.marks import marks_bp
     from app.models import communication
-    from app.routes.communication.notifications import notifications_bp
+    
     from app.routes.communication.tickets       import tickets_bp
     from app.routes.communication.notifications import notifications_bp
     from app.routes.communication.meetings      import meetings_bp
