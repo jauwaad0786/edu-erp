@@ -63,6 +63,8 @@ def create_app(config_name='default'):
     from app.routes.communication.meetings      import meetings_bp
     from app.routes.communication.announcements import announcements_bp
     from app.routes.communication.chat          import chat_bp
+    from app.routes.communication.support_plans import support_plans_bp
+    app.register_blueprint(support_plans_bp, url_prefix='/api/support/plans')
     
     app.register_blueprint(tickets_bp,       url_prefix='/api/support/tickets')
     app.register_blueprint(notifications_bp, url_prefix='/api/support/notifications')
