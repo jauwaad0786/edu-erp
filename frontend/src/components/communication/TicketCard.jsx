@@ -3,7 +3,22 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { StatusBadge, PriorityBadge } from './StatusBadge';
-
+export const CATEGORY_LABEL = {
+  COMPLAINT: "Complaint",
+  SUGGESTION: "Suggestion",
+  FEEDBACK: "Feedback",
+  TECHNICAL: "Technical",
+  ACADEMIC: "Academic",
+  FEE: "Fee Related",
+  TEACHER: "Teacher Related",
+  STUDENT: "Student Related",
+  PARENT_QUERY: "Parent Query",
+  WEBSITE_BUG: "Website Bug",
+  ERP_BUG: "ERP Bug",
+  FEATURE_REQUEST: "Feature Request",
+  GENERAL: "General",
+  EMERGENCY: "Emergency",
+};
 export default function TicketCard({
   ticket,
   darkMode = false,
