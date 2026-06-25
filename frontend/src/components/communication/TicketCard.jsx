@@ -19,6 +19,21 @@ export const CATEGORY_LABEL = {
   GENERAL: "General",
   EMERGENCY: "Emergency",
 };
+export const PRODUCT_LABEL = {
+  ERP: "School ERP",
+  WEBSITE: "Website",
+  MOBILE_APP: "Mobile App",
+  LMS: "Learning Management",
+  HRMS: "HRMS",
+  INVENTORY: "Inventory",
+  FEES: "Fee Management",
+  ATTENDANCE: "Attendance",
+  EXAM: "Examination",
+  TRANSPORT: "Transport",
+  LIBRARY: "Library",
+  HOSTEL: "Hostel",
+  GENERAL: "General",
+};
 export default function TicketCard({
   ticket,
   darkMode = false,
