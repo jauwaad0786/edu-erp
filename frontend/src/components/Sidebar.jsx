@@ -17,6 +17,21 @@ const ROLE_MENUS = {
         { icon: 'ti-users', label: 'Users', path: '/users' },
       ],
     },
+    {
+      group: 'Customer Service',
+      items: [
+        {
+          icon: 'ti-headset', label: 'Support Dashboard', path: '/developer/support',
+          children: [
+            { icon: 'ti-layout-dashboard', label: 'All Tickets',    path: '/developer/support' },
+            { icon: 'ti-ticket',           label: 'Support Inbox',  path: '/support/tickets' },
+            { icon: 'ti-video',            label: 'Meetings',       path: '/support/meetings' },
+            { icon: 'ti-speakerphone',     label: 'Announcements',  path: '/support/announcements' },
+            { icon: 'ti-books',            label: 'Knowledge Base', path: '/support/kb' },
+          ],
+        },
+      ],
+    },
   ],
 
   PRINCIPAL: [
@@ -120,6 +135,22 @@ const ROLE_MENUS = {
       ],
     },
     {
+      group: 'Customer Service',
+      items: [
+        {
+          icon: 'ti-headset', label: 'Support Center', path: '/support/tickets',
+          children: [
+            { icon: 'ti-ticket',       label: 'My Tickets',    path: '/support/tickets' },
+            { icon: 'ti-plus',         label: 'New Ticket',    path: '/support/tickets/new' },
+            { icon: 'ti-video',        label: 'Book Meeting',  path: '/support/meetings' },
+            { icon: 'ti-speakerphone', label: 'Announcements', path: '/support/announcements' },
+            { icon: 'ti-message-2',    label: 'Messages',      path: '/support/chat' },
+            { icon: 'ti-help-circle',  label: 'Help Center',   path: '/support/help' },
+          ],
+        },
+      ],
+    },
+    {
       group: 'Settings',
       items: [
         { icon: 'ti-bolt',     label: 'My Plan & Services', path: '/my-services' },
@@ -146,6 +177,15 @@ const ROLE_MENUS = {
         { icon: 'ti-user-graduate',   label: 'My Students',  path: '/students' },
       ],
     },
+    {
+      group: 'Customer Service',
+      items: [
+        { icon: 'ti-ticket',       label: 'My Tickets',    path: '/support/tickets' },
+        { icon: 'ti-speakerphone', label: 'Announcements', path: '/support/announcements' },
+        { icon: 'ti-message-2',    label: 'Messages',      path: '/support/chat' },
+        { icon: 'ti-help-circle',  label: 'Help Center',   path: '/support/help' },
+      ],
+    },
   ],
 
   STUDENT: [
@@ -164,6 +204,14 @@ const ROLE_MENUS = {
         { icon: 'ti-ticket',          label: 'Admit Card', path: '/admit-card' },
       ],
     },
+    {
+      group: 'Customer Service',
+      items: [
+        { icon: 'ti-ticket',      label: 'Support',     path: '/support/tickets' },
+        { icon: 'ti-message-2',   label: 'Messages',    path: '/support/chat' },
+        { icon: 'ti-help-circle', label: 'Help Center', path: '/support/help' },
+      ],
+    },
   ],
 
   PARENT: [
@@ -177,6 +225,14 @@ const ROLE_MENUS = {
         { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
         { icon: 'ti-chart-bar',       label: 'Progress',   path: '/results' },
         { icon: 'ti-receipt',         label: 'Fees',       path: '/fees' },
+      ],
+    },
+    {
+      group: 'Customer Service',
+      items: [
+        { icon: 'ti-ticket',      label: 'Support',     path: '/support/tickets' },
+        { icon: 'ti-message-2',   label: 'Messages',    path: '/support/chat' },
+        { icon: 'ti-help-circle', label: 'Help Center', path: '/support/help' },
       ],
     },
   ],
@@ -195,7 +251,6 @@ function getSchoolColor(name = '') {
   return colors[Math.abs(hash) % colors.length];
 }
 
-// ─── Dark Navy / Salesforce palette ───────────────────────────────────────────
 const NAV = {
   bg:           '#0f2744',
   bgDeep:       '#0a1e36',
@@ -221,14 +276,13 @@ export default function Sidebar({ darkMode }) {
   const [search,   setSearch]   = useState('');
   const [expanded, setExpanded] = useState({});
 
-  const schoolName  = user?.school?.name || user?.school_name || 'EduERP';
-  const schoolCode  = user?.school?.code || user?.school_code || '';
-  const schoolCity  = user?.school?.city || user?.school_city || '';
-  const schoolColor = getSchoolColor(schoolName);
-  const initial     = schoolName.charAt(0).toUpperCase();
+  const schoolName   = user?.school?.name || user?.school_name || 'EduERP';
+  const schoolCode   = user?.school?.code || user?.school_code || '';
+  const schoolCity   = user?.school?.city || user?.school_city || '';
+  const schoolColor  = getSchoolColor(schoolName);
+  const initial      = schoolName.charAt(0).toUpperCase();
   const userInitials = (user?.name || '??').split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase();
 
-  // Auto-expand active group on route change
   React.useEffect(() => {
     const next = {};
     groups.forEach(g => {
@@ -291,65 +345,51 @@ export default function Sidebar({ darkMode }) {
         boxShadow: '2px 0 16px rgba(0,0,0,0.4)',
       }}>
 
-        {/* ── Brand ─────────────────────────────────────────────────── */}
+        {/* Brand */}
         <div style={{
-          background: NAV.bgDeep,
-          borderBottom: `1px solid ${NAV.border}`,
-          padding: '14px 14px 12px',
-          display: 'flex', alignItems: 'center', gap: 10,
-          flexShrink: 0,
+          background: NAV.bgDeep, borderBottom: `1px solid ${NAV.border}`,
+          padding: '14px 14px 12px', display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
         }}>
           <div style={{
-            width: 40, height: 40, borderRadius: 10,
-            background: schoolColor,
+            width: 40, height: 40, borderRadius: 10, background: schoolColor,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            flexShrink: 0,
-            boxShadow: `0 2px 10px ${schoolColor}66`,
+            flexShrink: 0, boxShadow: `0 2px 10px ${schoolColor}66`,
           }}>
             <span style={{ color: '#fff', fontSize: 17, fontWeight: 800 }}>{initial}</span>
           </div>
           <div style={{ minWidth: 0, overflow: 'hidden', flex: 1 }}>
             <div style={{
-              color: '#ffffff', fontWeight: 800, fontSize: 14,
-              lineHeight: 1.2, letterSpacing: '-0.02em',
-              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              color: '#ffffff', fontWeight: 800, fontSize: 14, lineHeight: 1.2,
+              letterSpacing: '-0.02em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{schoolName}</div>
             <div style={{
-              color: NAV.groupLabel, fontSize: 10, fontWeight: 500,
-              marginTop: 3,
+              color: NAV.groupLabel, fontSize: 10, fontWeight: 500, marginTop: 3,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>
               {[schoolCode, schoolCity].filter(Boolean).join(' | ') || ROLE_LABELS[user?.role] || ''}
             </div>
             <div style={{
               color: NAV.accent, fontSize: 9, fontWeight: 600,
-              letterSpacing: '0.06em', textTransform: 'uppercase',
-              marginTop: 2, opacity: 0.8,
+              letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 2, opacity: 0.8,
             }}>POWERED BY EDUERP</div>
           </div>
         </div>
 
-        {/* ── Search ─────────────────────────────────────────────────── */}
+        {/* Search */}
         <div style={{ padding: '10px 12px 4px', flexShrink: 0, background: NAV.bg }}>
           <div style={{ position: 'relative' }}>
             <i className="ti ti-search" style={{
-              position: 'absolute', left: 9, top: '50%',
-              transform: 'translateY(-50%)',
+              position: 'absolute', left: 9, top: '50%', transform: 'translateY(-50%)',
               fontSize: 13, color: NAV.textMuted, pointerEvents: 'none',
             }} aria-hidden="true" />
             <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
+              value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Search modules..."
               style={{
                 width: '100%', padding: '7px 10px 7px 30px', fontSize: 12,
-                background: NAV.searchBg,
-                border: `1px solid ${NAV.searchBorder}`,
-                borderRadius: 8,
-                color: '#c8dff5',
-                outline: 'none',
-                boxSizing: 'border-box',
-                caretColor: NAV.accent,
+                background: NAV.searchBg, border: `1px solid ${NAV.searchBorder}`,
+                borderRadius: 8, color: '#c8dff5', outline: 'none',
+                boxSizing: 'border-box', caretColor: NAV.accent,
               }}
               onFocus={e => { e.target.style.borderColor = NAV.accentBar; e.target.style.boxShadow = '0 0 0 2px rgba(59,130,246,0.2)'; }}
               onBlur={e => { e.target.style.borderColor = NAV.searchBorder; e.target.style.boxShadow = 'none'; }}
@@ -357,11 +397,8 @@ export default function Sidebar({ darkMode }) {
           </div>
         </div>
 
-        {/* ── Nav ────────────────────────────────────────────────────── */}
-        <nav style={{
-          flex: 1, overflowY: 'auto', overflowX: 'hidden',
-          padding: '4px 8px 8px',
-        }}>
+        {/* Nav */}
+        <nav style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '4px 8px 8px' }}>
           <style>{`
             aside nav::-webkit-scrollbar { width: 3px; }
             aside nav::-webkit-scrollbar-track { background: transparent; }
@@ -376,10 +413,8 @@ export default function Sidebar({ darkMode }) {
 
           {filteredGroups.map((group, gi) => (
             <div key={gi} style={{ marginBottom: 2 }}>
-              {/* Group label */}
               <div style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.09em',
-                color: NAV.groupLabel,
+                fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', color: NAV.groupLabel,
                 padding: gi === 0 ? '6px 8px 3px' : '12px 8px 3px',
                 textTransform: 'uppercase', userSelect: 'none',
               }}>{group.group}</div>
@@ -388,49 +423,37 @@ export default function Sidebar({ darkMode }) {
                 const active  = isItemActive(item);
                 const hasKids = !!(item.children && item.children.length);
                 const isOpen  = expanded[item.path];
-
                 return (
                   <div key={item.path}>
-                    {/* Parent row */}
                     {hasKids ? (
-                      <div
-                        onClick={() => toggleExpand(item.path)}
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 8,
-                          padding: '7px 8px', borderRadius: 7,
-                          color:      active ? NAV.textActive : NAV.textBase,
-                          background: active ? NAV.bgActive   : 'transparent',
-                          borderLeft: active ? `3px solid ${NAV.accentBar}` : '3px solid transparent',
-                          fontWeight: active ? 600 : 400,
-                          fontSize: 13, marginBottom: 1,
-                          cursor: 'pointer',
-                          transition: 'background 0.12s, color 0.12s',
-                          whiteSpace: 'nowrap', userSelect: 'none',
-                        }}
+                      <div onClick={() => toggleExpand(item.path)} style={{
+                        display: 'flex', alignItems: 'center', gap: 8,
+                        padding: '7px 8px', borderRadius: 7,
+                        color:      active ? NAV.textActive : NAV.textBase,
+                        background: active ? NAV.bgActive   : 'transparent',
+                        borderLeft: active ? `3px solid ${NAV.accentBar}` : '3px solid transparent',
+                        fontWeight: active ? 600 : 400, fontSize: 13, marginBottom: 1,
+                        cursor: 'pointer', transition: 'background 0.12s, color 0.12s',
+                        whiteSpace: 'nowrap', userSelect: 'none',
+                      }}
                         onMouseEnter={e => { if (!active) { e.currentTarget.style.background = NAV.bgHover; e.currentTarget.style.color = '#d8ecff'; } }}
                         onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = NAV.textBase; } }}
                       >
                         <i className={`ti ${item.icon}`} style={{ fontSize: 16, flexShrink: 0, width: 18, textAlign: 'center' }} aria-hidden="true" />
                         <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>
-                        <i
-                          className={`ti ${isOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`}
-                          style={{ fontSize: 12, color: NAV.groupLabel, flexShrink: 0, transition: 'transform 0.18s' }}
-                          aria-hidden="true"
-                        />
+                        <i className={`ti ${isOpen ? 'ti-chevron-up' : 'ti-chevron-down'}`}
+                          style={{ fontSize: 12, color: NAV.groupLabel, flexShrink: 0 }} aria-hidden="true" />
                       </div>
                     ) : (
-                      <NavLink
-                        to={item.path}
+                      <NavLink to={item.path}
                         style={({ isActive }) => ({
                           display: 'flex', alignItems: 'center', gap: 8,
                           padding: '7px 8px', borderRadius: 7,
                           color:      isActive ? NAV.textActive : NAV.textBase,
                           background: isActive ? NAV.bgActive   : 'transparent',
                           borderLeft: isActive ? `3px solid ${NAV.accentBar}` : '3px solid transparent',
-                          fontWeight: isActive ? 600 : 400,
-                          fontSize: 13, marginBottom: 1,
-                          textDecoration: 'none',
-                          whiteSpace: 'nowrap',
+                          fontWeight: isActive ? 600 : 400, fontSize: 13, marginBottom: 1,
+                          textDecoration: 'none', whiteSpace: 'nowrap',
                           transition: 'background 0.12s, color 0.12s',
                         })}
                         onMouseEnter={e => { if (!e.currentTarget.getAttribute('aria-current')) { e.currentTarget.style.background = NAV.bgHover; e.currentTarget.style.color = '#d8ecff'; } }}
@@ -441,29 +464,21 @@ export default function Sidebar({ darkMode }) {
                       </NavLink>
                     )}
 
-                    {/* Sub-items */}
                     {hasKids && isOpen && (
                       <div style={{
-                        background: NAV.subBg,
-                        borderRadius: 6,
-                        margin: '0 0 2px 8px',
-                        padding: '2px 0',
-                        borderLeft: `2px solid ${NAV.border}`,
-                        overflow: 'hidden',
+                        background: NAV.subBg, borderRadius: 6,
+                        margin: '0 0 2px 8px', padding: '2px 0',
+                        borderLeft: `2px solid ${NAV.border}`, overflow: 'hidden',
                       }}>
                         {item.children.map(child => (
-                          <NavLink
-                            key={child.path}
-                            to={child.path}
+                          <NavLink key={child.path} to={child.path}
                             style={({ isActive }) => ({
                               display: 'flex', alignItems: 'center', gap: 8,
                               padding: '6px 10px 6px 12px',
-                              color:      isActive ? NAV.accent    : NAV.textBase,
-                              background: isActive ? NAV.bgActive  : 'transparent',
-                              fontWeight: isActive ? 600 : 400,
-                              fontSize: 12,
-                              textDecoration: 'none',
-                              whiteSpace: 'nowrap',
+                              color:      isActive ? NAV.accent   : NAV.textBase,
+                              background: isActive ? NAV.bgActive : 'transparent',
+                              fontWeight: isActive ? 600 : 400, fontSize: 12,
+                              textDecoration: 'none', whiteSpace: 'nowrap',
                               transition: 'background 0.1s, color 0.1s',
                             })}
                             onMouseEnter={e => { e.currentTarget.style.background = NAV.bgHover; e.currentTarget.style.color = '#d8ecff'; }}
@@ -482,21 +497,16 @@ export default function Sidebar({ darkMode }) {
           ))}
         </nav>
 
-        {/* ── Footer ─────────────────────────────────────────────────── */}
+        {/* Footer */}
         <div style={{
-          padding: '10px 12px',
-          borderTop: `1px solid ${NAV.border}`,
-          background: NAV.footerBg,
-          display: 'flex', alignItems: 'center', gap: 10,
-          flexShrink: 0,
+          padding: '10px 12px', borderTop: `1px solid ${NAV.border}`,
+          background: NAV.footerBg, display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0,
         }}>
           <div style={{
             width: 32, height: 32, borderRadius: '50%', flexShrink: 0,
-            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)',
-            color: '#fff',
+            background: 'linear-gradient(135deg, #3b82f6, #1d4ed8)', color: '#fff',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: 11, fontWeight: 800,
-            boxShadow: '0 2px 6px rgba(59,130,246,0.4)',
+            fontSize: 11, fontWeight: 800, boxShadow: '0 2px 6px rgba(59,130,246,0.4)',
           }}>{userInitials}</div>
           <div style={{ minWidth: 0, overflow: 'hidden', flex: 1 }}>
             <div style={{
