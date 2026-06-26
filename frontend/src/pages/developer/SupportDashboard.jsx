@@ -292,34 +292,35 @@ export default function SupportDashboard() {
               marginBottom:        22,
             }}>
               <StatCard
-                label="Total Tickets" value={s.total_tickets}
+                label="Total Tickets" value={s.summary?.total}
                 icon="ti-ticket" color="#4f46e5" darkMode={darkMode}
               />
               <StatCard
-                label="Open" value={s.by_status?.OPEN}
+                label="Open" value={s.summary?.open}
                 icon="ti-folder-open" color="#3b82f6" darkMode={darkMode}
                 onClick={() => setStatusTab('OPEN')} active={statusTab === 'OPEN'}
               />
               <StatCard
-                label="In Progress" value={s.by_status?.IN_PROGRESS}
+                label="In Progress" value={s.summary?.pending}
                 icon="ti-progress" color="#8b5cf6" darkMode={darkMode}
                 onClick={() => setStatusTab('IN_PROGRESS')} active={statusTab === 'IN_PROGRESS'}
               />
               <StatCard
-                label="Pending" value={s.by_status?.PENDING}
+                label="Pending" value={s.summary?.pending}
                 icon="ti-clock" color="#f59e0b" darkMode={darkMode}
                 onClick={() => setStatusTab('PENDING')} active={statusTab === 'PENDING'}
               />
               <StatCard
-                label="Critical" value={s.by_priority?.CRITICAL}
+                label="Critical" value={s.summary?.critical}
                 icon="ti-alert-triangle" color="#ef4444" darkMode={darkMode}
                 onClick={() => setPriority('CRITICAL')} active={priority === 'CRITICAL'}
               />
               <StatCard
-                label="Resolved" value={s.by_status?.RESOLVED}
+                label="Resolved" value={s.summary?.resolved}
                 icon="ti-circle-check" color="#10b981" darkMode={darkMode}
                 onClick={() => setStatusTab('RESOLVED')} active={statusTab === 'RESOLVED'}
               />
+              
             </div>
           )}
 
