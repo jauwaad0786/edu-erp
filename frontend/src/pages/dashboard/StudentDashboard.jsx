@@ -28,11 +28,11 @@ export default function StudentDashboard() {
   const fmt = n => n?.toLocaleString('en-IN') ?? '—';
   const today = new Date().toISOString().split('T')[0];
 
-  return (
+return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar darkMode={false} />
       <div className="main-content">
-        <Navbar title="Student Portal" />
+        <Navbar title="Student Portal" darkMode={false} onToggleDark={() => {}} />
         <div className="page-body">
 
           {/* ── Profile Banner ── */}
