@@ -177,9 +177,9 @@ export default function AdminDashboard() {
 
   return (
     <div className="app-shell">
-      <Sidebar />
+      <Sidebar darkMode={false} />
       <div className="main-content">
-        <Navbar title="Super Admin — Control Center" />
+        <Navbar title="Super Admin — Control Center" darkMode={false} onToggleDark={() => {}} />
         <div className="page-body">
 
           {/* ── Page Header ── */}
