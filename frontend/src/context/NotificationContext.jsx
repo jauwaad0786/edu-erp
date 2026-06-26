@@ -9,28 +9,43 @@ export function NotificationProvider({ children }) {
   const [loading,        setLoading]        = useState(false);
 
   const fetchCounts = useCallback(async () => {
-    // Only fetch if logged in
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
-
-    try {
-      const [notifRes, chatRes] = await Promise.all([
-        api.get('/support/notifications/unread-count'),
-        api.get('/support/chat/unread-count'),
-      ]);
-      setUnreadTickets(notifRes.data?.unread  ?? 0);
-      setUnreadMessages(chatRes.data?.unread  ?? 0);
-    } catch {
-      // Silent fail — user logout ho gaya ho to 401 aayega
+  const token = localStorage.getItem('access_token');
+  if (!token) return;                          // token nahi → skip
+  try {
+    const [notifRes, chatRes] = await Promise.all([
+      api.get('/support/notifications/unread-count'),
+      api.get('/support/chat/unread-count'),
+    ]);
+    // ✅ Sirf number extract karo — object kabhi set mat karo
+    const notifCount = Number(notifRes.data?.unread ?? 0);
+    const chatCount  = Number(chatRes.data?.unread  ?? 0);
+    setUnreadTickets(isNaN(notifCount)  ? 0 : notifCount);
+    setUnreadMessages(isNaN(chatCount) ? 0 : chatCount);
+  } catch (err) {
+    // ✅ 401 pe interval band karo — infinite loop rokne ke liye
+    if (err?.response?.status === 401) {
+      setUnreadTickets(0);
+      setUnreadMessages(0);
     }
-  }, []);
+    // baaki errors silently ignore
+  }
+}, []);
 
-  // On mount + every 30 seconds poll
-  useEffect(() => {
-    fetchCounts();
-    const interval = setInterval(fetchCounts, 30000);
-    return () => clearInterval(interval);
-  }, [fetchCounts]);
+useEffect(() => {
+  // ✅ Token check karke hi interval start karo
+  const token = localStorage.getItem('access_token');
+  if (!token) return;
+
+  fetchCounts();
+  const interval = setInterval(() => {
+    // ✅ Har tick pe bhi token check — logout ke baad interval rok do
+    const t = localStorage.getItem('access_token');
+    if (t) fetchCounts();
+  }, 30000);
+  return () => clearInterval(interval);
+}, [fetchCounts]);
+    // Only fetch if logged in
+    
 
   // Manual refresh — kisi bhi component se call kar sako
   const refresh = useCallback(() => {
