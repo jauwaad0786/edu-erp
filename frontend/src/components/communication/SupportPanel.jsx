@@ -200,7 +200,7 @@ export default function SupportPanel({ isOpen, onClose, darkMode, unreadMessages
             {TABS.map(t => {
               const isActive = tab === t.key;
               const showBadge = t.key === 'notifications' && unreadCount > 0;
-              const showMsgBadge = t.key === 'chat' && unreadMessages > 0;
+              const showMsgBadge = t.key === 'chat' && Number(unreadMessages) > 0;
               return (
                 <button
                   key={t.key}
