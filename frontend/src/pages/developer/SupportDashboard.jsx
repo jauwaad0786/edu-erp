@@ -519,36 +519,19 @@ export default function SupportDashboard() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
 
               {/* By Product */}
-              {s?.by_product && Object.keys(s.by_product).length > 0 && (
-                <div style={{
-                  background: cardBg, border: `1px solid ${border}`,
-                  borderRadius: 12, overflow: 'hidden',
-                }}>
-                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: textPri }}>
-                      <i className="ti ti-apps" style={{ fontSize: 14, marginRight: 6, color: '#4f46e5' }} />
-                      By Product
-                    </span>
-                  </div>
+              {s?.by_product && s.by_product.length > 0 && (
                   <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {Object.entries(s.by_product).map(([product, count]) => (
+                    {s.by_product.map((item) => (
                       <div
-                        key={product}
-                        onClick={() => setProductType(product)}
-                        style={{
-                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                          cursor: 'pointer', padding: '6px 10px', borderRadius: 8,
-                          background: productType === product ? '#eef2ff' : 'transparent',
-                          transition: 'background 0.12s',
-                        }}
-                        onMouseEnter={e => e.currentTarget.style.background = darkMode ? '#1e293b' : '#f8faff'}
-                        onMouseLeave={e => e.currentTarget.style.background = productType === product ? '#eef2ff' : 'transparent'}
+                        key={item.product_type}
+                        onClick={() => setProductType(item.product_type)}
+                        ...
                       >
-                        <span style={{ fontSize: 13, color: textPri, fontWeight: 500 }}>{product}</span>
+                        <span style={{ fontSize: 13, color: textPri, fontWeight: 500 }}>{item.product_type}</span>
                         <span style={{
                           fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
                           background: '#eef2ff', color: '#4f46e5',
-                        }}>{count}</span>
+                        }}>{item.count}</span>
                       </div>
                     ))}
                   </div>
