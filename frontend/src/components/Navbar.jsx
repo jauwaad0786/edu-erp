@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api from '../api/axios';
-
+import NotificationBell from '../components/communication/NotificationBell';
 const BREADCRUMB_MAP = {
   '/dashboard':             'Dashboard',
   '/students':              'Students',
@@ -219,23 +219,10 @@ export default function Navbar({ title, darkMode, onToggleDark }) {
               style={{ fontSize: 16 }} aria-hidden="true" />
           </button>
 
-          {/* ── Messages icon (Customer Support) ── */}
-          <button
-            onClick={() => navigate('/support/chat')}
-            title="Messages"
-            style={navIconBtn(surfaceBg, border, textSub)}
-            {...iconHover}>
-            <i className="ti ti-message-circle" style={{ fontSize: 16 }} aria-hidden="true" />
-          </button>
+          {/* ── Notification + Chat + Support bell ── */}
+          <NotificationBell darkMode={darkMode} />
 
-          {/* ── Support / Helpdesk icon (Customer Support) ── */}
-          <button
-            onClick={() => navigate('/support/tickets')}
-            title="Customer Support"
-            style={navIconBtn(surfaceBg, border, textSub)}
-            {...iconHover}>
-            <i className="ti ti-headset" style={{ fontSize: 16 }} aria-hidden="true" />
-          </button>
+          
 
           {/* ── Attendance bell — PRINCIPAL only (existing, unchanged) ── */}
           {user?.role === 'PRINCIPAL' && (
