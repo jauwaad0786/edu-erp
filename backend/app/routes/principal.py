@@ -1765,7 +1765,6 @@ def delete_teacher(t_id):
 
 @principal_bp.route('/attendance/weekly', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
-@feature_required('advanced_analytics')
 def attendance_weekly():
     """Last 7 days student + teacher attendance for charts."""
     from datetime import timedelta
