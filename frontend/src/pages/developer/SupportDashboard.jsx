@@ -520,12 +520,35 @@ export default function SupportDashboard() {
 
               {/* By Product */}
               {s?.by_product && s.by_product.length > 0 && (
+                <div style={{
+                  background: cardBg, border: `1px solid ${border}`,
+                  borderRadius: 12, overflow: 'hidden',
+                }}>
+                  <div style={{ padding: '12px 16px', borderBottom: `1px solid ${border}` }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: textPri }}>
+                      <i className="ti ti-apps" style={{ fontSize: 14, marginRight: 6, color: '#4f46e5' }} />
+                      By Product
+                    </span>
+                  </div>
                   <div style={{ padding: '10px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {s.by_product.map((item) => (
                       <div
                         key={item.product_type}
                         onClick={() => setProductType(item.product_type)}
-                        ...
+                        style={{
+                          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                          padding: '6px 8px', borderRadius: 8, cursor: 'pointer',
+                          background: productType === item.product_type
+                            ? (darkMode ? '#1e1b4b' : '#eef2ff')
+                            : 'transparent',
+                          transition: 'background 0.12s',
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = darkMode ? '#1e293b' : '#f8faff'}
+                        onMouseLeave={e => e.currentTarget.style.background =
+                          productType === item.product_type
+                            ? (darkMode ? '#1e1b4b' : '#eef2ff')
+                            : 'transparent'
+                        }
                       >
                         <span style={{ fontSize: 13, color: textPri, fontWeight: 500 }}>{item.product_type}</span>
                         <span style={{
@@ -537,7 +560,6 @@ export default function SupportDashboard() {
                   </div>
                 </div>
               )}
-
               {/* Today's Meetings */}
               <div style={{
                 background: cardBg, border: `1px solid ${border}`,
