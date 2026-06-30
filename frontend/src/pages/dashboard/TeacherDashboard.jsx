@@ -24,18 +24,20 @@ export default function TeacherDashboard() {
 
   var today = new Date().toISOString().split('T')[0];
 
-  useEffect(function() {
-    api.get('/principal/classes')
-      .then(function(r) {
-        setClasses(r.data);
-        if (r.data.length) setSelectedClass(String(r.data[0].id));
-      })
-      .catch(function() {});
+  var [assignments, setAssignments] = useState([]); // [{class_id, class_name, subject_id, subject_name}]
 
-    api.get('/principal/subjects')
+  useEffect(function() {
+    api.get('/principal/teacher/my-assignments')
       .then(function(r) {
-        setSubjects(r.data);
-        if (r.data.length) setSelectedSubject(String(r.data[0].id));
+        var data = r.data || [];
+        setAssignments(data);
+        var uniqClasses = [];
+        var seen = {};
+        data.forEach(function(a) {
+          if (!seen[a.class_id]) { seen[a.class_id] = true; uniqClasses.push({ id: a.class_id, name: a.class_name, section: '' }); }
+        });
+        setClasses(uniqClasses);
+        if (uniqClasses.length) setSelectedClass(String(uniqClasses[0].id));
       })
       .catch(function() {});
 
@@ -50,6 +52,8 @@ export default function TeacherDashboard() {
 
   useEffect(function() {
     if (!selectedClass) return;
+    var firstAssign = assignments.find(function(a) { return String(a.class_id) === String(selectedClass); });
+    if (firstAssign) setSelectedSubject(String(firstAssign.subject_id));
     setStudents([]);
     setAttendance({});
     setAlreadyMarked(false);
@@ -390,16 +394,18 @@ export default function TeacherDashboard() {
               }}>
                 <h4 style={{ margin:0 }}>Enter Marks</h4>
                 <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
-                  {subjects.length > 0 && (
+                  {assignments.filter(function(a) { return String(a.class_id) === String(selectedClass); }).length > 0 && (
                     <select
                       className="form-select"
                       style={{ width:160 }}
                       value={selectedSubject}
                       onChange={function(e) { setSelectedSubject(e.target.value); }}
                     >
-                      {subjects.map(function(s) {
-                        return <option key={s.id} value={String(s.id)}>{s.name}</option>;
-                      })}
+                      {assignments
+                        .filter(function(a) { return String(a.class_id) === String(selectedClass); })
+                        .map(function(a) {
+                          return <option key={a.subject_id} value={String(a.subject_id)}>{a.subject_name}</option>;
+                        })}
                     </select>
                   )}
                   <select
