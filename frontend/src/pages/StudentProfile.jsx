@@ -137,9 +137,6 @@ export default function StudentProfile() {
       .then(r => setData(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
-
-    api.get(`/student/marks`)
-      .catch(() => {});
   }, [id]);
 
   const downloadCard = async (type) => {
