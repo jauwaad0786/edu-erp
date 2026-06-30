@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from '../components/Sidebar';
 import Navbar  from '../components/Navbar';
 import api from '../api/axios';
@@ -15,6 +16,7 @@ const STAFF_ROLES = [
 ];
 
 export default function StaffPage() {
+  const navigate = useNavigate();
   const [staff,        setStaff]        = useState([]);
   const [filter,        setFilter]       = useState('');
   const [roleFilter,    setRoleFilter]   = useState('');
@@ -159,14 +161,17 @@ export default function StaffPage() {
                   {filtered.map(u => (
                     <tr key={u.id}>
                       <td>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <div
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+                          onClick={() => navigate(`/staff/${u.id}`)}
+                          title="Profile dekhne ke liye click karein">
                           <div style={{
                             width: 32, height: 32, borderRadius: '50%',
                             background: '#f3f0ff', color: '#5867e8',
                             display: 'flex', alignItems: 'center',
                             justifyContent: 'center', fontSize: 13, fontWeight: 700,
                           }}>{u.name?.charAt(0).toUpperCase()}</div>
-                          <div style={{ fontWeight: 600 }}>{u.name}</div>
+                          <div style={{ fontWeight: 600, color: '#5867e8', borderBottom: '1px dashed #c4b5fd' }}>{u.name}</div>
                         </div>
                       </td>
                       <td>
