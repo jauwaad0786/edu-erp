@@ -2382,7 +2382,66 @@ def update_student(student_id):
         'class_name':   f"{cls.name} - {cls.section}" if cls else '',
         'photo_url':    student.photo_url    or None,
     }), 200
+@principal_bp.route('/staff-list', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def staff_list_for_id_cards():
+    """Non-teacher staff (Librarian, Accountant, etc.) for ID card module."""
+    from app.models.user import User, UserRole
+    staff_roles = [UserRole.LIBRARIAN, UserRole.ACCOUNTANT, UserRole.RECEPTIONIST,
+                   UserRole.HOSTEL, UserRole.TRANSPORT, UserRole.HR, UserRole.VICE_PRINCIPAL]
+    users = User.query.filter(
+        User.school_id == _school_id(),
+        User.role.in_(staff_roles),
+    ).all()
+    return jsonify([{
+        'id':           u.id,
+        'name':         u.name,
+        'employee_id':  u.username or str(u.id),
+        'department':   u.department,
+        'designation':  u.designation or u.role.value.replace('_', ' ').title(),
+        'phone':        u.phone,
+        'photo_url':    None,
+        'joining_date': u.created_at.date().isoformat() if u.created_at else None,
+    } for u in users]), 200
 
+
+@principal_bp.route('/staff-list/<int:user_id>/id-card', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def generate_staff_id_card(user_id):
+    from app.models.user import User
+    from app.models.school import School
+    from app.utils.id_card_generator import generate_id_card_pdf
+
+    u = User.query.get_or_404(user_id)
+    if u.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    school = School.query.get(u.school_id)
+    employee_dict = {
+        'id':           u.id,
+        'name':         u.name,
+        'employee_id':  u.username or str(u.id),
+        'designation':  u.designation or u.role.value.replace('_', ' ').title(),
+        'department':   u.department or '',
+        'phone':        u.phone or '',
+        'joining_date': u.created_at.date().isoformat() if u.created_at else '',
+        'photo_url':    None,
+        'session':      str(date.today().year),
+    }
+    school_dict = {
+        'name':     school.name     if school else '',
+        'city':     school.city     if school else '',
+        'address':  school.address  if school else '',
+        'phone':    school.phone    if school else '',
+        'email':    school.email    if school else '',
+        'logo_url': school.logo_url if school else None,
+        'principal_signature_url': school.principal_signature_url if school else None,
+    }
+
+    buf = generate_id_card_pdf(employee_dict, school_dict, card_type='employee')
+    safe_name = u.name.replace(' ', '_')
+    filename  = f"StaffIDCard_{safe_name}_{u.id}.pdf"
+    return send_file(buf, mimetype='application/pdf', as_attachment=True, download_name=filename)
 
 @principal_bp.route('/students/<int:student_id>', methods=['DELETE'])
 @role_required('PRINCIPAL')
