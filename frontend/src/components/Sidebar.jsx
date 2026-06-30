@@ -45,21 +45,11 @@ const ROLE_MENUS = {
       group: 'Academics',
       items: [
         {
-          icon: 'ti-school', label: 'Class & Section Management', path: '/classes',
+          icon: 'ti-school', label: 'Academics', path: '/classes',
           children: [
-            { icon: 'ti-list', label: 'All Classes', path: '/classes' },
-          ],
-        },
-        {
-          icon: 'ti-user-plus', label: 'Admissions', path: '/admission',
-          children: [
-            { icon: 'ti-user-plus', label: 'New Admission', path: '/admission' },
-          ],
-        },
-        {
-          icon: 'ti-user-graduate', label: 'Students', path: '/students',
-          children: [
-            { icon: 'ti-address-book',   label: 'Directory',             path: '/students' },
+            { icon: 'ti-list',           label: 'Classes & Sections',    path: '/classes' },
+            { icon: 'ti-user-plus',      label: 'Admissions',            path: '/admission' },
+            { icon: 'ti-address-book',   label: 'Students',              path: '/students' },
             { icon: 'ti-edit',           label: 'Students Bulk Edit',    path: '/students/bulk-edit' },
             { icon: 'ti-arrows-shuffle', label: 'Section Shuffle',       path: '/students/section-shuffle' },
             { icon: 'ti-id-badge',       label: 'ID Cards',              path: '/id-cards' },
@@ -81,23 +71,14 @@ const ROLE_MENUS = {
       ],
     },
     {
-      group: 'Attendance',
+      group: 'Operations',
       items: [
         {
-          icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance',
+          icon: 'ti-clipboard-check', label: 'Operations', path: '/attendance',
           children: [
-            { icon: 'ti-clipboard-check', label: 'Mark Attendance', path: '/attendance' },
-          ],
-        },
-      ],
-    },
-    {
-      group: 'Timetable',
-      items: [
-        {
-          icon: 'ti-calendar-time', label: 'Timetable', path: '/timetable',
-          children: [
-            { icon: 'ti-calendar-time', label: 'Weekly Timetable', path: '/timetable' },
+            { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
+            { icon: 'ti-calendar-time',   label: 'Timetable',  path: '/timetable' },
+            { icon: 'ti-receipt',         label: 'Fees',       path: '/fees' },
           ],
         },
       ],
@@ -106,23 +87,12 @@ const ROLE_MENUS = {
       group: 'Examinations',
       items: [
         {
-          icon: 'ti-pencil', label: 'Exams', path: '/exams',
+          icon: 'ti-pencil', label: 'Examinations', path: '/exams',
           children: [
-            { icon: 'ti-pencil',    label: 'Exam Schedule', path: '/exams' },
-            { icon: 'ti-chart-bar', label: 'Marks',         path: '/marks' },
-          ],
-        },
-        { icon: 'ti-ticket', label: 'Admit Cards',        path: '/admit-card' },
-        { icon: 'ti-books',  label: 'Subject Management', path: '/subjects' },
-      ],
-    },
-    {
-      group: 'Finance',
-      items: [
-        {
-          icon: 'ti-receipt', label: 'Fees', path: '/fees',
-          children: [
-            { icon: 'ti-receipt', label: 'Fee Records', path: '/fees' },
+            { icon: 'ti-pencil',    label: 'Exam Schedule',      path: '/exams' },
+            { icon: 'ti-chart-bar', label: 'Marks',              path: '/marks' },
+            { icon: 'ti-ticket',    label: 'Admit Cards',        path: '/admit-card' },
+            { icon: 'ti-books',     label: 'Subject Management', path: '/subjects' },
           ],
         },
       ],
