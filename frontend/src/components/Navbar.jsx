@@ -54,6 +54,27 @@ export default function Navbar({ title, darkMode, onToggleDark }) {
   const navigate         = useNavigate();
   const location         = useLocation();
 
+  // ── Student search state ──────────────────────────────────────────────────
+  const [searchQ,       setSearchQ]       = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searchOpen,    setSearchOpen]    = useState(false);
+  const [searching,     setSearching]     = useState(false);
+
+  useEffect(() => {
+    if (!searchQ.trim() || !['PRINCIPAL', 'TEACHER'].includes(user?.role)) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    const t = setTimeout(() => {
+      api.get('/principal/students', { params: { search: searchQ, per_page: 6 } })
+        .then(r => { setSearchResults(r.data?.data || []); setSearchOpen(true); })
+        .catch(() => setSearchResults([]))
+        .finally(() => setSearching(false));
+    }, 300);
+    return () => clearTimeout(t);
+  }, [searchQ, user]);
+
   // ── Attendance bell state (PRINCIPAL only) ────────────────────────────────
   const [pendingCount, setPendingCount] = useState(0);
   const [pendingReqs,  setPendingReqs]  = useState([]);
@@ -183,8 +204,86 @@ export default function Navbar({ title, darkMode, onToggleDark }) {
           </div>
         </div>
 
+        {/* ── Student Search ── */}
+        {['PRINCIPAL', 'TEACHER'].includes(user?.role) && (
+          <div style={{ position: 'relative', flex: 1, maxWidth: 320, margin: '0 16px' }}>
+            <i className="ti ti-search" style={{
+              position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)',
+              fontSize: 13, color: textMuted, pointerEvents: 'none',
+            }} aria-hidden="true" />
+            <input
+              value={searchQ}
+              onChange={e => setSearchQ(e.target.value)}
+              onFocus={() => searchResults.length && setSearchOpen(true)}
+              placeholder="Search students by name, roll no..."
+              style={{
+                width: '100%', padding: '7px 10px 7px 30px', fontSize: 12,
+                background: surfaceBg, border: `1px solid ${border}`,
+                borderRadius: 8, color: textPrimary, outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+            {searchOpen && searchQ.trim() && (
+              <>
+                <div style={{ position: 'fixed', inset: 0, zIndex: 98 }}
+                  onClick={() => setSearchOpen(false)} />
+                <div style={{
+                  position: 'absolute', top: 36, left: 0, width: '100%',
+                  background: dropBg, borderRadius: 10,
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+                  border: `1px solid ${dropBorder}`, zIndex: 99, overflow: 'hidden',
+                }}>
+                  {searching ? (
+                    <div style={{ padding: 16, fontSize: 12, color: textMuted, textAlign: 'center' }}>
+                      Searching...
+                    </div>
+                  ) : searchResults.length === 0 ? (
+                    <div style={{ padding: 16, fontSize: 12, color: textMuted, textAlign: 'center' }}>
+                      No students found
+                    </div>
+                  ) : (
+                    searchResults.map(s => (
+                      <div key={s.id}
+                        onClick={() => {
+                          navigate(`/students/${s.id}`);
+                          setSearchOpen(false);
+                          setSearchQ('');
+                        }}
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: '8px 14px', cursor: 'pointer',
+                          borderBottom: `1px solid ${darkMode ? '#1e293b' : '#f8fafc'}`,
+                        }}
+                        onMouseEnter={e => e.currentTarget.style.background = hoverBg}
+                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                        <div style={{
+                          width: 28, height: 28, borderRadius: '50%', flexShrink: 0,
+                          background: '#f3f0ff', color: '#5867e8',
+                          display: 'flex', alignItems: 'center', justifyContent: 'center',
+                          fontSize: 11, fontWeight: 700, overflow: 'hidden',
+                        }}>
+                          {s.photo_url
+                            ? <img src={s.photo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                            : s.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: textPrimary }}>{s.name}</div>
+                          <div style={{ fontSize: 10, color: textMuted }}>
+                            Roll: {s.roll_number || '—'}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
         {/* ── Right Controls ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+
+          {/* Date */}
 
           {/* Date */}
           <span style={{ fontSize: 12, color: textMuted, fontWeight: 400, padding: '4px 10px' }}>
