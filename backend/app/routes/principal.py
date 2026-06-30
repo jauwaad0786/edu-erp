@@ -2913,5 +2913,30 @@ def principal_update_user(user_id):
         if field in data:
             setattr(user, field, (data[field] or '').strip() or None)
 
+
+
+
+@principal_bp.route('/teacher/my-assignments', methods=['GET'])
+@role_required('TEACHER')
+def my_teaching_assignments():
+    """Teacher ko sirf wahi classes+subjects dikhao jo unhe assign hain."""
+    from app.models.academic import Teacher
+    user = get_current_user()
+    teacher = Teacher.query.filter_by(user_id=user.id).first()
+    if not teacher:
+        return jsonify([]), 200
+    subjects = Subject.query.filter_by(teacher_id=teacher.id).all()
+    result = []
+    for s in subjects:
+        cls = Class.query.get(s.class_id)
+        if cls:
+            result.append({
+                'class_id':    cls.id,
+                'class_name':  f"{cls.name} {cls.section}",
+                'subject_id':  s.id,
+                'subject_name': s.name,
+            })
+    return jsonify(result), 200
+
     db.session.commit()
     return jsonify(user.to_dict_with_credentials()), 200
