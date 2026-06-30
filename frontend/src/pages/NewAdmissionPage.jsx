@@ -14,6 +14,8 @@ export default function NewAdmissionPage() {
   const [done,    setDone]    = useState(null); // admitted student data
   const [photoUploading, setPhotoUploading] = useState(false);
   const [photoPreview,   setPhotoPreview]   = useState(null);
+  const [schoolSlug,     setSchoolSlug]     = useState('school');
+  const [pendingPhoto,   setPendingPhoto]   = useState(null);
 
   const [form, setForm] = useState({
     name:         '',
@@ -36,6 +38,13 @@ export default function NewAdmissionPage() {
     api.get('/principal/classes')
       .then(r => setClasses(r.data || []))
       .catch(() => {});
+
+    api.get('/principal/school/settings')
+      .then(r => {
+        const name = (r.data?.name || 'school').toLowerCase().replace(/[^a-z0-9]/g, '');
+        setSchoolSlug(name || 'school');
+      })
+      .catch(() => {});
   }, []);
 
   function set(field, val) {
@@ -55,14 +64,20 @@ export default function NewAdmissionPage() {
     }
     setSaving(true);
     try {
-      const autoEmail = `stu_${form.roll_number || Date.now()}_${
-        Math.random().toString(36).slice(2, 6)
-      }@internal.school`;
+      const firstName = (form.name || 'student').trim().split(/\s+/)[0].toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+      const autoEmail = `${firstName || 'student'}@${schoolSlug}.com`;
 
       const res = await api.post('/principal/students', {
         ...form,
         email: autoEmail,
       });
+
+      // agar admission form pe photo pehle se select ki gayi thi, turant upload kardo
+      if (pendingPhoto) {
+        await uploadPhoto(res.data.id, pendingPhoto);
+        setPendingPhoto(null);
+      }
 
       setDone(res.data);
       toast.success('Student admit ho gaya!');
@@ -314,6 +329,40 @@ async function downloadPDF(studentId, studentName) {
                         value={form.address}
                         onChange={e => set('address', e.target.value)} />
                     </div>
+                  </div>
+
+                  {/* section: photo (optional) */}
+                  <div style={{
+                    fontSize: 11, fontWeight: 700, color: 'var(--neutral-5)',
+                    letterSpacing: 1, marginBottom: 12,
+                    paddingTop: 12, borderTop: '1px solid var(--neutral-2)',
+                  }}>STUDENT PHOTO (OPTIONAL)</div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                    {pendingPhoto
+                      ? <img src={URL.createObjectURL(pendingPhoto)} alt="Preview" style={{
+                            width: 64, height: 70, objectFit: 'cover',
+                            borderRadius: 8, border: '2px solid #0176d3' }} />
+                      : <div style={{
+                            width: 64, height: 70, background: '#f1f5f9',
+                            borderRadius: 8, display: 'flex', alignItems: 'center',
+                            justifyContent: 'center', color: '#94a3b8', fontSize: 11 }}>No Photo</div>
+                    }
+                    <label style={{
+                        cursor: 'pointer', display: 'inline-flex', alignItems: 'center',
+                        gap: 6, background: '#f1f5f9', padding: '8px 14px',
+                        borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#475569' }}>
+                      📷 {pendingPhoto ? 'Change Photo' : 'Upload Photo (optional)'}
+                      <input type="file" accept="image/*" style={{ display: 'none' }}
+                        onChange={e => e.target.files[0] && setPendingPhoto(e.target.files[0])} />
+                    </label>
+                    {pendingPhoto && (
+                      <button type="button" onClick={() => setPendingPhoto(null)} style={{
+                          background: 'none', border: 'none',
+                          color: '#dc2626', fontSize: 12, cursor: 'pointer' }}>
+                        🗑 Remove
+                      </button>
+                    )}
                   </div>
 
                   {/* section: login */}
