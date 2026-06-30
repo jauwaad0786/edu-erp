@@ -42,7 +42,7 @@ const ROLE_MENUS = {
       ],
     },
     {
-      group: 'Academics',
+      group: '',
       items: [
         {
           icon: 'ti-school', label: 'Academics', path: '/classes',
@@ -58,8 +58,9 @@ const ROLE_MENUS = {
         },
       ],
     },
+    // ── NEW ──
     {
-      group: 'Staff Management',
+      group: '',
       items: [
         {
           icon: 'ti-users', label: 'Staff Management', path: '/teachers',
@@ -70,8 +71,9 @@ const ROLE_MENUS = {
         },
       ],
     },
+    // ── NEW ──
     {
-      group: 'Operations',
+      group: '',
       items: [
         {
           icon: 'ti-clipboard-check', label: 'Operations', path: '/attendance',
@@ -83,6 +85,7 @@ const ROLE_MENUS = {
         },
       ],
     },
+    // ── OLD ──
     {
       group: 'Examinations',
       items: [
@@ -97,18 +100,20 @@ const ROLE_MENUS = {
         },
       ],
     },
+    // ── NEW ──
     {
-      group: 'Documents',
+      group: '',
       items: [
         { icon: 'ti-file-text', label: 'Documents', path: '/documents' },
         { icon: 'ti-notes',     label: 'Notes',     path: '/notes' },
       ],
     },
+    // ── NEW ──
     {
-      group: 'Customer Service',
+      group: '',
       items: [
         {
-          icon: 'ti-headset', label: 'Support Center', path: '/support/tickets',
+          icon: 'ti-headset', label: 'Customer Service', path: '/support/tickets',
           children: [
             { icon: 'ti-ticket',       label: 'My Tickets',    path: '/support/tickets' },
             { icon: 'ti-plus',         label: 'New Ticket',    path: '/support/tickets/new' },
@@ -381,13 +386,18 @@ export default function Sidebar({ darkMode }) {
             </div>
           )}
 
+          // ── NEW ──
           {filteredGroups.map((group, gi) => (
             <div key={gi} style={{ marginBottom: 2 }}>
-              <div style={{
-                fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', color: NAV.groupLabel,
-                padding: gi === 0 ? '6px 8px 3px' : '12px 8px 3px',
-                textTransform: 'uppercase', userSelect: 'none',
-              }}>{group.group}</div>
+              {group.group && (
+                <div style={{
+                  fontSize: 10, fontWeight: 700, letterSpacing: '0.09em', color: NAV.groupLabel,
+                  padding: gi === 0 ? '6px 8px 3px' : '12px 8px 3px',
+                  textTransform: 'uppercase', userSelect: 'none',
+                }}>{group.group}</div>
+              )}
+          
+              {group.items.map(item => {
 
               {group.items.map(item => {
                 const active  = isItemActive(item);
