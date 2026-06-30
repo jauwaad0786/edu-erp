@@ -2811,3 +2811,40 @@ def principal_toggle_user(user_id):
         'is_active': user.is_active,
         'message':   'User ' + ('activated' if user.is_active else 'deactivated'),
     }), 200
+
+
+
+
+# ── Get single user profile (own school only) ──────────────────────────────
+@principal_bp.route('/users/<int:user_id>/profile', methods=['GET'])
+@role_required('PRINCIPAL')
+@feature_required('role_based_access')
+def principal_user_profile(user_id):
+    from app.models.user import User
+    sid  = _school_id()
+    user = User.query.get_or_404(user_id)
+    if user.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    return jsonify(user.to_dict_with_credentials()), 200
+
+
+# ── Update user profile fields (own school only) ────────────────────────────
+@principal_bp.route('/users/<int:user_id>', methods=['PATCH'])
+@role_required('PRINCIPAL')
+@feature_required('role_based_access')
+def principal_update_user(user_id):
+    from app.models.user import User, UserRole
+    sid  = _school_id()
+    user = User.query.get_or_404(user_id)
+    if user.school_id != sid:
+        return jsonify({'error': 'Unauthorized'}), 403
+    if user.role in (UserRole.SUPER_ADMIN, UserRole.PRINCIPAL):
+        return jsonify({'error': 'Cannot edit this role'}), 403
+
+    data = request.get_json() or {}
+    for field in ['name', 'phone', 'department', 'designation']:
+        if field in data:
+            setattr(user, field, (data[field] or '').strip() or None)
+
+    db.session.commit()
+    return jsonify(user.to_dict_with_credentials()), 200
