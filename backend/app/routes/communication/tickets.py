@@ -440,13 +440,20 @@ def assign_ticket(ticket_id):
 
 # ─── 6. Update Status (SUPER_ADMIN only) ──────────────────────────────────────
 
+# ── NEW ──
 @tickets_bp.route('/<int:ticket_id>/status', methods=['PATCH'])
-@role_required('SUPER_ADMIN')
+@role_required('SUPER_ADMIN', 'PRINCIPAL', 'VICE_PRINCIPAL',
+               'TEACHER', 'STUDENT', 'PARENT',
+               'ACCOUNTANT', 'RECEPTIONIST', 'LIBRARIAN',
+               'HOSTEL', 'TRANSPORT', 'HR')
 def update_ticket_status(ticket_id):
     """
     PATCH /api/support/tickets/<id>/status
     Body: { status, resolution_notes (optional) }
     Valid: OPEN | PENDING | IN_PROGRESS | WAITING | RESOLVED | CLOSED | REJECTED
+
+    SUPER_ADMIN: koi bhi status set kar sakta hai.
+    Ticket raiser (non-admin): sirf apna khud ka ticket, sirf CLOSED ya OPEN (reopen) kar sakta hai.
     """
     ticket = SupportTicket.query.get_or_404(ticket_id)
     data   = request.get_json() or {}
@@ -459,6 +466,13 @@ def update_ticket_status(ticket_id):
     new_status = (data.get('status') or '').upper()
     if new_status not in valid_statuses:
         return jsonify({'error': f'Invalid status. Valid: {valid_statuses}'}), 400
+
+    # ── Non-admin access control ──────────────────────────────────────────────
+    if user.role != UserRole.SUPER_ADMIN:
+        if ticket.raised_by != user.id:
+            return jsonify({'error': 'Unauthorized'}), 403
+        if new_status not in ('CLOSED', 'OPEN'):
+            return jsonify({'error': 'Aap sirf ticket close ya reopen kar sakte ho'}), 403
 
     old_status    = ticket.status
     ticket.status = new_status
