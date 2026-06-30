@@ -108,7 +108,7 @@ export default function TicketDetail() {
             <i className="ti ti-arrow-left" style={{ fontSize: 13 }} aria-hidden="true" /> Back to Inbox
           </button>
 
-          <div style={{ display: 'grid', gridTemplateColumns: isAdmin ? '1fr 300px' : '1fr', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20 }}>
 
             {/* Main thread */}
             <div>
@@ -218,7 +218,8 @@ export default function TicketDetail() {
             </div>
 
             {/* Admin sidebar — status control */}
-            {isAdmin && (
+            // ── NEW — normal user ko bhi action buttons (Resolve / Close / Reopen) milte hain ──
+            {isAdmin ? (
               <div className="card" style={{ ...cardBg, alignSelf: 'flex-start' }}>
                 <div className="card-header"><h4 style={{ margin: 0, fontSize: 13 }}>Manage Ticket</h4></div>
                 <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -234,6 +235,30 @@ export default function TicketDetail() {
                     <div>Category: <strong>{ticket.category}</strong></div>
                     <div>Assigned: <strong>{ticket.assigned_to || 'Unassigned'}</strong></div>
                   </div>
+                </div>
+              </div>
+            ) : (
+              <div className="card" style={{ ...cardBg, alignSelf: 'flex-start' }}>
+                <div className="card-header"><h4 style={{ margin: 0, fontSize: 13 }}>Actions</h4></div>
+                <div style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {!['CLOSED', 'RESOLVED', 'REJECTED'].includes(ticket.status) && (
+                    <button className="btn btn-sm" onClick={() => updateStatus('CLOSED')} style={{
+                      background: '#fef2f2', color: '#dc2626', border: 'none', borderRadius: 6,
+                      padding: '8px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
+                    }}>
+                      <i className="ti ti-x" style={{ fontSize: 14 }} aria-hidden="true" /> Close Ticket
+                    </button>
+                  )}
+                  {['RESOLVED', 'CLOSED'].includes(ticket.status) && (
+                    <button className="btn btn-sm" onClick={() => updateStatus('OPEN')} style={{
+                      background: '#eff6ff', color: '#1d4ed8', border: 'none', borderRadius: 6,
+                      padding: '8px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                      display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'center',
+                    }}>
+                      <i className="ti ti-refresh" style={{ fontSize: 14 }} aria-hidden="true" /> Reopen Ticket
+                    </button>
+                  )}
                 </div>
               </div>
             )}
