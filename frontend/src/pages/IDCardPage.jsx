@@ -438,6 +438,7 @@ export default function IDCardPage() {
   const { type = 'students' } = useParams();      // 'students' | 'employees'
   const navigate = useNavigate();
   const isEmployee = type === 'employees';
+  const isStaff    = type === 'staff';
 
   const [classes,     setClasses]     = useState([]);
   const [items,       setItems]       = useState([]);   // students or employees
@@ -459,7 +460,19 @@ export default function IDCardPage() {
   }, []);
 
   // Load items (students or employees)
+  // Load items (students or employees or staff)
   useEffect(function() {
+    if (isStaff) {
+      setLoading(true);
+      api.get('/principal/staff-list').then(function(r) {
+        setItems(Array.isArray(r.data) ? r.data : []);
+        setSelId('');
+        setPreview(null);
+      }).catch(function() {
+        toast.error('Staff load nahi hue');
+      }).finally(function() { setLoading(false); });
+      return;
+    }
     if (isEmployee) {
       setLoading(true);
       api.get('/principal/teachers').then(function(r) {
@@ -484,14 +497,28 @@ export default function IDCardPage() {
         }).catch(function() { toast.error('Students load nahi hue'); })
         .finally(function() { setLoading(false); });
     }
-  }, [selClass, isEmployee]);
+  }, [selClass, isEmployee, isStaff]);
 
   // Load preview
   var loadPreview = useCallback(function(id, itemType) {
     if (!id) { setPreview(null); return; }
+    if (itemType === 'staff') {
+      Promise.all([
+        api.get('/principal/staff-list'),
+        api.get('/principal/school/settings'),
+      ]).then(function(results) {
+        var u = (results[0].data || []).find(function(x) { return String(x.id) === String(id); });
+        setPreview({ student: { ...u, session: new Date().getFullYear() + '-' + (new Date().getFullYear()+1) }, school: results[1].data || {}, isEmployee: true });
+      }).catch(function() { toast.error('Preview load nahi hua'); });
+      return;
+    }
     if (itemType === 'employee') {
-      api.get('/principal/teachers/' + id + '/profile').then(function(r) {
-        var info = r.data.info || {};
+      Promise.all([
+        api.get('/principal/teachers/' + id + '/profile'),
+        api.get('/principal/school/settings'),
+      ]).then(function(results) {
+        var info   = results[0].data.info || {};
+        var school = results[1].data || {};
         setPreview({
           student: {
             id:           info.id,
@@ -504,7 +531,7 @@ export default function IDCardPage() {
             photo_url:    info.photo_url,
             session:      new Date().getFullYear() + '-' + (new Date().getFullYear()+1),
           },
-          school: {},
+          school: school,
           isEmployee: true,
         });
       }).catch(function() { toast.error('Preview load nahi hua'); });
