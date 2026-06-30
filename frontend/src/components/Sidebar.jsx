@@ -386,7 +386,6 @@ export default function Sidebar({ darkMode }) {
             </div>
           )}
 
-          // ── NEW (fixed) ──
           {filteredGroups.map((group, gi) => (
             <div key={gi} style={{ marginBottom: 2 }}>
               {group.group && (
