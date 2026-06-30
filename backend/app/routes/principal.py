@@ -2168,6 +2168,7 @@ def generate_student_id_card(student_id):
         'phone':   school.phone    if school else '',
         'email':   school.email    if school else '',
         'logo_url':school.logo_url if school else None,
+        'principal_signature_url': school.principal_signature_url if school else None,
     }
     cls_name = (f"{cls.name} - {cls.section}" if cls else '')
 
