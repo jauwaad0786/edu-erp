@@ -543,7 +543,7 @@ def create_student():
         name=data['name'], email=data['email'].lower(),
         role=UserRole.STUDENT, school_id=sid
     )
-    user.set_password(data.get('password', 'Student@123'))
+    user.set_password(data.get('password', 'Student@123'), store_plain=True)
     db.session.add(user)
     db.session.flush()
     student = Student(
