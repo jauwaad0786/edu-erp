@@ -218,7 +218,7 @@ export default function TicketDetail() {
             </div>
 
             {/* Admin sidebar — status control */}
-            // ── NEW — normal user ko bhi action buttons (Resolve / Close / Reopen) milte hain ──
+            
             {isAdmin ? (
               <div className="card" style={{ ...cardBg, alignSelf: 'flex-start' }}>
                 <div className="card-header"><h4 style={{ margin: 0, fontSize: 13 }}>Manage Ticket</h4></div>
