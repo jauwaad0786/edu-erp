@@ -329,7 +329,17 @@ def _draw_back(c, ox, oy, student, school):
         c.drawString(ox + 3.5*mm, tc_y - 3.5*mm - i * 3.8*mm, t)
 
     # Signature
+    # Signature — actual uploaded image, drawn above the line
+    from reportlab.lib.utils import ImageReader
     sig_y = oy + 11*mm
+    sig_bytes = _load_image_bytes(school.get('principal_signature_url'))
+    if sig_bytes:
+        try:
+            ir = ImageReader(io.BytesIO(sig_bytes))
+            c.drawImage(ir, ox + 5*mm, sig_y + 0.5*mm, 22*mm, 6*mm,
+                        preserveAspectRatio=True, anchor='sw', mask='auto')
+        except Exception:
+            pass
     c.setStrokeColor(colors.HexColor('#cbd5e1'))
     c.setLineWidth(0.5)
     c.line(ox + 5*mm, sig_y, ox + 28*mm, sig_y)
@@ -338,12 +348,32 @@ def _draw_back(c, ox, oy, student, school):
     c.drawString(ox + 5*mm, sig_y - 3.5*mm, 'Principal Signature')
 
     # Footer
+    # Authorized signature — small, above bottom bar
+    from reportlab.lib.utils import ImageReader
+    fsig_y = oy + 9*mm
+    fsig_bytes = _load_image_bytes(school.get('principal_signature_url'))
+    if fsig_bytes:
+        try:
+            ir = ImageReader(io.BytesIO(fsig_bytes))
+            c.drawImage(ir, ox + W - 22*mm, fsig_y + 0.5*mm, 18*mm, 5*mm,
+                        preserveAspectRatio=True, anchor='sw', mask='auto')
+        except Exception:
+            pass
+    c.setStrokeColor(colors.HexColor('#cbd5e1'))
+    c.setLineWidth(0.4)
+    c.line(ox + W - 22*mm, fsig_y, ox + W - 3*mm, fsig_y)
+    c.setFont('Helvetica', 3.8)
+    c.setFillColor(GREY)
+    c.drawRightString(ox + W - 3*mm, fsig_y - 2.2*mm, 'Authorized Signatory')
+
+    # Bottom bar
     _draw_rounded_rect(c, ox, oy, W, 7*mm, 4*mm, fill_color=NAVY)
     c.setFillColor(NAVY)
     c.rect(ox, oy + 4*mm, W, 3*mm, fill=1, stroke=0)
-    c.setFillColor(ACCENT)
-    c.setFont('Helvetica-Bold', 5)
-    c.drawCentredString(ox + W/2, oy + 2.5*mm, 'Valid For Session: ' + (student.get('session') or '2024-25'))
+    c.setFillColor(WHITE)
+    c.setFont('Helvetica-Bold', 5.5)
+    footer = 'If found, return to school | ' + (school.get('phone') or '')
+    c.drawCentredString(ox + W / 2, oy + 2.5*mm, footer)
 
 
 # ── EMPLOYEE FRONT ────────────────────────────────────────────────────────────
