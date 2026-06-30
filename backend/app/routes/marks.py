@@ -10,7 +10,20 @@ marks_bp = Blueprint('marks', __name__)
 
 def _school_id():
     return get_current_user().school_id
-
+    
+def _teacher_subject_ids(user, class_id=None):
+    """Returns set of subject_ids this teacher is assigned to (optionally within one class).
+       Returns None if user is PRINCIPAL (no restriction)."""
+    if user.role.value == 'PRINCIPAL':
+        return None
+    from app.models.academic import Teacher
+    teacher = Teacher.query.filter_by(user_id=user.id).first()
+    if not teacher:
+        return set()
+    q = Subject.query.filter_by(teacher_id=teacher.id)
+    if class_id:
+        q = q.filter_by(class_id=class_id)
+    return {s.id for s in q.all()}
 
 # ─── Grid View (ALL subjects at once) ────────────────────────────────────────
 
@@ -38,7 +51,16 @@ def get_marks_grid():
         return jsonify({'error': 'Unauthorized'}), 403
 
     # All subjects for this class
+    # All subjects for this class
     subjects = Subject.query.filter_by(class_id=class_id).all()
+
+    # TEACHER: sirf apne assigned subjects dekh sake
+    user = get_current_user()
+    allowed_ids = _teacher_subject_ids(user, class_id)
+    if allowed_ids is not None:
+        subjects = [s for s in subjects if s.id in allowed_ids]
+        if not subjects:
+            return jsonify({'error': 'Aapko is class mein koi subject assign nahi hai'}), 403
 
     # Per-subject max/pass marks — prefer ExamTimetable, fallback to Subject
     subject_meta = []
@@ -232,6 +254,11 @@ def save_marks():
         return jsonify({'error': 'Unauthorized'}), 403
 
     subject = Subject.query.get_or_404(subject_id)
+
+    user_check = get_current_user()
+    allowed_check = _teacher_subject_ids(user_check, class_id)
+    if allowed_check is not None and subject_id not in allowed_check:
+        return jsonify({'error': 'Aapko is subject ke marks daalne ki permission nahi hai'}), 403
 
     tt = ExamTimetable.query.filter_by(
         exam_id=exam_id, class_id=class_id, subject_id=subject_id
@@ -458,6 +485,7 @@ def save_grid_marks():
         return jsonify({'error': 'Unauthorized'}), 403
 
     user  = get_current_user()
+    allowed_ids = _teacher_subject_ids(user, class_id)
     saved = 0
 
     for entry in entries:
@@ -467,6 +495,10 @@ def save_grid_marks():
 
         for subj_entry in entry.get('subjects', []):
             subject_id     = subj_entry.get('subject_id')
+
+            # TEACHER: sirf apne assigned subjects pe likh sake
+            if allowed_ids is not None and subject_id not in allowed_ids:
+                continue
             is_absent      = bool(subj_entry.get('is_absent'))
             raw_marks      = subj_entry.get('marks_obtained')
             max_marks      = float(subj_entry.get('max_marks') or 100)
