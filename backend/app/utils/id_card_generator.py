@@ -337,9 +337,9 @@ def _draw_back(c, ox, oy, student, school):
         try:
             ir = ImageReader(io.BytesIO(sig_bytes))
             c.drawImage(ir, ox + 5*mm, sig_y + 0.5*mm, 22*mm, 6*mm,
-                        preserveAspectRatio=True, anchor='sw', mask='auto')
-        except Exception:
-            pass
+                        preserveAspectRatio=True, mask='auto')
+        except Exception as e:
+            print(f"[id_card] signature draw failed: {e}")
     c.setStrokeColor(colors.HexColor('#cbd5e1'))
     c.setLineWidth(0.5)
     c.line(ox + 5*mm, sig_y, ox + 28*mm, sig_y)
@@ -356,9 +356,9 @@ def _draw_back(c, ox, oy, student, school):
         try:
             ir = ImageReader(io.BytesIO(fsig_bytes))
             c.drawImage(ir, ox + W - 22*mm, fsig_y + 0.5*mm, 18*mm, 5*mm,
-                        preserveAspectRatio=True, anchor='sw', mask='auto')
-        except Exception:
-            pass
+                        preserveAspectRatio=True, mask='auto')
+        except Exception as e:
+            print(f"[id_card] front signature draw failed: {e}")
     c.setStrokeColor(colors.HexColor('#cbd5e1'))
     c.setLineWidth(0.4)
     c.line(ox + W - 22*mm, fsig_y, ox + W - 3*mm, fsig_y)
