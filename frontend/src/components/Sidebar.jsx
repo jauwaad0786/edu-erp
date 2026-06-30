@@ -386,7 +386,7 @@ export default function Sidebar({ darkMode }) {
             </div>
           )}
 
-          // ── NEW ──
+          // ── NEW (fixed) ──
           {filteredGroups.map((group, gi) => (
             <div key={gi} style={{ marginBottom: 2 }}>
               {group.group && (
@@ -396,8 +396,6 @@ export default function Sidebar({ darkMode }) {
                   textTransform: 'uppercase', userSelect: 'none',
                 }}>{group.group}</div>
               )}
-          
-              {group.items.map(item => {
 
               {group.items.map(item => {
                 const active  = isItemActive(item);
