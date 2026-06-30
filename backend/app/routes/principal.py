@@ -500,9 +500,16 @@ def add_salary_record(teacher_id):
 @role_required('PRINCIPAL', 'TEACHER')
 def list_students():
     class_id = request.args.get('class_id')
+    search   = (request.args.get('search') or '').strip()
     q = Student.query.filter_by(school_id=_school_id())
     if class_id:
         q = q.filter_by(class_id=class_id)
+    if search:
+        q = q.join(User, Student.user_id == User.id).filter(db.or_(
+            User.name.ilike(f'%{search}%'),
+            Student.roll_number.ilike(f'%{search}%'),
+            Student.admission_no.ilike(f'%{search}%'),
+        ))
     page     = request.args.get('page', 1, type=int)
     per_page = min(request.args.get('per_page', 50, type=int), 100)
     paginated = q.order_by(Student.id).paginate(page=page, per_page=per_page, error_out=False)
