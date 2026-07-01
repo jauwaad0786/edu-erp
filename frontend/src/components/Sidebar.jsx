@@ -96,6 +96,7 @@ const ROLE_MENUS = {
           children: [
             { icon: 'ti-receipt-2', label: 'Expenses',  path: '/finance/expenses' },
             { icon: 'ti-boxes',     label: 'Inventory', path: '/finance/inventory' },
+            { icon: 'ti-cash',      label: 'Payroll',   path: '/finance/payroll' },
           ],
         },
       ],
