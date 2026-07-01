@@ -53,8 +53,13 @@ class User(db.Model):
     last_login  = db.Column(db.DateTime, nullable=True)
 
     # Extra profile fields (staff/teacher use)
+    # Extra profile fields (staff/teacher use)
     department  = db.Column(db.String(100), nullable=True)
     designation = db.Column(db.String(100), nullable=True)
+
+    # Base monthly salary — used for non-teaching staff (Accountant, Librarian, etc.)
+    # Teachers use Teacher.salary instead; this stays null for TEACHER/STUDENT/PARENT roles.
+    salary      = db.Column(db.Float, nullable=True)
 
     # One-time plain-text password stored ONLY at creation / reset time.
     # Cleared when user changes their own password.
@@ -101,6 +106,7 @@ class User(db.Model):
             'phone':       self.phone,
             'department':  self.department,
             'designation': self.designation,
+            'salary':      self.salary,
             'last_login':  self.last_login.isoformat() if self.last_login else None,
             'created_at':  self.created_at.isoformat(),
         }
