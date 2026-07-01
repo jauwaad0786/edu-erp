@@ -531,33 +531,121 @@ def add_salary_record(teacher_id):
 @feature_required('payroll_system')
 def list_payroll_records():
     """
-    Sabhi teachers ke recent salary payments — centralized Payroll page ke liye.
+    Teacher + Staff dono ke recent salary payments — centralized Payroll page ke liye.
     Query param: ?month=July 2026 (optional filter)
     """
     sid   = _school_id()
     month = request.args.get('month')
 
     from app.models.financial import SalaryRecord
-    q = SalaryRecord.query.filter_by(school_id=sid)
+    from app.models.finance import StaffSalaryRecord
+
+    tq = SalaryRecord.query.filter_by(school_id=sid)
     if month:
-        q = q.filter_by(month=month)
-    records = q.order_by(SalaryRecord.payment_date.desc()).limit(200).all()
+        tq = tq.filter_by(month=month)
+    teacher_records = tq.order_by(SalaryRecord.payment_date.desc()).limit(200).all()
+
+    sq = StaffSalaryRecord.query.filter_by(school_id=sid)
+    if month:
+        sq = sq.filter_by(month=month)
+    staff_records = sq.order_by(StaffSalaryRecord.payment_date.desc()).limit(200).all()
 
     out = []
-    for r in records:
+    for r in teacher_records:
         t = Teacher.query.get(r.teacher_id)
         out.append({
             'id':            r.id,
-            'teacher_id':    r.teacher_id,
-            'teacher_name':  t.user.name if (t and t.user) else 'Unknown',
+            'type':          'TEACHER',
+            'person_id':     r.teacher_id,
+            'person_name':   t.user.name if (t and t.user) else 'Unknown',
             'employee_id':   t.employee_id if t else '',
+            'role_label':    'Teacher',
             'month':         r.month,
             'amount':        r.amount,
             'status':        r.status,
             'payment_date':  str(r.payment_date) if r.payment_date else None,
             'note':          r.note or '',
         })
+    for r in staff_records:
+        u = User.query.get(r.user_id)
+        out.append({
+            'id':            r.id,
+            'type':          'STAFF',
+            'person_id':     r.user_id,
+            'person_name':   u.name if u else 'Unknown',
+            'employee_id':   '',
+            'role_label':    u.role.value if u else '',
+            'month':         r.month,
+            'amount':        r.amount,
+            'status':        r.status,
+            'payment_date':  str(r.payment_date) if r.payment_date else None,
+            'note':          r.note or '',
+        })
+
+    out.sort(key=lambda x: x['payment_date'] or '', reverse=True)
     return jsonify(out), 200
+
+
+@principal_bp.route('/users/<int:user_id>/salary/record', methods=['POST'])
+@role_required('PRINCIPAL')
+@feature_required('payroll_system')
+def add_staff_salary_record(user_id):
+    """
+    Non-teaching staff (Accountant, Librarian, Receptionist, Hostel, Transport, HR, Vice Principal)
+    ke liye salary payment record karta hai. Isi transaction mein linked Expense bhi auto-create
+    hoti hai — Teacher salary wale route jaisa hi pattern.
+    Body: { month, amount, status, payment_date, note }
+    """
+    u = User.query.get_or_404(user_id)
+    if u.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    if u.role == UserRole.TEACHER:
+        return jsonify({'error': 'Teacher salary /teachers/<id>/salary/record route se record karo'}), 400
+
+    data = request.get_json() or {}
+
+    from app.models.finance import StaffSalaryRecord, Expense
+
+    pay_date = date.fromisoformat(data['payment_date']) if data.get('payment_date') else date.today()
+    amount   = float(data.get('amount', u.salary or 0))
+    status   = data.get('status', 'PAID')
+
+    rec = StaffSalaryRecord(
+        user_id      = user_id,
+        school_id    = _school_id(),
+        month        = data.get('month'),
+        amount       = amount,
+        status       = status,
+        payment_date = pay_date,
+        note         = data.get('note', ''),
+        created_by   = get_current_user().id,
+    )
+    db.session.add(rec)
+    db.session.flush()
+
+    exp = Expense(
+        school_id      = _school_id(),
+        category       = 'STAFF_SALARY',
+        title          = f'Salary — {u.name} — {rec.month or pay_date.strftime("%B %Y")}',
+        vendor_name    = u.name,
+        amount         = amount,
+        payment_method = 'BANK_TRANSFER',
+        payment_date   = pay_date,
+        month          = pay_date.strftime('%B %Y'),
+        status         = 'PAID' if status == 'PAID' else 'PENDING',
+        source         = 'SALARY_AUTO',
+        source_ref_id  = rec.id,
+        remarks        = data.get('note', ''),
+        created_by     = get_current_user().id,
+    )
+    db.session.add(exp)
+    db.session.commit()
+
+    return jsonify({
+        'message':    'Salary record added',
+        'id':         rec.id,
+        'expense_id': exp.id,
+    }), 201
 # ─── Students ─────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/students', methods=['GET'])
