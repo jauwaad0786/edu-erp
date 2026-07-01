@@ -4,6 +4,7 @@ from app.models.financial import FeeRecord
 from app.models.finance import (
     Expense, EXPENSE_CATEGORIES, PAYMENT_METHODS,
     InventoryItem, INVENTORY_CATEGORIES, ITEM_CONDITIONS, ITEM_STATUSES,
+    Vendor, VENDOR_CATEGORIES,
 )
 from app.utils.decorators import role_required, get_current_user
 from sqlalchemy import func, extract
@@ -558,3 +559,132 @@ def inventory_meta():
         'conditions':  ITEM_CONDITIONS,
         'statuses':    ITEM_STATUSES,
     }), 200
+
+
+# ─── Vendors ─────────────────────────────────────────────────────────────────
+
+@finance_bp.route('/vendors', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def list_vendors():
+    sid      = _school_id()
+    category = request.args.get('category')
+    search   = (request.args.get('search') or '').strip()
+
+    q = Vendor.query.filter_by(school_id=sid, is_active=True)
+    if category:
+        q = q.filter_by(category=category)
+    if search:
+        q = q.filter(Vendor.name.ilike(f'%{search}%'))
+
+    vendors = q.order_by(Vendor.name.asc()).all()
+    return jsonify([v.to_dict() for v in vendors]), 200
+
+
+@finance_bp.route('/vendors', methods=['POST'])
+@role_required('PRINCIPAL')
+def create_vendor():
+    """Body: { name, contact_person, phone, email, address, gst_number, pan_number, category, notes }"""
+    data = request.get_json() or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': 'Vendor ka naam likhna zaroori hai'}), 400
+
+    sid = _school_id()
+    existing = Vendor.query.filter(
+        Vendor.school_id == sid, Vendor.is_active == True,
+        db.func.lower(Vendor.name) == name.lower(),
+    ).first()
+    if existing:
+        return jsonify({'error': f'"{name}" naam ka vendor pehle se maujood hai'}), 400
+
+    category = data.get('category', 'OTHER')
+    if category not in VENDOR_CATEGORIES:
+        category = 'OTHER'
+
+    vendor = Vendor(
+        school_id      = sid,
+        name           = name,
+        contact_person = data.get('contact_person', ''),
+        phone          = data.get('phone', ''),
+        email          = data.get('email', ''),
+        address        = data.get('address', ''),
+        gst_number     = data.get('gst_number', ''),
+        pan_number     = data.get('pan_number', ''),
+        category       = category,
+        notes          = data.get('notes', ''),
+        created_by     = get_current_user().id,
+    )
+    db.session.add(vendor)
+    db.session.commit()
+    return jsonify(vendor.to_dict()), 201
+
+
+@finance_bp.route('/vendors/<int:vendor_id>', methods=['PATCH'])
+@role_required('PRINCIPAL')
+def update_vendor(vendor_id):
+    vendor = Vendor.query.get_or_404(vendor_id)
+    if vendor.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json() or {}
+    for field in ['contact_person', 'phone', 'email', 'address', 'gst_number', 'pan_number', 'notes']:
+        if field in data:
+            setattr(vendor, field, data[field])
+    if data.get('name'):
+        vendor.name = data['name'].strip()
+    if data.get('category') in VENDOR_CATEGORIES:
+        vendor.category = data['category']
+    if 'rating' in data:
+        vendor.rating = max(0, min(5, int(data['rating'])))
+
+    db.session.commit()
+    return jsonify(vendor.to_dict()), 200
+
+
+@finance_bp.route('/vendors/<int:vendor_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_vendor(vendor_id):
+    """Soft delete — purchase history (Expense/InventoryItem) audit ke liye waise hi rehti hai."""
+    vendor = Vendor.query.get_or_404(vendor_id)
+    if vendor.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    vendor.is_active = False
+    db.session.commit()
+    return jsonify({'message': 'Vendor removed'}), 200
+
+
+@finance_bp.route('/vendors/<int:vendor_id>/history', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def vendor_history(vendor_id):
+    """Vendor ke naam se match karke Expense aur Inventory purchases dono nikaalta hai."""
+    vendor = Vendor.query.get_or_404(vendor_id)
+    if vendor.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    sid = _school_id()
+    expenses = Expense.query.filter(
+        Expense.school_id == sid,
+        db.func.lower(Expense.vendor_name) == vendor.name.lower(),
+    ).order_by(Expense.payment_date.desc()).all()
+
+    items = InventoryItem.query.filter(
+        InventoryItem.school_id == sid,
+        db.func.lower(InventoryItem.vendor_name) == vendor.name.lower(),
+    ).order_by(InventoryItem.purchase_date.desc()).all()
+
+    total_spent   = sum(e.amount for e in expenses)
+    total_pending = sum(e.amount for e in expenses if e.status != 'PAID')
+
+    return jsonify({
+        'vendor':         vendor.to_dict(),
+        'total_spent':    round(total_spent, 2),
+        'total_pending':  round(total_pending, 2),
+        'expenses':       [e.to_dict() for e in expenses],
+        'inventory_items':[i.to_dict() for i in items],
+    }), 200
+
+
+@finance_bp.route('/vendors/meta', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def vendors_meta():
+    return jsonify({'categories': VENDOR_CATEGORIES}), 200
