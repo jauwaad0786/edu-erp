@@ -35,7 +35,7 @@ import StaffPage        from './pages/StaffPage';
 import StaffProfile     from './pages/StaffProfile';
 import ExpensesPage     from './pages/finance/ExpensesPage';
 import InventoryPage    from './pages/finance/InventoryPage';
-
+import VendorsPage      from './pages/finance/VendorsPage';
 import PayrollPage      from './pages/PayrollPage';
 
 // ── Communication Hub Pages ───────────────────────────────────────────────────
@@ -126,6 +126,11 @@ export default function App() {
             <Route path="/finance/payroll" element={
               <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
                 <PayrollPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/finance/vendors" element={
+              <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+                <VendorsPage />
               </ProtectedRoute>
             } />
             <Route path="/admission" element={
