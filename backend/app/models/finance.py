@@ -44,6 +44,11 @@ INVENTORY_CATEGORIES = [
 ITEM_CONDITIONS = ['NEW', 'GOOD', 'FAIR', 'DAMAGED']
 ITEM_STATUSES   = ['ACTIVE', 'DAMAGED', 'SCRAPPED']
 
+VENDOR_CATEGORIES = [
+    'STATIONERY', 'COMPUTERS', 'FURNITURE', 'MAINTENANCE', 'TRANSPORT',
+    'BOOKS_LIBRARY', 'SPORTS', 'ELECTRICAL', 'CLEANING', 'OTHER',
+]
+
 
 class Expense(db.Model):
     """
@@ -95,7 +100,51 @@ class Expense(db.Model):
             'created_at':     self.created_at.isoformat() if self.created_at else None,
         }
 
+class Vendor(db.Model):
+    """
+    Vendor master data. Expense aur InventoryItem abhi bhi free-text vendor_name
+    use karte hain (koi FK migration risk nahi) — ye table sirf vendor ki
+    GST/PAN/contact details aur purchase history ke liye 'source of truth' hai.
+    Matching vendor_name (case-insensitive) se purchase history nikalti hai.
+    """
+    __tablename__ = 'vendors'
 
+    id            = db.Column(db.Integer, primary_key=True)
+    school_id     = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False, index=True)
+
+    name          = db.Column(db.String(150), nullable=False)
+    contact_person= db.Column(db.String(120), default='')
+    phone         = db.Column(db.String(20), default='')
+    email         = db.Column(db.String(120), default='')
+    address       = db.Column(db.String(300), default='')
+
+    gst_number    = db.Column(db.String(20), default='')
+    pan_number    = db.Column(db.String(15), default='')
+
+    category      = db.Column(db.String(40), default='OTHER')   # e.g. STATIONERY, COMPUTERS, MAINTENANCE
+    rating        = db.Column(db.Integer, default=0)             # 0-5, principal manually set kar sakta hai
+    notes         = db.Column(db.String(300), default='')
+
+    is_active     = db.Column(db.Boolean, default=True)
+    created_by    = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':             self.id,
+            'name':           self.name,
+            'contact_person': self.contact_person or '',
+            'phone':          self.phone or '',
+            'email':          self.email or '',
+            'address':        self.address or '',
+            'gst_number':     self.gst_number or '',
+            'pan_number':     self.pan_number or '',
+            'category':       self.category,
+            'rating':         self.rating or 0,
+            'notes':          self.notes or '',
+            'is_active':      self.is_active,
+            'created_at':     self.created_at.isoformat() if self.created_at else None,
+        }
 class InventoryItem(db.Model):
     """
     School assets aur consumables. Har naya item purchase Expense mein
