@@ -4,7 +4,7 @@ import Sidebar from '../../components/Sidebar';
 import Navbar  from '../../components/Navbar';
 import api from '../../api/axios';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+  BarChart, Bar, ComposedChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 
@@ -79,6 +79,11 @@ export default function PrincipalDashboard() {
   const [pendingReqs, setPendingReqs] = useState([]);
   const [approving,   setApproving]   = useState(null);
 
+  const [financeMonth, setFinanceMonth] = useState(() => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+  const [profitSummary,  setProfitSummary]  = useState(null);
+  const [trendData,      setTrendData]      = useState([]);
+  const [financeLoading, setFinanceLoading] = useState(true);
+
   const [darkMode, setDarkMode] = useState(() => localStorage.getItem('ederp_theme') === 'dark');
   useEffect(() => { localStorage.setItem('ederp_theme', darkMode ? 'dark' : 'light'); }, [darkMode]);
   const toggleDark = () => setDarkMode(d => !d);
@@ -103,6 +108,20 @@ export default function PrincipalDashboard() {
     });
   }, []);
 
+  useEffect(() => {
+    api.get('/finance/monthly-trend', { params: { months: 6 } })
+      .then(r => setTrendData(r.data || []))
+      .catch(() => setTrendData([]));
+  }, []);
+
+  useEffect(() => {
+    setFinanceLoading(true);
+    api.get('/finance/profit-summary', { params: { month: financeMonth } })
+      .then(r => setProfitSummary(r.data))
+      .catch(() => setProfitSummary(null))
+      .finally(() => setFinanceLoading(false));
+  }, [financeMonth]);
+
   const fmt = n => n?.toLocaleString('en-IN') ?? '0';
   const fmtK = n => {
     n = Number(n || 0);
@@ -110,6 +129,17 @@ export default function PrincipalDashboard() {
     if (n >= 1000)   return `₹${(n / 1000).toFixed(0)}K`;
     return `₹${n}`;
   };
+
+  const financeMonths = (() => {
+    const out = [];
+    const d = new Date();
+    d.setDate(1);
+    for (let i = 0; i < 12; i++) {
+      out.push(d.toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+      d.setMonth(d.getMonth() - 1);
+    }
+    return out;
+  })();
 
   const feeTotals = Array.isArray(fees) ? {
     total_due:       fees.reduce((a, c) => a + (c.total_due       || 0), 0),
@@ -206,6 +236,66 @@ export default function PrincipalDashboard() {
                 {a.label}
               </button>
             ))}
+          </div>
+
+          {/* Today's Attendance + Teacher Sidebar */}
+          {/* Financial Overview */}
+          <div className="card" style={{ marginBottom: 24, ...cardBg }}>
+            <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+              <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                <i className="ti ti-report-money" style={{ color: '#16a34a', fontSize: 17 }} aria-hidden="true" /> Financial Overview
+              </h4>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <select className="form-select" style={{ width: 170, fontSize: 12 }} value={financeMonth} onChange={e => setFinanceMonth(e.target.value)}>
+                  {financeMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+                <button className="btn btn-neutral btn-sm" onClick={() => navigate('/finance/expenses')}>Manage Expenses</button>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, padding: '16px 20px' }}>
+              {[
+                { label: 'Revenue',       value: profitSummary?.revenue,  display: null, color: '#16a34a', icon: 'ti-arrow-up-right' },
+                { label: 'Expenses',      value: profitSummary?.expenses, display: null, color: '#dc2626', icon: 'ti-arrow-down-right' },
+                { label: 'Net Profit',    value: profitSummary?.profit,   display: null, color: (profitSummary?.profit ?? 0) >= 0 ? '#16a34a' : '#dc2626', icon: 'ti-wallet' },
+                { label: 'Profit Margin', value: null, display: `${profitSummary?.profit_margin_pct ?? 0}%`, color: '#4f46e5', icon: 'ti-percentage' },
+              ].map(c => (
+                <div key={c.label} style={{
+                  border: `1px solid ${darkMode ? '#1e293b' : '#e2e8f0'}`, borderRadius: 10, padding: '12px 16px',
+                  background: darkMode ? '#0f172a' : '#fafafa',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                    <i className={`ti ${c.icon}`} style={{ fontSize: 13, color: c.color }} aria-hidden="true" />
+                    <span style={{ fontSize: 11, color: darkMode ? '#94a3b8' : '#64748b', fontWeight: 600 }}>{c.label}</span>
+                  </div>
+                  <div style={{ fontSize: 20, fontWeight: 800, color: c.color }}>
+                    {financeLoading ? '...' : (c.display ?? `₹${fmt(c.value)}`)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {profitSummary && (
+              <div style={{ padding: '0 20px 16px', fontSize: 12, color: darkMode ? '#94a3b8' : '#64748b' }}>
+                Is mahine salary ₹{fmt(profitSummary.salary_expense)} thi ({profitSummary.salary_pct_of_expense}% of total expense)
+              </div>
+            )}
+
+            <div style={{ padding: '4px 20px 20px' }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--neutral-7)', marginBottom: 12 }}>Last 6 Months — Revenue vs Expense vs Profit</div>
+              <ResponsiveContainer width="100%" height={260}>
+                <ComposedChart data={trendData} margin={{ top: 5, right: 10, left: -10, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={darkMode ? '#1e293b' : '#f1f5f9'} />
+                  <XAxis dataKey="month" tick={{ fontSize: 11 }} tickFormatter={m => m.split(' ')[0].slice(0, 3)} />
+                  <YAxis tick={{ fontSize: 11 }} />
+                  <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} formatter={(v) => `₹${fmt(v)}`} />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
+                  <Bar dataKey="revenue"  name="Revenue"  fill="#4ade80" radius={[4, 4, 0, 0]} />
+                  <Bar dataKey="expenses" name="Expenses" fill="#f87171" radius={[4, 4, 0, 0]} />
+                  <Line type="monotone" dataKey="profit" name="Profit" stroke="#4f46e5" strokeWidth={2.5} dot={{ r: 4 }} />
+                </ComposedChart>
+              </ResponsiveContainer>
+            </div>
           </div>
 
           {/* Today's Attendance + Teacher Sidebar */}
