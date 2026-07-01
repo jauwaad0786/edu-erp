@@ -33,6 +33,7 @@ import MyServices       from './pages/MyServices';
 import UsersPage        from './pages/UsersPage';
 import StaffPage        from './pages/StaffPage';
 import StaffProfile     from './pages/StaffProfile';
+import ExpensesPage     from './pages/finance/ExpensesPage';
 
 // ── Communication Hub Pages ───────────────────────────────────────────────────
 import SupportInbox     from './pages/communication/SupportInbox';
@@ -107,6 +108,11 @@ export default function App() {
             <Route path="/fees" element={
               <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'STUDENT', 'PARENT']}>
                 <FeesPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/finance/expenses" element={
+              <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
+                <ExpensesPage />
               </ProtectedRoute>
             } />
             <Route path="/admission" element={
