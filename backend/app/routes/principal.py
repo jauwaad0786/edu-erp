@@ -525,6 +525,39 @@ def add_salary_record(teacher_id):
         'id':         rec.id,
         'expense_id': exp.id,
     }), 201
+
+@principal_bp.route('/payroll/records', methods=['GET'])
+@role_required('PRINCIPAL', 'SUPER_ADMIN')
+@feature_required('payroll_system')
+def list_payroll_records():
+    """
+    Sabhi teachers ke recent salary payments — centralized Payroll page ke liye.
+    Query param: ?month=July 2026 (optional filter)
+    """
+    sid   = _school_id()
+    month = request.args.get('month')
+
+    from app.models.financial import SalaryRecord
+    q = SalaryRecord.query.filter_by(school_id=sid)
+    if month:
+        q = q.filter_by(month=month)
+    records = q.order_by(SalaryRecord.payment_date.desc()).limit(200).all()
+
+    out = []
+    for r in records:
+        t = Teacher.query.get(r.teacher_id)
+        out.append({
+            'id':            r.id,
+            'teacher_id':    r.teacher_id,
+            'teacher_name':  t.user.name if (t and t.user) else 'Unknown',
+            'employee_id':   t.employee_id if t else '',
+            'month':         r.month,
+            'amount':        r.amount,
+            'status':        r.status,
+            'payment_date':  str(r.payment_date) if r.payment_date else None,
+            'note':          r.note or '',
+        })
+    return jsonify(out), 200
 # ─── Students ─────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/students', methods=['GET'])
