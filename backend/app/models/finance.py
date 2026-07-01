@@ -35,6 +35,15 @@ PAYMENT_METHODS = ['CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'CARD']
 # jaisa filter laga sakte hain, aur double-linking bhi trace kar sakte hain.
 EXPENSE_SOURCES = ['MANUAL', 'INVENTORY_AUTO', 'SALARY_AUTO']
 
+INVENTORY_CATEGORIES = [
+    'STATIONERY', 'FURNITURE', 'COMPUTERS', 'PROJECTORS', 'PRINTERS',
+    'SMART_BOARDS', 'SPORTS', 'SCIENCE_LAB', 'LIBRARY_ASSETS',
+    'ELECTRICAL', 'CLEANING_SUPPLIES', 'BUS_SPARE_PARTS', 'OTHER',
+]
+
+ITEM_CONDITIONS = ['NEW', 'GOOD', 'FAIR', 'DAMAGED']
+ITEM_STATUSES   = ['ACTIVE', 'DAMAGED', 'SCRAPPED']
+
 
 class Expense(db.Model):
     """
@@ -85,3 +94,59 @@ class Expense(db.Model):
             'remarks':        self.remarks or '',
             'created_at':     self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class InventoryItem(db.Model):
+    """
+    School assets aur consumables. Har naya item purchase Expense mein
+    khud-ba-khud add ho jaata hai (category=INVENTORY_PURCHASE, source=INVENTORY_AUTO)
+    — isiliye Inventory aur Finance hamesha sync mein rehte hain, koi manual double-entry nahi.
+    """
+    __tablename__ = 'inventory_items'
+
+    id           = db.Column(db.Integer, primary_key=True)
+    school_id    = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False, index=True)
+
+    name         = db.Column(db.String(200), nullable=False)   # user khud type karta hai
+    category     = db.Column(db.String(40), nullable=False)
+    sku          = db.Column(db.String(80))                    # optional — user khud type kare
+    vendor_name  = db.Column(db.String(150))
+
+    quantity     = db.Column(db.Integer, nullable=False, default=1)
+    unit_price   = db.Column(db.Float, nullable=False, default=0)
+    min_stock    = db.Column(db.Integer, default=5)             # is se neeche jaye to low-stock alert
+
+    purchase_date= db.Column(db.Date, default=date.today)
+    location     = db.Column(db.String(150), default='')        # e.g. "Computer Lab"
+    assigned_to  = db.Column(db.String(150), default='')        # e.g. "Class 8-A" / teacher name
+
+    condition    = db.Column(db.String(20), default='NEW')
+    status       = db.Column(db.String(20), default='ACTIVE')   # ACTIVE / DAMAGED / SCRAPPED
+
+    remarks      = db.Column(db.String(300), default='')
+    created_by   = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        total_value = round((self.quantity or 0) * (self.unit_price or 0), 2)
+        return {
+            'id':            self.id,
+            'name':          self.name,
+            'category':      self.category,
+            'sku':           self.sku or '',
+            'vendor_name':   self.vendor_name or '',
+            'quantity':      self.quantity,
+            'unit_price':    self.unit_price,
+            'total_value':   total_value,
+            'min_stock':     self.min_stock,
+            'low_stock':     (self.quantity or 0) <= (self.min_stock or 0),
+            'purchase_date': str(self.purchase_date) if self.purchase_date else None,
+            'location':      self.location or '',
+            'assigned_to':   self.assigned_to or '',
+            'condition':     self.condition,
+            'status':        self.status,
+            'remarks':       self.remarks or '',
+            'created_at':    self.created_at.isoformat() if self.created_at else None,
+        }
+            
+        
