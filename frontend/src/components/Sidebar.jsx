@@ -72,6 +72,7 @@ const ROLE_MENUS = {
       ],
     },
     // ── NEW ──
+    // ── NEW ──
     {
       group: '',
       items: [
@@ -81,6 +82,18 @@ const ROLE_MENUS = {
             { icon: 'ti-clipboard-check', label: 'Attendance', path: '/attendance' },
             { icon: 'ti-calendar-time',   label: 'Timetable',  path: '/timetable' },
             { icon: 'ti-receipt',         label: 'Fees',       path: '/fees' },
+          ],
+        },
+      ],
+    },
+    // ── NEW ──
+    {
+      group: '',
+      items: [
+        {
+          icon: 'ti-currency-rupee', label: 'Finance', path: '/finance/expenses',
+          children: [
+            { icon: 'ti-receipt-2', label: 'Expenses', path: '/finance/expenses' },
           ],
         },
       ],
