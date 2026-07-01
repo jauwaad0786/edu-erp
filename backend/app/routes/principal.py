@@ -471,6 +471,8 @@ def add_salary_record(teacher_id):
     """
     Manually add a salary payment record.
     Body: { month, amount, status, payment_date, note }
+    Isi transaction mein ek linked Expense bhi auto-create hoti hai
+    taaki Profit & Loss mein salary turant reflect ho jaye.
     """
     t = Teacher.query.get_or_404(teacher_id)
     if t.school_id != _school_id():
@@ -479,21 +481,50 @@ def add_salary_record(teacher_id):
     data = request.get_json()
 
     from app.models.financial import SalaryRecord
+    from app.models.finance import Expense
+
+    pay_date = date.fromisoformat(data['payment_date']) \
+               if data.get('payment_date') else date.today()
+    amount   = float(data.get('amount', t.salary or 0))
+    status   = data.get('status', 'PAID')
+
     rec = SalaryRecord(
         teacher_id=teacher_id,
         school_id=_school_id(),
         month=data.get('month'),
-        amount=float(data.get('amount', t.salary or 0)),
-        status=data.get('status', 'PAID'),
-        payment_date=date.fromisoformat(data['payment_date'])
-                    if data.get('payment_date') else date.today(),
+        amount=amount,
+        status=status,
+        payment_date=pay_date,
         note=data.get('note', ''),
         created_by=get_current_user().id,
     )
     db.session.add(rec)
+    db.session.flush()   # rec.id chahiye Expense link karne ke liye, commit se pehle
+
+    teacher_name = t.user.name if t.user else 'Teacher'
+    exp = Expense(
+        school_id      = _school_id(),
+        category        = 'TEACHER_SALARY',
+        title           = f'Salary — {teacher_name} — {rec.month or pay_date.strftime("%B %Y")}',
+        vendor_name     = teacher_name,
+        amount          = amount,
+        payment_method  = 'BANK_TRANSFER',
+        payment_date    = pay_date,
+        month           = pay_date.strftime('%B %Y'),
+        status          = 'PAID' if status == 'PAID' else 'PENDING',
+        source          = 'SALARY_AUTO',
+        source_ref_id   = rec.id,
+        remarks         = data.get('note', ''),
+        created_by      = get_current_user().id,
+    )
+    db.session.add(exp)
     db.session.commit()
 
-    return jsonify({'message': 'Salary record added', 'id': rec.id}), 201
+    return jsonify({
+        'message':    'Salary record added',
+        'id':         rec.id,
+        'expense_id': exp.id,
+    }), 201
 # ─── Students ─────────────────────────────────────────────────────────────────
 
 @principal_bp.route('/students', methods=['GET'])
