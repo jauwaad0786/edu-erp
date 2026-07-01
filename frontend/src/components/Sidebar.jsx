@@ -86,6 +86,7 @@ const ROLE_MENUS = {
         },
       ],
     },
+    
     // ── NEW ──
     {
       group: '',
@@ -93,7 +94,8 @@ const ROLE_MENUS = {
         {
           icon: 'ti-currency-rupee', label: 'Finance', path: '/finance/expenses',
           children: [
-            { icon: 'ti-receipt-2', label: 'Expenses', path: '/finance/expenses' },
+            { icon: 'ti-receipt-2', label: 'Expenses',  path: '/finance/expenses' },
+            { icon: 'ti-boxes',     label: 'Inventory', path: '/finance/inventory' },
           ],
         },
       ],
