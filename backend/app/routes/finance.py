@@ -1,7 +1,10 @@
 from flask import Blueprint, request, jsonify
 from app import db
 from app.models.financial import FeeRecord
-from app.models.finance import Expense, EXPENSE_CATEGORIES, PAYMENT_METHODS
+from app.models.finance import (
+    Expense, EXPENSE_CATEGORIES, PAYMENT_METHODS,
+    InventoryItem, INVENTORY_CATEGORIES, ITEM_CONDITIONS, ITEM_STATUSES,
+)
 from app.utils.decorators import role_required, get_current_user
 from sqlalchemy import func, extract
 from datetime import date, datetime
@@ -311,7 +314,6 @@ def monthly_trend():
 
     return jsonify(result), 200
 
-
 @finance_bp.route('/meta', methods=['GET'])
 @role_required('PRINCIPAL', 'TEACHER')
 def finance_meta():
@@ -319,4 +321,240 @@ def finance_meta():
     return jsonify({
         'categories':      EXPENSE_CATEGORIES,
         'payment_methods': PAYMENT_METHODS,
+    }), 200
+
+
+# ─── Inventory ───────────────────────────────────────────────────────────────
+
+def _make_purchase_expense(item, qty, unit_price, vendor_name, note=''):
+    """Har naya purchase (ya restock) yahan se ek Expense banata hai —
+    isi function ki wajah se Inventory aur Finance hamesha real-time sync rehte hain."""
+    amount = round((qty or 0) * (unit_price or 0), 2)
+    exp = Expense(
+        school_id      = item.school_id,
+        category       = 'INVENTORY_PURCHASE',
+        title          = f'Inventory — {item.name} ({qty} units)',
+        vendor_name    = vendor_name or item.vendor_name,
+        amount         = amount,
+        payment_method = 'CASH',
+        payment_date   = item.purchase_date or date.today(),
+        month          = _month_label(item.purchase_date or date.today()),
+        status         = 'PAID',
+        source         = 'INVENTORY_AUTO',
+        source_ref_id  = item.id,
+        remarks        = note,
+        created_by     = get_current_user().id,
+    )
+    db.session.add(exp)
+    return exp
+
+
+@finance_bp.route('/inventory', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def list_inventory():
+    sid      = _school_id()
+    category = request.args.get('category')
+    status   = request.args.get('status')
+    low_stock = request.args.get('low_stock')
+    search   = (request.args.get('search') or '').strip()
+
+    q = InventoryItem.query.filter_by(school_id=sid)
+    if category:
+        q = q.filter_by(category=category)
+    if status:
+        q = q.filter_by(status=status)
+    if search:
+        q = q.filter(InventoryItem.name.ilike(f'%{search}%'))
+
+    items = q.order_by(InventoryItem.created_at.desc()).all()
+    if low_stock == 'true':
+        items = [i for i in items if (i.quantity or 0) <= (i.min_stock or 0)]
+
+    return jsonify([i.to_dict() for i in items]), 200
+
+
+@finance_bp.route('/inventory', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def create_inventory_item():
+    """
+    Body: { name, category, sku, vendor_name, quantity, unit_price,
+            min_stock, purchase_date, location, assigned_to, condition, remarks }
+
+    Naya item save hote hi isi request mein ek linked Expense bhi ban jaati hai —
+    real-time, koi alag step nahi.
+    """
+    data = request.get_json() or {}
+
+    name     = (data.get('name') or '').strip()
+    category = data.get('category')
+    if not name:
+        return jsonify({'error': 'Item ka naam likhna zaroori hai'}), 400
+    if category not in INVENTORY_CATEGORIES:
+        return jsonify({'error': f'Invalid category. Allowed: {INVENTORY_CATEGORIES}'}), 400
+
+    try:
+        quantity   = int(data.get('quantity', 1))
+        unit_price = float(data.get('unit_price', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'quantity/unit_price number hone chahiye'}), 400
+    if quantity <= 0:
+        return jsonify({'error': 'quantity 0 se zyada honi chahiye'}), 400
+
+    p_date = date.fromisoformat(data['purchase_date']) if data.get('purchase_date') else date.today()
+
+    item = InventoryItem(
+        school_id     = _school_id(),
+        name          = name,
+        category      = category,
+        sku           = (data.get('sku') or '').strip(),
+        vendor_name   = (data.get('vendor_name') or '').strip(),
+        quantity      = quantity,
+        unit_price    = unit_price,
+        min_stock     = int(data.get('min_stock', 5)),
+        purchase_date = p_date,
+        location      = data.get('location', ''),
+        assigned_to   = data.get('assigned_to', ''),
+        condition     = data.get('condition', 'NEW'),
+        status        = 'ACTIVE',
+        remarks       = data.get('remarks', ''),
+        created_by    = get_current_user().id,
+    )
+    db.session.add(item)
+    db.session.flush()   # item.id chahiye Expense link karne ke liye
+
+    exp = _make_purchase_expense(item, quantity, unit_price, item.vendor_name, note='Initial purchase')
+    db.session.commit()
+
+    result = item.to_dict()
+    result['expense_id'] = exp.id
+    return jsonify(result), 201
+
+
+@finance_bp.route('/inventory/<int:item_id>', methods=['PATCH'])
+@role_required('PRINCIPAL', 'TEACHER')
+def update_inventory_item(item_id):
+    """
+    Item ki details edit karo (naam, location, condition, status, etc).
+    Note: quantity/unit_price yahan se change karne se koi nayi Expense NAHI banti —
+    ye sirf record-correction ke liye hai. Naya stock aane par /restock use karo.
+    """
+    item = InventoryItem.query.get_or_404(item_id)
+    if item.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json() or {}
+    if data.get('name'):
+        item.name = data['name'].strip()
+    if data.get('category') and data['category'] in INVENTORY_CATEGORIES:
+        item.category = data['category']
+    if 'sku' in data:
+        item.sku = (data['sku'] or '').strip()
+    if 'vendor_name' in data:
+        item.vendor_name = (data['vendor_name'] or '').strip()
+    if 'quantity' in data:
+        item.quantity = int(data['quantity'])
+    if 'unit_price' in data:
+        item.unit_price = float(data['unit_price'])
+    if 'min_stock' in data:
+        item.min_stock = int(data['min_stock'])
+    if 'location' in data:
+        item.location = data['location']
+    if 'assigned_to' in data:
+        item.assigned_to = data['assigned_to']
+    if data.get('condition') in ITEM_CONDITIONS:
+        item.condition = data['condition']
+    if data.get('status') in ITEM_STATUSES:
+        item.status = data['status']
+    if 'remarks' in data:
+        item.remarks = data['remarks']
+
+    db.session.commit()
+    return jsonify(item.to_dict()), 200
+
+
+@finance_bp.route('/inventory/<int:item_id>/restock', methods=['POST'])
+@role_required('PRINCIPAL', 'TEACHER')
+def restock_inventory_item(item_id):
+    """
+    Existing item mein naya stock aaya (dobara purchase).
+    Body: { quantity, unit_price (optional — default purana price), vendor_name, purchase_date }
+    Quantity total mein add hoti hai AUR isi purchase ke liye ek nayi Expense bhi banti hai —
+    yahi 'real-time' purchase-to-expense flow hai.
+    """
+    item = InventoryItem.query.get_or_404(item_id)
+    if item.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+
+    data = request.get_json() or {}
+    try:
+        add_qty = int(data.get('quantity', 0))
+    except (TypeError, ValueError):
+        return jsonify({'error': 'quantity number honi chahiye'}), 400
+    if add_qty <= 0:
+        return jsonify({'error': 'quantity 0 se zyada honi chahiye'}), 400
+
+    unit_price = float(data['unit_price']) if data.get('unit_price') else item.unit_price
+    p_date     = date.fromisoformat(data['purchase_date']) if data.get('purchase_date') else date.today()
+    vendor     = data.get('vendor_name') or item.vendor_name
+
+    item.quantity   = (item.quantity or 0) + add_qty
+    item.unit_price = unit_price
+    item.purchase_date = p_date
+    if vendor:
+        item.vendor_name = vendor
+
+    exp = _make_purchase_expense(item, add_qty, unit_price, vendor, note=f'Restock (+{add_qty} units)')
+    db.session.commit()
+
+    result = item.to_dict()
+    result['expense_id'] = exp.id
+    return jsonify(result), 200
+
+
+@finance_bp.route('/inventory/<int:item_id>', methods=['DELETE'])
+@role_required('PRINCIPAL')
+def delete_inventory_item(item_id):
+    """Item delete karo. Linked Expense history intentionally waise hi rehti hai — audit trail preserve rehta hai."""
+    item = InventoryItem.query.get_or_404(item_id)
+    if item.school_id != _school_id():
+        return jsonify({'error': 'Unauthorized'}), 403
+    db.session.delete(item)
+    db.session.commit()
+    return jsonify({'message': 'Item deleted'}), 200
+
+
+@finance_bp.route('/inventory/summary', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def inventory_summary():
+    sid   = _school_id()
+    items = InventoryItem.query.filter_by(school_id=sid, status='ACTIVE').all()
+
+    total_value = sum((i.quantity or 0) * (i.unit_price or 0) for i in items)
+    low_stock   = [i for i in items if (i.quantity or 0) <= (i.min_stock or 0)]
+
+    cat_map = {}
+    for i in items:
+        cat_map.setdefault(i.category, {'count': 0, 'value': 0})
+        cat_map[i.category]['count'] += 1
+        cat_map[i.category]['value'] += (i.quantity or 0) * (i.unit_price or 0)
+
+    return jsonify({
+        'total_items':     len(items),
+        'total_value':     round(total_value, 2),
+        'low_stock_count': len(low_stock),
+        'low_stock_items': [i.to_dict() for i in low_stock],
+        'by_category': [
+            {'category': k, 'count': v['count'], 'value': round(v['value'], 2)}
+            for k, v in sorted(cat_map.items(), key=lambda x: x[1]['value'], reverse=True)
+        ],
+    }), 200
+
+
+@finance_bp.route('/inventory/meta', methods=['GET'])
+@role_required('PRINCIPAL', 'TEACHER')
+def inventory_meta():
+    return jsonify({
+        'categories':  INVENTORY_CATEGORIES,
+        'conditions':  ITEM_CONDITIONS,
+        'statuses':    ITEM_STATUSES,
     }), 200
