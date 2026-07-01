@@ -5,6 +5,14 @@ import Navbar  from '../components/Navbar';
 import api from '../api/axios';
 import toast from 'react-hot-toast';
 
+const STAFF_ROLE_KEYS = [
+  'LIBRARIAN', 'ACCOUNTANT', 'RECEPTIONIST', 'HOSTEL', 'TRANSPORT', 'HR', 'VICE_PRINCIPAL',
+];
+const STAFF_ROLE_LABELS = {
+  LIBRARIAN: 'Librarian', ACCOUNTANT: 'Accountant', RECEPTIONIST: 'Receptionist',
+  HOSTEL: 'Hostel Staff', TRANSPORT: 'Transport Staff', HR: 'HR', VICE_PRINCIPAL: 'Vice Principal',
+};
+
 function StatCard({ icon, label, value, sub, color, darkMode }) {
   return (
     <div className="stat-card" style={{ background: darkMode ? '#141b2d' : undefined, borderColor: darkMode ? '#1e293b' : undefined }}>
@@ -30,7 +38,7 @@ const monthList = () => {
 };
 
 const EMPTY_FORM = {
-  teacher_id: '', month: monthList()[0], amount: '', status: 'PAID',
+  person_key: '', month: monthList()[0], amount: '', status: 'PAID',
   payment_date: new Date().toISOString().slice(0, 10), note: '',
 };
 
@@ -40,9 +48,11 @@ export default function PayrollPage() {
   useEffect(() => { localStorage.setItem('ederp_theme', darkMode ? 'dark' : 'light'); }, [darkMode]);
 
   const [teachers, setTeachers] = useState([]);
+  const [staff,    setStaff]    = useState([]);
   const [records,  setRecords]  = useState([]);
   const [loading,  setLoading]  = useState(true);
   const [monthFilter, setMonthFilter] = useState('');
+  const [typeFilter,  setTypeFilter]  = useState('');
 
   const [form, setForm]     = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -53,6 +63,9 @@ export default function PayrollPage() {
 
   useEffect(() => {
     api.get('/principal/teachers').then(r => setTeachers(r.data || [])).catch(() => {});
+    api.get('/principal/users', { params: { per_page: 200 } })
+      .then(r => setStaff((r.data.users || []).filter(u => STAFF_ROLE_KEYS.includes(u.role))))
+      .catch(() => {});
   }, []);
 
   const loadRecords = () => {
@@ -67,20 +80,38 @@ export default function PayrollPage() {
 
   useEffect(loadRecords, [monthFilter]);
 
-  const selectedTeacher = teachers.find(t => String(t.id) === String(form.teacher_id));
+  // Combined dropdown options: "teacher-12" or "staff-7"
+  const options = useMemo(() => ([
+    ...teachers.map(t => ({
+      key: `teacher-${t.id}`, id: t.id, type: 'TEACHER',
+      label: `${t.name} ${t.employee_id ? `(${t.employee_id})` : ''} — Teacher`,
+      salary: t.salary,
+    })),
+    ...staff.map(u => ({
+      key: `staff-${u.id}`, id: u.id, type: 'STAFF',
+      label: `${u.name} — ${STAFF_ROLE_LABELS[u.role] || u.role}`,
+      salary: u.salary,
+    })),
+  ]), [teachers, staff]);
 
-  const onSelectTeacher = (id) => {
-    const t = teachers.find(x => String(x.id) === String(id));
-    setForm(f => ({ ...f, teacher_id: id, amount: t?.salary ? String(t.salary) : f.amount }));
+  const selected = options.find(o => o.key === form.person_key);
+
+  const onSelectPerson = (key) => {
+    const opt = options.find(o => o.key === key);
+    setForm(f => ({ ...f, person_key: key, amount: opt?.salary ? String(opt.salary) : f.amount }));
   };
 
   const submit = async () => {
-    if (!form.teacher_id) { toast.error('Teacher select karo'); return; }
+    if (!selected) { toast.error('Teacher ya Staff select karo'); return; }
     if (!form.amount || Number(form.amount) <= 0) { toast.error('Amount sahi bharo'); return; }
 
     setSaving(true);
     try {
-      await api.post(`/principal/teachers/${form.teacher_id}/salary/record`, {
+      const url = selected.type === 'TEACHER'
+        ? `/principal/teachers/${selected.id}/salary/record`
+        : `/principal/users/${selected.id}/salary/record`;
+
+      await api.post(url, {
         month: form.month,
         amount: parseFloat(form.amount),
         status: form.status,
@@ -95,6 +126,11 @@ export default function PayrollPage() {
     }
     setSaving(false);
   };
+
+  const filteredRecords = useMemo(() => {
+    if (!typeFilter) return records;
+    return records.filter(r => r.type === typeFilter);
+  }, [records, typeFilter]);
 
   const totals = useMemo(() => {
     const thisMonthRecs = records.filter(r => r.month === (monthFilter || months[0]));
@@ -113,7 +149,7 @@ export default function PayrollPage() {
           <div className="page-header flex justify-between items-center">
             <div>
               <h2 className="page-title">Payroll</h2>
-              <p className="page-subtitle">Kisi bhi teacher ko select karke salary payment record karo</p>
+              <p className="page-subtitle">Teacher ya Staff select karke salary payment record karo</p>
             </div>
             <button className="btn btn-neutral btn-sm" onClick={() => navigate('/finance/expenses')}>
               View in Expenses
@@ -121,8 +157,8 @@ export default function PayrollPage() {
           </div>
 
           <div className="grid-4 mb-6">
-            <StatCard icon="ti-users" label="Total Teachers" value={teachers.length}
-              sub="Active staff" color="#4f46e5" darkMode={darkMode} />
+            <StatCard icon="ti-users" label="Teachers + Staff" value={teachers.length + staff.length}
+              sub={`${teachers.length} teachers · ${staff.length} staff`} color="#4f46e5" darkMode={darkMode} />
             <StatCard icon="ti-checkbox" label="Paid (selected month)" value={`₹${fmt(totals.paid)}`}
               sub={monthFilter || months[0]} color="#16a34a" darkMode={darkMode} />
             <StatCard icon="ti-clock" label="Pending" value={`₹${fmt(totals.pending)}`}
@@ -142,18 +178,23 @@ export default function PayrollPage() {
               </div>
               <div style={{ padding: 18, display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <div>
-                  <label className="form-label">Teacher *</label>
-                  <select className="form-select" value={form.teacher_id} onChange={e => onSelectTeacher(e.target.value)}>
-                    <option value="">Select teacher</option>
-                    {teachers.map(t => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} {t.employee_id ? `(${t.employee_id})` : ''} — {t.department || 'N/A'}
-                      </option>
-                    ))}
+                  <label className="form-label">Teacher / Staff *</label>
+                  <select className="form-select" value={form.person_key} onChange={e => onSelectPerson(e.target.value)}>
+                    <option value="">Select person</option>
+                    <optgroup label="Teachers">
+                      {options.filter(o => o.type === 'TEACHER').map(o => (
+                        <option key={o.key} value={o.key}>{o.label}</option>
+                      ))}
+                    </optgroup>
+                    <optgroup label="Staff">
+                      {options.filter(o => o.type === 'STAFF').map(o => (
+                        <option key={o.key} value={o.key}>{o.label}</option>
+                      ))}
+                    </optgroup>
                   </select>
-                  {selectedTeacher && (
+                  {selected && (
                     <div style={{ fontSize: 11, color: darkMode ? '#64748b' : '#94a3b8', marginTop: 4 }}>
-                      Base salary: ₹{fmt(selectedTeacher.salary)} / month
+                      {selected.salary ? `Base salary: ₹${fmt(selected.salary)} / month` : 'Base salary set nahi hai — amount manually daalo'}
                     </div>
                   )}
                 </div>
@@ -208,28 +249,44 @@ export default function PayrollPage() {
                 <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                   <i className="ti ti-list-details" style={{ color: '#4f46e5', fontSize: 17 }} aria-hidden="true" /> Payment History
                 </h4>
-                <select className="form-select" style={{ width: 170, fontSize: 12 }} value={monthFilter} onChange={e => setMonthFilter(e.target.value)}>
-                  <option value="">All Months</option>
-                  {months.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <select className="form-select" style={{ width: 110, fontSize: 12 }} value={typeFilter} onChange={e => setTypeFilter(e.target.value)}>
+                    <option value="">All Types</option>
+                    <option value="TEACHER">Teachers</option>
+                    <option value="STAFF">Staff</option>
+                  </select>
+                  <select className="form-select" style={{ width: 170, fontSize: 12 }} value={monthFilter} onChange={e => setMonthFilter(e.target.value)}>
+                    <option value="">All Months</option>
+                    {months.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
               </div>
               <div className="table-container">
                 <table>
                   <thead>
                     <tr>
-                      <th>Teacher</th><th>Month</th><th>Amount</th><th>Status</th><th>Date</th><th>Note</th>
+                      <th>Person</th><th>Type</th><th>Month</th><th>Amount</th><th>Status</th><th>Date</th><th>Note</th>
                     </tr>
                   </thead>
                   <tbody>
                     {loading ? (
-                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--neutral-4)' }}>Loading...</td></tr>
-                    ) : records.length === 0 ? (
-                      <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24, color: 'var(--neutral-4)' }}>Koi payment record nahi</td></tr>
-                    ) : records.map(r => (
-                      <tr key={r.id}>
+                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--neutral-4)' }}>Loading...</td></tr>
+                    ) : filteredRecords.length === 0 ? (
+                      <tr><td colSpan={7} style={{ textAlign: 'center', padding: 24, color: 'var(--neutral-4)' }}>Koi payment record nahi</td></tr>
+                    ) : filteredRecords.map(r => (
+                      <tr key={`${r.type}-${r.id}`}>
                         <td>
-                          <div style={{ fontWeight: 600, fontSize: 13 }}>{r.teacher_name}</div>
-                          <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>{r.employee_id || '—'}</div>
+                          <div style={{ fontWeight: 600, fontSize: 13 }}>{r.person_name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--neutral-5)' }}>
+                            {r.type === 'TEACHER' ? (r.employee_id || '—') : (r.role_label || '—')}
+                          </div>
+                        </td>
+                        <td>
+                          <span style={{
+                            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
+                            background: r.type === 'TEACHER' ? '#eff6ff' : '#f5f3ff',
+                            color:      r.type === 'TEACHER' ? '#0176d3' : '#7c3aed',
+                          }}>{r.type === 'TEACHER' ? 'Teacher' : 'Staff'}</span>
                         </td>
                         <td style={{ fontSize: 12 }}>{r.month}</td>
                         <td style={{ fontWeight: 700, fontSize: 13, color: '#16a34a' }}>₹{fmt(r.amount)}</td>
