@@ -36,6 +36,8 @@ import StaffProfile     from './pages/StaffProfile';
 import ExpensesPage     from './pages/finance/ExpensesPage';
 import InventoryPage    from './pages/finance/InventoryPage';
 
+import PayrollPage      from './pages/PayrollPage';
+
 // ── Communication Hub Pages ───────────────────────────────────────────────────
 import SupportInbox     from './pages/communication/SupportInbox';
 import TicketDetail     from './pages/communication/TicketDetail';
@@ -119,6 +121,11 @@ export default function App() {
             <Route path="/finance/inventory" element={
               <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN', 'TEACHER']}>
                 <InventoryPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/finance/payroll" element={
+              <ProtectedRoute roles={['PRINCIPAL', 'SUPER_ADMIN']}>
+                <PayrollPage />
               </ProtectedRoute>
             } />
             <Route path="/admission" element={
