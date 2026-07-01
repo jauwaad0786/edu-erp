@@ -49,6 +49,43 @@ VENDOR_CATEGORIES = [
     'BOOKS_LIBRARY', 'SPORTS', 'ELECTRICAL', 'CLEANING', 'OTHER',
 ]
 
+STAFF_SALARY_STATUSES = ['PAID', 'PENDING']
+
+
+class StaffSalaryRecord(db.Model):
+    """
+    Non-teaching staff (Accountant, Librarian, Receptionist, Hostel, Transport, HR, Vice Principal)
+    salary payments. Teacher salary continues to use the existing SalaryRecord table —
+    this is a separate table because staff are User rows, not Teacher rows.
+    Same auto-Expense-linking pattern as Teacher SalaryRecord.
+    """
+    __tablename__ = 'staff_salary_records'
+
+    id            = db.Column(db.Integer, primary_key=True)
+    user_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False, index=True)
+    school_id     = db.Column(db.Integer, db.ForeignKey('schools.id'), nullable=False, index=True)
+
+    month         = db.Column(db.String(20))
+    amount        = db.Column(db.Float, nullable=False)
+    status        = db.Column(db.String(20), default='PAID')
+    payment_date  = db.Column(db.Date, default=date.today)
+    note          = db.Column(db.String(300), default='')
+
+    created_by    = db.Column(db.Integer, db.ForeignKey('users.id'))
+    created_at    = db.Column(db.DateTime, default=datetime.utcnow)
+
+    def to_dict(self):
+        return {
+            'id':           self.id,
+            'user_id':      self.user_id,
+            'month':        self.month,
+            'amount':       self.amount,
+            'status':       self.status,
+            'payment_date': str(self.payment_date) if self.payment_date else None,
+            'note':         self.note or '',
+            'created_at':   self.created_at.isoformat() if self.created_at else None,
+        }
+
 
 class Expense(db.Model):
     """
